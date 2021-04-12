@@ -164,6 +164,7 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 		Name:          name,
 		Keyspace:      keyspace,
 		CloudProvider: dbRegion.CloudProvider,
+		CapacityUnits: 1,
 		Region:        dbRegion.Region,
 		Tier:          dbRegion.Tier,
 	})
