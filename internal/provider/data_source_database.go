@@ -19,84 +19,84 @@ func dataSourceDatabase() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			// Required inputs
 			"database_id": {
-				Description:  "The ID of the Astra database.",
+				Description:  "Astra Database ID (system generated)",
 				Type:         schema.TypeString,
 				Required:     true,
 				ValidateFunc: validation.IsUUID,
 			},
 			// computed outputs
 			"name": {
-				Description: "The database name.",
+				Description: "Database name (user provided)",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"owner_id": {
-				Description: "The owner id.",
+				Description: "Owner id (system generated)",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"organization_id": {
-				Description: "The org id.",
+				Description: "Ordg id (system generated)",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"cloud_provider": {
-				Description: "The cloud provider",
+				Description: "Cloud provider (AWS, GCP, AZURE)",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"region": {
-				Description: "The cloud provider region",
+				Description: "Cloud provider region. Get list of supported regions from regions data-source",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"status": {
-				Description: "The status",
+				Description: "Database status",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"cqlsh_url": {
-				Description: "The cqlsh_url",
+				Description: "URL for cqlsh web",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"grafana_url": {
-				Description: "The grafana_url",
+				Description: "URL for the grafana dashboard for this database",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"data_endpoint_url": {
-				Description: "The data_endpoint_url",
+				Description: "REST API URL",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"graphql_url": {
-				Description: "The graphql_url",
+				Description: "Graphql URL",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"keyspace": {
-				Description: "The keyspace",
+				Description: "Initial keyspace",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"node_count": {
-				Description: "The node_count",
+				Description: "Node count (not relevant for serverless databases)",
 				Type:        schema.TypeInt,
 				Computed:    true,
 			},
 			"replication_factor": {
-				Description: "The replication_factor",
+				Description: "Replication Factor (not relevant for serverless databases)",
 				Type:        schema.TypeInt,
 				Computed:    true,
 			},
 			"total_storage": {
-				Description: "The total_storage",
+				Description: "Storage Capacity (not relevant for serverelss databases)",
 				Type:        schema.TypeInt,
 				Computed:    true,
 			},
 			"additional_keyspaces": {
-				Description: "The total_storage",
+				Description: "Additional keyspaces",
 				Type:        schema.TypeList,
 				Computed:    true,
 				Elem: &schema.Schema{
