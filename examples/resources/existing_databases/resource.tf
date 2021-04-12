@@ -1,5 +1,5 @@
 data "astra_databases" "databaselist" {
-  status         = "ACTIVE"
+  status = "ACTIVE"
 }
 
 output "existing_dbs" {
