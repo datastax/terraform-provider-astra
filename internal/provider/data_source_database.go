@@ -96,7 +96,7 @@ func dataSourceDatabase() *schema.Resource {
 				Computed:    true,
 			},
 			"additional_keyspaces": {
-				Description: "The total_storage",
+				Description: "The list of additional keyspaces",
 				Type:        schema.TypeList,
 				Computed:    true,
 				Elem: &schema.Schema{
