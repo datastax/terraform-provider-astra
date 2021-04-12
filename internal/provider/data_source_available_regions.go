@@ -71,11 +71,10 @@ func dataSourceRegionsRead(ctx context.Context, d *schema.ResourceData, meta int
 	return nil
 }
 
-
 func flattenRegion(region *astra.AvailableRegionCombination) map[string]interface{} {
 	return map[string]interface{}{
 		"cloud_provider": region.CloudProvider,
-		"region": region.Region,
-		"tier":region.Tier,
+		"region":         region.Region,
+		"tier":           region.Tier,
 	}
 }
