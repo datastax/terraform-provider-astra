@@ -20,7 +20,7 @@ provider "astra" {
 ```
 
 
-## Examlpes
+## Examples
 
 See examples of `resources.tf` [here](https://github.com/datastax/terraform-provider-astra/tree/main/examples)
 
