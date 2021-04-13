@@ -17,7 +17,7 @@ Datasource for Astra database.
 
 ### Required
 
-- **database_id** (String) The ID of the Astra database.
+- **database_id** (String) Astra Database ID (system generated)
 
 ### Optional
 
@@ -25,20 +25,20 @@ Datasource for Astra database.
 
 ### Read-Only
 
-- **additional_keyspaces** (List of String) The total_storage
-- **cloud_provider** (String) The cloud provider
-- **cqlsh_url** (String) The cqlsh_url
-- **data_endpoint_url** (String) The data_endpoint_url
-- **grafana_url** (String) The grafana_url
-- **graphql_url** (String) The graphql_url
-- **keyspace** (String) The keyspace
-- **name** (String) The database name.
-- **node_count** (Number) The node_count
-- **organization_id** (String) The org id.
-- **owner_id** (String) The owner id.
-- **region** (String) The cloud provider region
-- **replication_factor** (Number) The replication_factor
-- **status** (String) The status
-- **total_storage** (Number) The total_storage
+- **additional_keyspaces** (List of String) Additional keyspaces
+- **cloud_provider** (String) Cloud provider (AWS, GCP, AZURE)
+- **cqlsh_url** (String) URL for cqlsh web
+- **data_endpoint_url** (String) REST API URL
+- **grafana_url** (String) URL for the grafana dashboard for this database
+- **graphql_url** (String) Graphql URL
+- **keyspace** (String) Initial keyspace
+- **name** (String) Database name (user provided)
+- **node_count** (Number) Node count (not relevant for serverless databases)
+- **organization_id** (String) Ordg id (system generated)
+- **owner_id** (String) Owner id (system generated)
+- **region** (String) Cloud provider region. Get list of supported regions from regions data-source
+- **replication_factor** (Number) Replication Factor (not relevant for serverless databases)
+- **status** (String) Database status
+- **total_storage** (Number) Storage Capacity (not relevant for serverelss databases)
 
 

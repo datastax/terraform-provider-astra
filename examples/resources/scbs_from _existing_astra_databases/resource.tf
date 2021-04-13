@@ -1,5 +1,5 @@
 data "astra_databases" "databaselist" {
-  status         = "ACTIVE"
+  status = "ACTIVE"
 }
 
 locals {
@@ -7,6 +7,6 @@ locals {
 }
 
 data "astra_secure_connect_bundle_url" "dev" {
-  for_each = toset(local.dbs)
+  for_each    = toset(local.dbs)
   database_id = each.value
 }
