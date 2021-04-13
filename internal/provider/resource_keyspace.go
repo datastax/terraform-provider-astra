@@ -94,6 +94,7 @@ func resourceKeyspaceRead(ctx context.Context, d *schema.ResourceData, meta inte
 }
 
 func resourceKeyspaceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	d.SetId("")
 	return nil
 }
 
