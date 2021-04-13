@@ -11,10 +11,23 @@
 
 Obtain a client token from the [Astra Dashboard](https://astra.datastax.com).
 
-Configure provider:
+Configure provider (provider.tf):
 
 ```hcl
 provider "astra" {
     token = "your client token"
 }
 ```
+
+
+## Examlpes
+
+See examples of `resources.tf` [here](https://github.com/datastax/terraform-provider-astra/tree/main/examples)
+
+To run:
+
+    terraform plan
+
+    terraform apply
+
+    terraform show
