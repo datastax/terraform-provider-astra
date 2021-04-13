@@ -322,9 +322,6 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		"region":               astra.StringValue(db.Info.Region),
 		"keyspace":             astra.StringValue(db.Info.Keyspace),
 		"additional_keyspaces": astra.StringSlice(db.Info.AdditionalKeyspaces),
-		"node_count":           db.Storage.NodeCount,
-		"replication_factor":   db.Storage.ReplicationFactor,
-		"total_storage":        db.Storage.TotalStorage,
 	}
 }
 
