@@ -1,6 +1,6 @@
 # Terraform Provider for Astra
 
-
+[Astra](https://astra.datastax.com/register) is DataStas's Serverless Apache Cassandra as a service platform.
 
 ## Requirements
 
