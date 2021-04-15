@@ -187,7 +187,7 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 		// Status code >=5xx are assumed to be transient
 		if res.StatusCode() >= 500 {
-			return resource.RetryableError(fmt.Errorf("error while fetching databae: %s", string(res.Body)))
+			return resource.RetryableError(fmt.Errorf("error while fetching database: %s", string(res.Body)))
 		}
 
 		// Status code > 200 NOT retried
@@ -207,7 +207,7 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 			}
 			return nil
 		default:
-			return resource.RetryableError(fmt.Errorf("expected database to be active but was %s", db.Status))
+			return resource.RetryableError(fmt.Errorf("expected database to be active but is %s", db.Status))
 		}
 	}); err != nil {
 		return diag.FromErr(err)
@@ -267,6 +267,7 @@ func resourceDatabaseDelete(ctx context.Context, d *schema.ResourceData, meta in
 	client := meta.(*astra.ClientWithResponses)
 
 	databaseID := d.Id()
+	alreadyDeleted := false
 
 	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
 		resp, err := client.TerminateDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID), &astra.TerminateDatabaseParams{})
@@ -279,12 +280,59 @@ func resourceDatabaseDelete(ctx context.Context, d *schema.ResourceData, meta in
 			return resource.RetryableError(fmt.Errorf("error terminating database: %s", string(resp.Body)))
 		}
 
-		// Status code 4XX are NOT retried
+		// If the database cannot be found then it has been deleted
+		if resp.StatusCode() == http.StatusNotFound {
+			alreadyDeleted = true
+			return nil
+		}
+
+		// All other 4XX status codes are NOT retried
 		if resp.StatusCode() >= 400 {
 			return resource.NonRetryableError(fmt.Errorf("unexpected response attempting to terminate database: %s", string(resp.Body)))
 		}
 
 		return nil
+	}); err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Return early since it has been determined that the database no longer exists
+	if alreadyDeleted {
+		d.SetId("")
+		return nil
+	}
+
+	// Wait for the database to be TERMINATED or not found
+	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
+		res, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
+		// Errors sending request should be retried and are assumed to be transient
+		if err != nil {
+			return resource.RetryableError(err)
+		}
+
+		// Status code >=5xx are assumed to be transient
+		if res.StatusCode() >= 500 {
+			return resource.RetryableError(fmt.Errorf("error while fetching database: %s", string(res.Body)))
+		}
+
+		// If the database cannot be found. It has been deleted.
+		if res.StatusCode() == http.StatusNotFound {
+			return nil
+		}
+
+		// All other status codes > 200 NOT retried
+		if res.StatusCode() > 200 || res.JSON200 == nil {
+			return resource.NonRetryableError(fmt.Errorf("unexpected response fetching database: %s", string(res.Body)))
+		}
+
+		// Return when the database is in a TERMINATED state
+		db := res.JSON200
+		if db.Status == astra.StatusEnum_TERMINATED {
+			return nil
+		}
+
+		// Continue until one of the expected conditions above are met
+		return resource.RetryableError(fmt.Errorf("expected database to be terminated but is %s", db.Status))
 	}); err != nil {
 		return diag.FromErr(err)
 	}
