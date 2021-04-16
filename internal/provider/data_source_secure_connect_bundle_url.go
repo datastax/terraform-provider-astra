@@ -42,8 +42,19 @@ func dataSourceSecureConnectBundleURLRead(ctx context.Context, d *schema.Resourc
 
 	databaseID := d.Get("database_id").(string)
 
+	credsURL, err := generateSecureBundleURL(ctx, time.Minute, client, databaseID)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	d.SetId(fmt.Sprintf("%s/secure-connect-bundle/%s", databaseID, keyFromStrings([]string{credsURL.DownloadURL})))
+	d.Set("url", credsURL.DownloadURL)
+	return nil
+}
+
+func generateSecureBundleURL(ctx context.Context, timeout time.Duration, client astra.ClientWithResponsesInterface, databaseID string) (*astra.CredsURL, error) {
 	var credsURL *astra.CredsURL
-	if err := resource.RetryContext(ctx, time.Minute, func() *resource.RetryError {
+	if err := resource.RetryContext(ctx, timeout, func() *resource.RetryError {
 		resp, err := client.GenerateSecureBundleURLWithResponse(ctx, astra.DatabaseIdParam(databaseID))
 		if err != nil || resp.StatusCode() >= 500 {
 			return resource.RetryableError(err)
@@ -67,10 +78,8 @@ func dataSourceSecureConnectBundleURLRead(ctx context.Context, d *schema.Resourc
 
 		return nil
 	}); err != nil {
-		return diag.FromErr(err)
+		return nil, err
 	}
 
-	d.SetId(fmt.Sprintf("%s/secure-connect-bundle/%s", databaseID, keyFromStrings([]string{credsURL.DownloadURL})))
-	d.Set("url", credsURL.DownloadURL)
-	return nil
+	return credsURL, nil
 }
