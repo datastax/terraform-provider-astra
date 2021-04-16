@@ -19,6 +19,7 @@ import (
 var availableCloudProviders = []string{
 	"aws",
 	"gcp",
+	"azure",
 }
 
 var databaseCreateTimeout = time.Minute * 20
