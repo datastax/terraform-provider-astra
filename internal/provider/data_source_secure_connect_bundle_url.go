@@ -60,7 +60,7 @@ func dataSourceSecureConnectBundleURLRead(ctx context.Context, d *schema.Resourc
 		}
 
 		// Any response other than 200 is unexpected
-		credsURL := resp.JSON200
+		credsURL = resp.JSON200
 		if credsURL == nil {
 			return resource.NonRetryableError(fmt.Errorf("unexpected response creating secure bundle url: %s", string(resp.Body)))
 		}
@@ -72,6 +72,5 @@ func dataSourceSecureConnectBundleURLRead(ctx context.Context, d *schema.Resourc
 
 	d.SetId(fmt.Sprintf("%s/secure-connect-bundle/%s", databaseID, keyFromStrings([]string{credsURL.DownloadURL})))
 	d.Set("url", credsURL.DownloadURL)
-
 	return nil
 }
