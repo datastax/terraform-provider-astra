@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"github.com/joeandaverde/astra-client-go/v2/astra"
 )
 
 func resourceKeyspace() *schema.Resource {
