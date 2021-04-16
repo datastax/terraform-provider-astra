@@ -69,6 +69,13 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 		// handle intermittent api errors
 		retryClient := retryablehttp.NewClient()
 		retryClient.RetryMax = 10
+		retryClient.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+			// Never retry POST requests because of side effects
+			if resp.Request.Method == "POST" {
+				return false, err
+			}
+			return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+		}
 
 		client, err := astra.NewClientWithResponses(astra.ServerURL, func(c *astra.Client) error {
 			c.Client = retryClient.StandardClient()

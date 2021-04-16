@@ -3,8 +3,10 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/joeandaverde/astra-client-go/v2/astra"
@@ -40,18 +42,44 @@ func dataSourceSecureConnectBundleURLRead(ctx context.Context, d *schema.Resourc
 
 	databaseID := d.Get("database_id").(string)
 
-	resp, err := client.GenerateSecureBundleURLWithResponse(ctx, astra.DatabaseIdParam(databaseID))
+	credsURL, err := generateSecureBundleURL(ctx, time.Minute, client, databaseID)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	bundleURL := resp.JSON200
-	if bundleURL == nil {
-		return diag.Errorf("failed to get secure connect bundle: %s", string(resp.Body))
+	d.SetId(fmt.Sprintf("%s/secure-connect-bundle/%s", databaseID, keyFromStrings([]string{credsURL.DownloadURL})))
+	d.Set("url", credsURL.DownloadURL)
+	return nil
+}
+
+func generateSecureBundleURL(ctx context.Context, timeout time.Duration, client astra.ClientWithResponsesInterface, databaseID string) (*astra.CredsURL, error) {
+	var credsURL *astra.CredsURL
+	if err := resource.RetryContext(ctx, timeout, func() *resource.RetryError {
+		resp, err := client.GenerateSecureBundleURLWithResponse(ctx, astra.DatabaseIdParam(databaseID))
+		if err != nil || resp.StatusCode() >= 500 {
+			return resource.RetryableError(err)
+		}
+
+		// 409 Conflict can be returned if the database is not yet ready
+		if resp.JSON409 != nil {
+			return resource.RetryableError(fmt.Errorf("cannot create secure bundle url: %s", string(resp.Body)))
+		}
+
+		// Any other 400 status code is not retried
+		if resp.StatusCode() >= 400 {
+			return resource.NonRetryableError(fmt.Errorf("error trying to create secure bundle url: %s", string(resp.Body)))
+		}
+
+		// Any response other than 200 is unexpected
+		credsURL = resp.JSON200
+		if credsURL == nil {
+			return resource.NonRetryableError(fmt.Errorf("unexpected response creating secure bundle url: %s", string(resp.Body)))
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
-	d.SetId(fmt.Sprintf("%s/secure-connect-bundle/%s", databaseID, keyFromStrings([]string{bundleURL.DownloadURL})))
-	d.Set("url", bundleURL.DownloadURL)
-
-	return nil
+	return credsURL, nil
 }
