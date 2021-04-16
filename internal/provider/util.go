@@ -13,10 +13,6 @@ func ignoreCase(_, old, new string, _ *schema.ResourceData) bool {
 	return strings.EqualFold(old, new)
 }
 
-func ignoreDiff(_, _, _ string, _ *schema.ResourceData) bool {
-	return true
-}
-
 func keyFromStrings(s []string) string {
 	ss := make([]string, len(s))
 	copy(ss, s)

@@ -21,10 +21,6 @@ var availableCloudProviders = []string{
 	"gcp",
 }
 
-var availableTiers = []string{
-	"serverless",
-}
-
 var databaseCreateTimeout = time.Minute * 20
 var databaseReadTimeout = time.Minute * 5
 
