@@ -159,10 +159,10 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 	resp, err := client.CreateDatabaseWithResponse(ctx, astra.CreateDatabaseJSONRequestBody{
 		Name:          name,
 		Keyspace:      keyspace,
-		CloudProvider: dbRegion.CloudProvider,
+		CloudProvider: astra.DatabaseInfoCreateCloudProvider(dbRegion.CloudProvider),
 		CapacityUnits: 1,
 		Region:        dbRegion.Region,
-		Tier:          dbRegion.Tier,
+		Tier:          astra.DatabaseInfoCreateTier(dbRegion.Tier),
 	})
 	if err != nil {
 		return diag.FromErr(err)
@@ -194,10 +194,10 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 		// Success fetching database
 		db := res.JSON200
 		switch db.Status {
-		case astra.StatusEnum_ERROR, astra.StatusEnum_TERMINATED, astra.StatusEnum_TERMINATING:
+		case astra.StatusEnumERROR, astra.StatusEnumTERMINATED, astra.StatusEnumTERMINATING:
 			// If the database reached a terminal state it will never become active
 			return resource.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
-		case astra.StatusEnum_ACTIVE:
+		case astra.StatusEnumACTIVE:
 			if err := setDatabaseResourceData(d, db); err != nil {
 				return resource.NonRetryableError(err)
 			}
@@ -241,7 +241,7 @@ func resourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta inte
 		}
 
 		// If the database is TERMINATING or TERMINATED then remove it from the state
-		if db.Status == astra.StatusEnum_TERMINATING || db.Status == astra.StatusEnum_TERMINATED {
+		if db.Status == astra.StatusEnumTERMINATING || db.Status == astra.StatusEnumTERMINATED {
 			d.SetId("")
 			return nil
 		}
@@ -323,7 +323,7 @@ func resourceDatabaseDelete(ctx context.Context, d *schema.ResourceData, meta in
 
 		// Return when the database is in a TERMINATED state
 		db := res.JSON200
-		if db.Status == astra.StatusEnum_TERMINATED {
+		if db.Status == astra.StatusEnumTERMINATED {
 			return nil
 		}
 
@@ -352,7 +352,7 @@ func setDatabaseResourceData(d *schema.ResourceData, db *astra.Database) error {
 }
 
 func flattenDatabase(db *astra.Database) map[string]interface{} {
-	return map[string]interface{}{
+	flatDB := map[string]interface{}{
 		"id":                   db.Id,
 		"name":                 astra.StringValue(db.Info.Name),
 		"organization_id":      db.OrgId,
@@ -362,11 +362,18 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		"graphql_url":          astra.StringValue(db.GraphqlUrl),
 		"data_endpoint_url":    astra.StringValue(db.DataEndpointUrl),
 		"cqlsh_url":            astra.StringValue(db.CqlshUrl),
-		"cloud_provider":       astra.StringValue(db.Info.CloudProvider),
+		"cloud_provider":       "",
 		"region":               astra.StringValue(db.Info.Region),
 		"keyspace":             astra.StringValue(db.Info.Keyspace),
 		"additional_keyspaces": astra.StringSlice(db.Info.AdditionalKeyspaces),
 	}
+
+	if db.Info.CloudProvider != nil {
+		cloudProvider := *db.Info.CloudProvider
+		flatDB["cloud_provider"] = string(cloudProvider)
+	}
+
+	return flatDB
 }
 
 func findMatchingRegion(provider, region, tier string, availableRegions []astra.AvailableRegionCombination) *astra.AvailableRegionCombination {
