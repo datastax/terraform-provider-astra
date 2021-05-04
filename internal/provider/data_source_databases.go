@@ -136,10 +136,12 @@ func dataSourceDatabasesRead(ctx context.Context, d *schema.ResourceData, meta i
 	}
 
 	if v, ok := d.GetOk("status"); ok {
-		params.Include = astra.StringPtr(v.(string))
+		statusParam := astra.ListDatabasesParamsInclude(v.(string))
+		params.Include = &statusParam
 	}
 	if v, ok := d.GetOk("cloud_provider"); ok {
-		params.Provider = astra.StringPtr(v.(string))
+		providerParam := astra.ListDatabasesParamsProvider(v.(string))
+		params.Provider = &providerParam
 	}
 
 	resp, err := client.ListDatabasesWithResponse(ctx, params)

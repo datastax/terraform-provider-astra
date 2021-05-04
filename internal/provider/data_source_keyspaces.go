@@ -75,7 +75,7 @@ func listKeyspaces(ctx context.Context, client *astra.ClientWithResponses, datab
 	}
 
 	// If the database is terminated then the keyspaces have been deleted.
-	if db.Status == astra.StatusEnum_TERMINATING || db.Status == astra.StatusEnum_TERMINATED {
+	if db.Status == astra.StatusEnumTERMINATING || db.Status == astra.StatusEnumTERMINATED {
 		return nil, nil
 	}
 
