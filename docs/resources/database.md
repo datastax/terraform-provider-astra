@@ -3,12 +3,12 @@
 page_title: "astra_database Resource - terraform-provider-astra"
 subcategory: ""
 description: |-
-  Astra Database.
+  astra_database provides an Astra Serverless Database resource. You can create and delete databases. Note: Classic Tier databases are not supported by the Terraform provider.
 ---
 
 # astra_database (Resource)
 
-Astra Database.
+`astra_database` provides an Astra Serverless Database resource. You can create and delete databases. Note: Classic Tier databases are not supported by the Terraform provider.
 
 ## Example Usage
 

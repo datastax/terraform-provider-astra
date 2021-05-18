@@ -3,12 +3,12 @@
 page_title: "astra_keyspace Resource - terraform-provider-astra"
 subcategory: ""
 description: |-
-  Astra database Keyspace.
+  astra_keyspace provides a keyspace resource. Keyspaces are groupings of tables for Cassandra. astra_keyspace resources are associated with a database id. You can have multiple keyspaces per DB in addition to the default keyspace provided in the astra_database resource.
 ---
 
 # astra_keyspace (Resource)
 
-Astra database Keyspace.
+`astra_keyspace` provides a keyspace resource. Keyspaces are groupings of tables for Cassandra. `astra_keyspace` resources are associated with a database id. You can have multiple keyspaces per DB in addition to the default keyspace provided in the `astra_database` resource.
 
 ## Example Usage
 

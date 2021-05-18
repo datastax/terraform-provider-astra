@@ -14,7 +14,7 @@ import (
 
 func dataSourceSecureConnectBundleURL() *schema.Resource {
 	return &schema.Resource{
-		Description: "Generate a temporary secure connect bundle URL for an Astra database.",
+		Description: "`astra_secure_connect_bundle_url` provides a datasource that generates a temporary secure connect bundle URL. This URL lasts five minutes. Secure connect bundles are used to connect to Astra using cql cassandra drivers. See the [docs](https://docs.datastax.com/en/astra/docs/connecting-to-database.html) for more information on how to connect.",
 
 		ReadContext: dataSourceSecureConnectBundleURLRead,
 

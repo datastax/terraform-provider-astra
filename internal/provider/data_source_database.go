@@ -12,7 +12,7 @@ import (
 
 func dataSourceDatabase() *schema.Resource {
 	return &schema.Resource{
-		Description: "Datasource for Astra database.",
+		Description: "`astra_database` provides a datasource for Astra an Astra database. This can be used to select an existing database within your Astra Organization.",
 
 		ReadContext: dataSourceDatabaseRead,
 

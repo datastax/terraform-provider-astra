@@ -14,8 +14,7 @@ import (
 
 func resourceKeyspace() *schema.Resource {
 	return &schema.Resource{
-		Description: "Astra database Keyspace.",
-
+		Description: "`astra_keyspace` provides a keyspace resource. Keyspaces are groupings of tables for Cassandra. `astra_keyspace` resources are associated with a database id. You can have multiple keyspaces per DB in addition to the default keyspace provided in the `astra_database` resource.",
 		CreateContext: resourceKeyspaceCreate,
 		ReadContext:   resourceKeyspaceRead,
 		DeleteContext: resourceKeyspaceDelete,
