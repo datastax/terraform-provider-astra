@@ -11,7 +11,7 @@ import (
 
 func dataSourceDatabases() *schema.Resource {
 	return &schema.Resource{
-		Description: "Retrieve a list of Astra databases.",
+		Description: "`astra_databases` provides a datasource for a list of Astra databases. This can be used to select databases within your Astra Organization.",
 
 		ReadContext: dataSourceDatabasesRead,
 

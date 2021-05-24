@@ -12,7 +12,7 @@ import (
 
 func dataSourceKeyspace() *schema.Resource {
 	return &schema.Resource{
-		Description: "Keyspace for an Astra database.",
+		Description: "`astra_keyspace` provides a datasource for a particular keyspace. See `astra_keyspaces` if you're looking to fetch all the keyspaces for a particular database.",
 
 		ReadContext: dataSourceKeyspaceRead,
 

@@ -36,7 +36,7 @@ func New(version string) func() *schema.Provider {
 				"astra_keyspace":                      dataSourceKeyspace(),
 				"astra_keyspaces":                     dataSourceKeyspaces(),
 				"astra_secure_connect_bundle_url":     dataSourceSecureConnectBundleURL(),
-				"astra_data_source_available_regions": dataSourceAvailableRegions(),
+				"astra_available_regions":			   dataSourceAvailableRegions(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
 				"astra_database": resourceDatabase(),
