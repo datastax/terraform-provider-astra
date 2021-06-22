@@ -65,7 +65,7 @@ func resourceDatabase() *schema.Resource {
 				DiffSuppressFunc: ignoreCase,
 			},
 			"region": {
-				Description: "Astra database id.",
+				Description: "Cloud region to launch the database.",
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
