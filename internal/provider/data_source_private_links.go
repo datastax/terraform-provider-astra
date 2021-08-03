@@ -32,7 +32,6 @@ func dataSourcePrivateLinks() *schema.Resource {
 				ValidateFunc: validation.IsUUID,
 			},
 
-
 			// Computed
 			"results": {
 				Type:        schema.TypeList,
@@ -65,7 +64,7 @@ func dataSourcePrivateLinksRead(ctx context.Context, d *schema.ResourceData, met
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	if privateLinks == nil {
+	if privateLinks == nil || privateLinks.AllowedPrincipals == nil {
 		return nil
 	}
 

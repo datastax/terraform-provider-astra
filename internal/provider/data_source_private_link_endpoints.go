@@ -34,7 +34,6 @@ func dataSourcePrivateLinkEndpoints() *schema.Resource {
 				Description:  "Endpoint ID.",
 				Type:         schema.TypeString,
 				Required:     true,
-				ValidateFunc: validation.IsUUID,
 			},
 
 
@@ -107,6 +106,9 @@ func listPrivateLinkEndpoints(ctx context.Context, client *astra.ClientWithRespo
 	}
 
 	plResponse, err := client.GetPrivateLinkEndpointWithResponse(ctx, databaseID, datacenterID, endpointID)
+	if err != nil{
+		return nil, err
+	}
 
 	privateLinkEndpointOutput := plResponse.JSON200
 
