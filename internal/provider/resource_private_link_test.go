@@ -18,6 +18,7 @@ func TestPrivateLink(t *testing.T){
 	})
 }
 
+//https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
 func testAccPrivateLinkConfiguration() string {
 	return fmt.Sprintf(`
 resource "astra_private_link" "example" {
