@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"strconv"
 )
 
 func dataSourceAccessList() *schema.Resource {
@@ -32,11 +33,31 @@ func dataSourceAccessList() *schema.Resource {
 				Computed:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"puppies": {
-							Description: "The private link service name.",
+						"enabled": {
+							Description: "The Access list is enabled or disabled.",
 							Type:        schema.TypeString,
 							Computed:    true,
 						},
+						"organization_id": {
+							Description: "Org id for the access list.",
+							Type:        schema.TypeString,
+							Computed:    true,
+						},
+
+						"datacenter_id": {
+							Description: "Org id for the access list.",
+							Type:        schema.TypeString,
+							Computed:    true,
+						},
+						"addresses": {
+							Description: "Addresses in the access list.",
+							Type:        schema.TypeList,
+							Computed:    true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
+
 
 					},
 				},
@@ -111,10 +132,10 @@ func accessListToMaps(accessList *astra.AccessListResponse) []map[string]interfa
 
 	results := make([]map[string]interface{}, 0, 1)
 	results = append(results, map[string]interface{}{
-		"enabled": configurations.AccessListEnabled,
-		"datacenterID": databaseId,
-		"organizationId": organizationId,
-		"addresses": addresses,
+		"enabled": strconv.FormatBool(configurations.AccessListEnabled),
+		"datacenter_id": databaseId,
+		"organization_id": organizationId,
+		"addresses": addressList,
 	})
 
 	return results

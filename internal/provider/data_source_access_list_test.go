@@ -6,24 +6,24 @@ import (
 	"testing"
 )
 
-func TestPrivateLinksDataSource(t *testing.T){
+func TestDataSourceAccessListEndpoints(t *testing.T){
+	resource.UniqueId()
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccPrivateLinksDataSource(),
+				Config: testAccPrivateAccessListDataSource(),
 			},
 		},
 	})
 }
 
 //https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
-func testAccPrivateLinksDataSource() string {
+func testAccPrivateAccessListDataSource() string {
 	return fmt.Sprintf(`
-data "astra_private_links" "dev" {
-  database_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
-  datacenter_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
+data "astra_access_list" "dev" {
+  database_id = "8d356587-73b3-430a-9c0e-d780332e2afb"
 }
 `)
 }

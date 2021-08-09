@@ -54,8 +54,16 @@ func dataSourcePrivateLinkEndpoints() *schema.Resource {
 							Type:        schema.TypeString,
 							Computed:    true,
 						},
-
-
+						"status": {
+							Description: "Private link endpoint status",
+							Type:        schema.TypeString,
+							Computed:    true,
+						},
+						"create_time": {
+							Description: "Crate time for private link endpoint",
+							Type:        schema.TypeString,
+							Computed:    true,
+						},
 					},
 				},
 			},
@@ -119,11 +127,15 @@ func listPrivateLinkEndpoints(ctx context.Context, client *astra.ClientWithRespo
 func privateLinkEndpointsToMap(privateLinkEndpoints *astra.PrivateLinkEndpoint) []map[string]interface{} {
 	endpointID := privateLinkEndpoints.EndpointID
 	description := privateLinkEndpoints.Description
+	status := privateLinkEndpoints.Status
+	createTime := privateLinkEndpoints.CreatedDateTime
 
 	results := make([]map[string]interface{}, 0, 1)
 	results = append(results, map[string]interface{}{
-		"endpointID": endpointID,
+		"endpoint_id": endpointID,
 		"description": description,
+		"status": status,
+		"create_time": createTime,
 	})
 
 	return results

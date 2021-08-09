@@ -39,12 +39,32 @@ func dataSourcePrivateLinks() *schema.Resource {
 				Computed:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"puppies": {
-							Description: "The private link service name.",
+						"service_name": {
+							Description: "Service name.",
 							Type:        schema.TypeString,
 							Computed:    true,
 						},
-
+						"datacenter_id": {
+							Description: "DataCenter ID.",
+							Type:        schema.TypeString,
+							Computed:    true,
+						},
+						"endpoints": {
+							Description: "Endpoints.",
+							Type:        schema.TypeList,
+							Computed:    true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
+						"allowed_principals": {
+							Description: "Allowed principals.",
+							Type:        schema.TypeList,
+							Computed:    true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
 					},
 				},
 			},
@@ -53,7 +73,6 @@ func dataSourcePrivateLinks() *schema.Resource {
 }
 
 func dataSourcePrivateLinksRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	fmt.Printf("testing")
 
 	client := meta.(*astra.ClientWithResponses)
 
@@ -68,9 +87,10 @@ func dataSourcePrivateLinksRead(ctx context.Context, d *schema.ResourceData, met
 		return nil
 	}
 
+	plMap := privateLinksToMap(privateLinks)
+
 	d.SetId(resource.UniqueId())
-	if err := d.Set("results", privateLinksToMap(privateLinks)); err != nil {
-		fmt.Printf("testing")
+	if err := d.Set("results", plMap); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -118,9 +138,9 @@ func privateLinksToMap(privateLinks *astra.PrivateLinkDatacenterOutput) []map[st
 
 	results := make([]map[string]interface{}, 0, 1)
 	results = append(results, map[string]interface{}{
-		"serviceName": string(*privateLinks.ServiceName),
-		"datacenterID": string(*privateLinks.DatacenterID),
-		"allowedPrincipals": apList,
+		"service_name": string(*privateLinks.ServiceName),
+		"datacenter_id": string(*privateLinks.DatacenterID),
+		"allowed_principals": apList,
 		"endpoints": endpointList,
 	})
 
