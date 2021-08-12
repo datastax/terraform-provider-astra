@@ -1,2 +1,1 @@
-# the import id includes the database_id and the keyspace name.
-terraform import astra_private_link_endpoint.example 48bfc13b-c1a5-48db-b70f-b6ef9709872b/keyspace/example
+terraform import astra_private_link.example a6bc9c26-e7ce-424f-84c7-0a00afb12588/datacenter/a6bc9c26-e7ce-424f-84c7-0a00afb12588/serviceNames/svc-name-here
