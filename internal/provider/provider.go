@@ -40,6 +40,7 @@ func New(version string) func() *schema.Provider {
 				"astra_private_links":			       dataSourcePrivateLinks(),
 				"astra_private_link_endpoints":		   dataSourcePrivateLinkEndpoints(),
 				"astra_access_list":				   dataSourceAccessList(),
+				"astra_role":				           dataSourceRole(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
 				"astra_database": resourceDatabase(),
@@ -47,6 +48,7 @@ func New(version string) func() *schema.Provider {
 				"astra_private_link": resourcePrivateLink(),
 				"astra_private_link_endpoint": resourcePrivateLinkEndpoint(),
 				"astra_access_list": resourceAccessList(),
+				"astra_role": resourceRole(),
 			},
 			Schema: map[string]*schema.Schema{
 				"token": {
