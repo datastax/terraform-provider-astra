@@ -13,7 +13,7 @@ Retrieve a list of available cloud regions in Astra
 ## Example Usage
 
 ```terraform
-data "astra_data_source_available_regions" "regions" {
+data "astra_available_regions" "regions" {
 }
 ```
 
