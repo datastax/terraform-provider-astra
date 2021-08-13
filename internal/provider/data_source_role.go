@@ -12,7 +12,7 @@ func dataSourceRole() *schema.Resource {
 	return &schema.Resource{
 		Description: "`astra_role` provides a datasource that lists the custom roles for an org.",
 
-		ReadContext: dataSourceAccessListRead,
+		ReadContext: dataSourceRoleRead,
 
 		Schema: map[string]*schema.Schema{
 			// Required

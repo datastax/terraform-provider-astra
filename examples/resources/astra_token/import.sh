@@ -1,0 +1,1 @@
+terraform import astra_token.example client-secret
