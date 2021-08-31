@@ -142,6 +142,8 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 	cloudProvider := d.Get("cloud_provider").(string)
 	region := d.Get("region").(string)
 
+	// Temporarily  disable region check
+	/*
 	regionsResp, err := client.ListAvailableRegionsWithResponse(ctx)
 	if err != nil {
 		return diag.FromErr(err)
@@ -154,14 +156,17 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 	if dbRegion == nil {
 		return diag.Errorf("cloud provider and region combination not available: %s/%s", cloudProvider, region)
 	}
-
+	*/
 	resp, err := client.CreateDatabaseWithResponse(ctx, astra.CreateDatabaseJSONRequestBody{
 		Name:          name,
 		Keyspace:      keyspace,
-		CloudProvider: astra.DatabaseInfoCreateCloudProvider(dbRegion.CloudProvider),
+		//CloudProvider: astra.DatabaseInfoCreateCloudProvider(dbRegion.CloudProvider),
+		CloudProvider: astra.DatabaseInfoCreateCloudProvider(cloudProvider),
 		CapacityUnits: 1,
-		Region:        dbRegion.Region,
-		Tier:          astra.DatabaseInfoCreateTier(dbRegion.Tier),
+		//Region:        dbRegion.Region,
+		Region:        region,
+	    //Tier:          astra.DatabaseInfoCreateTier(dbRegion.Tier),
+		Tier:          astra.DatabaseInfoCreateTier("serverless"),
 	})
 	if err != nil {
 		return diag.FromErr(err)
