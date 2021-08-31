@@ -1,0 +1,1 @@
+terraform import astra_role.example role-id

@@ -1,0 +1,1 @@
+terraform import astra_private_link_endpoint.example a6bc9c26-e7ce-424f-84c7-0a00afb12588
