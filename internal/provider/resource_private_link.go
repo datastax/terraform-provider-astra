@@ -69,10 +69,10 @@ func resourcePrivateLinkCreate(ctx context.Context, d *schema.ResourceData, meta
 		allowedPrincipals = append(allowedPrincipals, apString)
 	}
 
-	resp, err := client.AddAllowedPrincipleToServiceWithResponse(ctx,
+	resp, err := client.AddAllowedPrincipalToServiceWithResponse(ctx,
 		databaseID,
 		datacenterID,
-		astra.AddAllowedPrincipleToServiceJSONRequestBody{
+		astra.AddAllowedPrincipalToServiceJSONRequestBody{
 			AllowedPrincipals: &allowedPrincipals,
 		},
 	)

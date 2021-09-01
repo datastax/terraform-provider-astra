@@ -22,8 +22,13 @@ func dataSourceAvailableRegions() *schema.Resource {
 				Computed:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"tier": {
-							Description: "Supported tier",
+						"display_name": {
+							Description: "display name",
+							Type:        schema.TypeString,
+							Computed:    true,
+						},
+						"zone": {
+							Description: "zone",
 							Type:        schema.TypeString,
 							Computed:    true,
 						},
@@ -47,7 +52,7 @@ func dataSourceAvailableRegions() *schema.Resource {
 func dataSourceRegionsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*astra.ClientWithResponses)
 
-	regionsResp, err := client.ListAvailableRegionsWithResponse(ctx)
+	regionsResp, err := client.ListServerlessRegionsWithResponse(ctx)
 	if err != nil {
 		return diag.FromErr(err)
 	} else if regionsResp.StatusCode() != 200 {
@@ -58,7 +63,7 @@ func dataSourceRegionsRead(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.FromErr(err)
 	}
 
-	regions := astra.AvailableRegionCombinationSlice(regionsResp.JSON200)
+	regions := *regionsResp.JSON200
 	flatRegions := make([]map[string]interface{}, 0, len(regions))
 	for _, region := range regions {
 		flatRegions = append(flatRegions, flattenRegion(&region))
@@ -72,10 +77,11 @@ func dataSourceRegionsRead(ctx context.Context, d *schema.ResourceData, meta int
 	return nil
 }
 
-func flattenRegion(region *astra.AvailableRegionCombination) map[string]interface{} {
+func flattenRegion(region *astra.ServerlessRegion) map[string]interface{} {
 	return map[string]interface{}{
 		"cloud_provider": region.CloudProvider,
-		"region":         region.Region,
-		"tier":           region.Tier,
+		"region": region.Name,
+		"zone": region.Zone,
+		"display_name": region.DisplayName,
 	}
 }

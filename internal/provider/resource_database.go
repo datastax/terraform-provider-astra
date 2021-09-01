@@ -143,20 +143,17 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 	region := d.Get("region").(string)
 
 	// Temporarily  disable region check
-	/*
-	regionsResp, err := client.ListAvailableRegionsWithResponse(ctx)
+	regionsResp, err := client.ListServerlessRegionsWithResponse(ctx)
 	if err != nil {
 		return diag.FromErr(err)
 	} else if regionsResp.StatusCode() != 200 {
 		return diag.Errorf("unexpected list available regions response: %s", string(regionsResp.Body))
 	}
-
-	availableRegions := astra.AvailableRegionCombinationSlice(regionsResp.JSON200)
-	dbRegion := findMatchingRegion(cloudProvider, region, "serverless", availableRegions)
+	dbRegion := findMatchingRegion(cloudProvider, region, "serverless", *regionsResp.JSON200)
 	if dbRegion == nil {
 		return diag.Errorf("cloud provider and region combination not available: %s/%s", cloudProvider, region)
 	}
-	*/
+
 	resp, err := client.CreateDatabaseWithResponse(ctx, astra.CreateDatabaseJSONRequestBody{
 		Name:          name,
 		Keyspace:      keyspace,
@@ -380,12 +377,10 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 	return flatDB
 }
 
-func findMatchingRegion(provider, region, tier string, availableRegions []astra.AvailableRegionCombination) *astra.AvailableRegionCombination {
+func findMatchingRegion(provider, region, tier string, availableRegions []astra.ServerlessRegion) *astra.AvailableRegionCombination {
 	for _, ar := range availableRegions {
-		if strings.EqualFold(ar.Tier, tier) &&
-			strings.EqualFold(ar.CloudProvider, provider) &&
-			strings.EqualFold(ar.Region, region) {
-			return &ar
+		if strings.EqualFold(ar.CloudProvider, provider) &&
+			strings.EqualFold(ar.Name, region) {
 		}
 	}
 
