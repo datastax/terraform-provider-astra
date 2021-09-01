@@ -34,7 +34,8 @@ data "astra_available_regions" "regions" {
 Read-Only:
 
 - **cloud_provider** (String)
+- **display_name** (String)
 - **region** (String)
-- **tier** (String)
+- **zone** (String)
 
 
