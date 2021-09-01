@@ -377,10 +377,11 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 	return flatDB
 }
 
-func findMatchingRegion(provider, region, tier string, availableRegions []astra.ServerlessRegion) *astra.AvailableRegionCombination {
+func findMatchingRegion(provider, region, tier string, availableRegions []astra.ServerlessRegion) *astra.ServerlessRegion{
 	for _, ar := range availableRegions {
 		if strings.EqualFold(ar.CloudProvider, provider) &&
 			strings.EqualFold(ar.Name, region) {
+			return &ar
 		}
 	}
 
