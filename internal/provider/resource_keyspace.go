@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"strings"
 
 	"github.com/datastax/astra-client-go/v2/astra"
@@ -49,16 +50,55 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 	databaseID := d.Get("database_id").(string)
 	keyspaceName := d.Get("name").(string)
 
-	resp, err := client.AddKeyspaceWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.KeyspaceNameParam(keyspaceName))
-	if err != nil {
+	//Wait for DB to be in Active status
+	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		res, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
+		// Errors sending request should be retried and are assumed to be transient
+		if err != nil {
+			return resource.RetryableError(err)
+		}
+
+		// Status code >=5xx are assumed to be transient
+		if res.StatusCode() >= 500 {
+			return resource.RetryableError(fmt.Errorf("error while fetching database: %s", string(res.Body)))
+		}
+
+		// Status code > 200 NOT retried
+		if res.StatusCode() > 200 || res.JSON200 == nil {
+			return resource.NonRetryableError(fmt.Errorf("unexpected response fetching database: %s", string(res.Body)))
+		}
+
+		// Success fetching database
+		db := res.JSON200
+		switch db.Status {
+		case astra.StatusEnumERROR, astra.StatusEnumTERMINATED, astra.StatusEnumTERMINATING:
+			// If the database reached a terminal state it will never become active
+			return resource.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
+		case astra.StatusEnumACTIVE:
+			resp, err := client.AddKeyspaceWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.KeyspaceNameParam(keyspaceName))
+			if err != nil {
+				return resource.NonRetryableError(fmt.Errorf("Error calling add keyspace (not retrying) %s", err))
+			} else if resp.StatusCode() == 409 {
+				// DevOps API returns 409 for concurrent modifications, these need to be retried.
+				return resource.RetryableError(fmt.Errorf("error adding keyspace to database (retrying): %s", string(resp.Body)))
+			}else if resp.StatusCode() >= 400 {
+				return resource.NonRetryableError(fmt.Errorf("error adding keyspace to database (not retrying): %s", string(resp.Body)))
+			}
+
+			if err := setKeyspaceResourceData(d, databaseID, keyspaceName); err != nil {
+				return resource.NonRetryableError(fmt.Errorf("Error setting keyspace data (not retrying) %s", err))
+			}
+
+			return nil
+		default:
+			return resource.RetryableError(fmt.Errorf("expected database to be active but is %s", db.Status))
+		}
+	}); err != nil {
 		return diag.FromErr(err)
-	} else if resp.StatusCode() >= 400 {
-		return diag.Errorf("error adding keyspace to database: %s", string(resp.Body))
 	}
 
-	if err := setKeyspaceResourceData(d, databaseID, keyspaceName); err != nil {
-		return diag.FromErr(err)
-	}
+
+
 
 	return nil
 }
