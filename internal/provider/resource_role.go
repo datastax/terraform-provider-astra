@@ -83,7 +83,7 @@ func resourceRoleCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	actions := policyRaw.([]interface{})
 
 
-	resourcesList := make([]string, len(actions))
+	resourcesList := make([]string, len(resourcesRaw))
 	actionsList := make([]astra.PolicyActions, len(actions))
 
 	for k, v := range resourcesRaw {
