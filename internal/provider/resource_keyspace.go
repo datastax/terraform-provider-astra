@@ -50,6 +50,9 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 	databaseID := d.Get("database_id").(string)
 	keyspaceName := d.Get("name").(string)
 
+	astraMutexKV.Lock(databaseID)
+	defer astraMutexKV.Unlock(databaseID)
+
 	//Wait for DB to be in Active status
 	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
 		res, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))

@@ -67,6 +67,9 @@ func New(version string) func() *schema.Provider {
 	}
 }
 
+// This is a global MutexKV for use within this plugin.
+var astraMutexKV = NewMutexKV()
+
 func configure(providerVersion string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	return func(_ context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		userAgent := p.UserAgent("terraform-provider-astra", providerVersion)
