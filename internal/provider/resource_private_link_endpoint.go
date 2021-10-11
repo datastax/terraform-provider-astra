@@ -78,9 +78,26 @@ func resourcePrivateLinkEndpointCreate(ctx context.Context, d *schema.ResourceDa
 }
 
 func resourcePrivateLinkEndpointDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	//TODO: implement
+	client := meta.(*astra.ClientWithResponses)
+
+	id := d.Id()
+
+	databaseID, datacenterID, endpointID, err := parsePrivateLinkEndpointID(id)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	resp, err := client.RejectEndpoint(ctx, databaseID, datacenterID, endpointID)
+
+	if err != nil {
+		return diag.FromErr(err)
+	} else if resp.StatusCode >= 400 {
+		return diag.Errorf("error removing private link from database: %s", resp.Body)
+	}
+
 	return nil
 }
+
 func resourcePrivateLinkEndpointRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*astra.ClientWithResponses)
 
@@ -97,7 +114,7 @@ func resourcePrivateLinkEndpointRead(ctx context.Context, d *schema.ResourceData
 	}
 
 	if string(*privateLinks.EndpointID) == endpointID {
-		if err := setPrivateLinkData(d, databaseID, datacenterID, endpointID); err != nil {
+		if err := setPrivateLinkEndpointData(d, databaseID, datacenterID, endpointID); err != nil {
 			return diag.FromErr(err)
 		}
 		return nil
