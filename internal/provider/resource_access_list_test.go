@@ -24,7 +24,7 @@ func TestAccessList(t *testing.T){
 func testAccAccessListConfiguration() string {
 	return fmt.Sprintf(`
 resource "astra_access_list" "example" {
-  database_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
+  database_id = "762c633f-dcde-47fe-8cb1-f6c47f6e9049"
   addresses {
     request {
       address= "0.0.0.0/0"
@@ -51,7 +51,7 @@ func TestTimeUnmarshal(t *testing.T) {
 }
 
 func TestMsgUnmarshal(t *testing.T) {
-	msg := `{"organizationId":"f9f4b1e0-4c05-451e-9bba-d631295a7f73","databaseId":"a6bc9c26-e7ce-424f-84c7-0a00afb12588","addresses":[{"address":"0.0.0.0/0","description":"","enabled":true,"lastUpdateDateTime":"2021-08-03 15:20:29.008 +0000 UTC"}],"configurations":{"accessListEnabled":false}}`
+	msg := `{"organizationId":"f9f4b1e0-4c05-451e-9bba-d631295a7f73","databaseId":"762c633f-dcde-47fe-8cb1-f6c47f6e9049","addresses":[{"address":"0.0.0.0/0","description":"","enabled":true,"lastUpdateDateTime":"2021-08-03 15:20:29.008 +0000 UTC"}],"configurations":{"accessListEnabled":false}}`
 	bodyBytes := []byte(msg)
 
 	var dest astra.AccessListResponse
@@ -99,7 +99,7 @@ func TestMsgNewStructMarshal(t *testing.T){
 	}
 
 
-	msg := `{"organizationId":"f9f4b1e0-4c05-451e-9bba-d631295a7f73","databaseId":"a6bc9c26-e7ce-424f-84c7-0a00afb12588","addresses":[{"address":"0.0.0.0/0","description":"","enabled":true,"lastUpdateDateTime":"2021-08-03 15:20:29.008 +0000 UTC"}],"configurations":{"accessListEnabled":false}}`
+	msg := `{"organizationId":"f9f4b1e0-4c05-451e-9bba-d631295a7f73","databaseId":"762c633f-dcde-47fe-8cb1-f6c47f6e9049","addresses":[{"address":"0.0.0.0/0","description":"","enabled":true,"lastUpdateDateTime":"2021-08-03 15:20:29.008 +0000 UTC"}],"configurations":{"accessListEnabled":false}}`
 	bodyBytes := []byte(msg)
 
 	var dest MyAccessListResponse

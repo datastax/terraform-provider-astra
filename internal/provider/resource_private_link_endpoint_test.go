@@ -22,20 +22,20 @@ func TestPrivateLinkEndpoint(t *testing.T){
 func testAccPrivateLinkEndpointConfiguration() string {
 	return fmt.Sprintf(`
 resource "astra_private_link" "example" {
-  allowed_principals = ["arn:aws:iam::445559476293:user/Sebastian"]
-  database_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
-  datacenter_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
+  allowed_principals = ["arn:aws:iam::337811753388:user/terraform-user"]
+  database_id = "762c633f-dcde-47fe-8cb1-f6c47f6e9049"
+  datacenter_id = "762c633f-dcde-47fe-8cb1-f6c47f6e9049-1"
 }
 resource "aws_vpc_endpoint" "example" {
-  vpc_id             = "vpc-f939e884"
+  vpc_id             = "vpc-5fbb2e34"
   service_name       = astra_private_link.example.service_name
   vpc_endpoint_type  = "Interface"
-  subnet_ids         = ["subnet-4d376300","subnet-4d85066c","subnet-030e8b65"]
-  security_group_ids = ["sg-74ae4d41"]
+  subnet_ids         = ["subnet-c0396b8c","subnet-8059e4eb","subnet-d37c97ae"]
+  security_group_ids = ["sg-18ba256c"]
 }
 resource "astra_private_link_endpoint" "example" {
-  database_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
-  datacenter_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
+  database_id = "762c633f-dcde-47fe-8cb1-f6c47f6e9049"
+  datacenter_id = "762c633f-dcde-47fe-8cb1-f6c47f6e9049-1"
   endpoint_id = aws_vpc_endpoint.example.id
 }
 `)

@@ -23,9 +23,9 @@ func TestDataSourcePrivateLinkEndpoints(t *testing.T){
 func testAccPrivateLinkEndpointsDataSource() string {
 	return fmt.Sprintf(`
 data "astra_private_link_endpoints" "dev" {
-  database_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
-  datacenter_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
-  endpoint_id = "vpce-04cf066a99d812a8d"
+  database_id = "762c633f-dcde-47fe-8cb1-f6c47f6e9049"
+  datacenter_id = "762c633f-dcde-47fe-8cb1-f6c47f6e9049-1"
+  endpoint_id = "vpc-5fbb2e34"
 }
 `)
 }

@@ -29,25 +29,25 @@ resource "astra_database" "dev" {
 }
 
 resource "astra_keyspace" "keyspace-1" {
-  name        = "1"
+  name        = "ks1"
   database_id = astra_database.dev.id
 
 }
 
 resource "astra_keyspace" "keyspace-2" {
-  name        = "2"
+  name        = "ks2"
   database_id = astra_database.dev.id
 
 }
 
 resource "astra_keyspace" "keyspace-3" {
-  name        = "3"
+  name        = "ks3"
   database_id = astra_database.dev.id
 
 }
 
 resource "astra_keyspace" "keyspace-4" {
-  name        = "4"
+  name        = "ks4"
   database_id = astra_database.dev.id
 
 }
