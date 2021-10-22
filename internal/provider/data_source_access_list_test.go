@@ -23,7 +23,7 @@ func TestDataSourceAccessListEndpoints(t *testing.T){
 func testAccPrivateAccessListDataSource() string {
 	return fmt.Sprintf(`
 data "astra_access_list" "dev" {
-  database_id = "8d356587-73b3-430a-9c0e-d780332e2afb"
+  database_id = "aba3cf20-d579-4091-a36d-9c9f75096031"
 }
 `)
 }

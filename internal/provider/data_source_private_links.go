@@ -29,7 +29,6 @@ func dataSourcePrivateLinks() *schema.Resource {
 				Description:  "The datacenter where of the Astra database.",
 				Type:         schema.TypeString,
 				Required:     true,
-				ValidateFunc: validation.IsUUID,
 			},
 
 			// Computed
@@ -123,7 +122,10 @@ func listPrivateLinks(ctx context.Context, client *astra.ClientWithResponses, da
 
 func privateLinksToMap(privateLinks *astra.PrivateLinkDatacenterOutput) []map[string]interface{} {
 	allowedPrincipals := *privateLinks.AllowedPrincipals
-	endpoints := *privateLinks.Endpoints
+	endpoints := make([]astra.PrivateLinkEndpoint, 0)
+	if privateLinks.Endpoints != nil {
+		endpoints = *privateLinks.Endpoints
+	}
 
 	var apList = make([]string, len(allowedPrincipals))
 	for i, n := range allowedPrincipals{

@@ -28,7 +28,6 @@ func dataSourcePrivateLinkEndpoints() *schema.Resource {
 				Description:  "The Datacenter ID of the Astra database.",
 				Type:         schema.TypeString,
 				Required:     true,
-				ValidateFunc: validation.IsUUID,
 			},
 			"endpoint_id": {
 				Description:  "Endpoint ID.",
