@@ -14,7 +14,7 @@ import (
 
 func resourcePrivateLink() *schema.Resource {
 	return &schema.Resource{
-		Description: "`astra_private_link` provides a private link resource. Private Link is a private network endpoint that can be created to connect from your vpc to Astra without using a pulically routable IP address. `astra_private_link` resources are associated with a database id. Currently GCP databases are not supported for private link. Once the private_link resource is created in Astra it must be linked to an endpoint within your vpc, use `astra_private_link_endpoint` to do this.",
+		Description: "`astra_private_link` provides a private link resource. Private Link is a private network endpoint that can be created to connect from your vpc to Astra without using a pulically routable IP address. `astra_private_link` resources are associated with a database id. Once the private_link resource is created in Astra it must be linked to an endpoint within your vpc, use `astra_private_link_endpoint` to do this.",
 		CreateContext: resourcePrivateLinkCreate,
 		ReadContext:   resourcePrivateLinkRead,
 		DeleteContext: resourcePrivateLinkDelete,
