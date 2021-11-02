@@ -148,7 +148,7 @@ func setTokenData(d *schema.ResourceData, tokenMap map[string]interface{}) error
 }
 
 func parseTokenID(id string) (string, error) {
-	idParts := strings.Split(strings.ToLower(id), "/")
+	idParts := strings.Split(id, "/")
 	if len(idParts) != 1 {
 		return "",  errors.New("invalid token id format: expected clientID/")
 	}
