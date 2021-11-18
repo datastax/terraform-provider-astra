@@ -31,3 +31,19 @@ To run:
     terraform apply
 
     terraform show
+
+## Documentation Updates
+
+When modifying plugin services, updates to documentation may be required. Once you have changed a service description,
+or added or deleted a service, you need to regenerate the docs and commit them with your changes.
+
+### Generating docs
+
+The tool used to generate documentation is [tfplugindocs](https://github.com/hashicorp/terraform-plugin-docs). See the [installation](https://github.com/hashicorp/terraform-plugin-docs#installation)
+section for installing the tool. Once installed, generate the docs by running `tfplugindocs` from the root of the project:
+
+```sh
+tfplugindocs
+```
+
+The tool will build the plugin and generate the docs based on the implementation. Make sure to add the `docs` folder to your commit to include any changes in the docs.
