@@ -15,6 +15,7 @@ description: |-
 ```terraform
 resource "astra_access_list" "example" {
   database_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
+  enabled = true
   addresses {
     request {
       address = "0.0.0.0/0"
@@ -34,6 +35,7 @@ resource "astra_access_list" "example" {
 
 ### Optional
 
+- **enabled** (Boolean) Public access restrictions enabled or disabled
 - **id** (String) The ID of this resource.
 
 <a id="nestedblock--addresses"></a>
@@ -48,12 +50,12 @@ Required:
 
 Required:
 
-- **address** (String) Address
-- **enabled** (Boolean) Description
+- **address** (String) IP Address/CIDR group that should have access
+- **enabled** (Boolean) Enable/disable this IP Address/CIDR group's access
 
 Optional:
 
-- **description** (String) Description
+- **description** (String) Description for the IP Address/CIDR group
 
 ## Import
 

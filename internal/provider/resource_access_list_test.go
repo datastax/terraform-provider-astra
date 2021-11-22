@@ -23,7 +23,7 @@ func TestAccessList(t *testing.T){
 func testAccAccessListConfiguration() string {
 	return fmt.Sprintf(`
 resource "astra_access_list" "example" {
-  database_id = "aba3cf20-d579-4091-a36d-9c9f75096031"
+  database_id = "f6e6b500-61a0-48d5-a29f-3406d28974ee"
   addresses {
     request {
       address= "0.0.0.1/0"
@@ -38,6 +38,7 @@ resource "astra_access_list" "example" {
       enabled= true
     }
   }
+  restricted = true
 }
 `)
 }

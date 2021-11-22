@@ -45,7 +45,7 @@ func dataSourceAccessList() *schema.Resource {
 						},
 
 						"datacenter_id": {
-							Description: "Org id for the access list.",
+							Description: "Dataceneter id for the access list.",
 							Type:        schema.TypeString,
 							Computed:    true,
 						},
