@@ -6,7 +6,6 @@ import (
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"testing"
-	"time"
 )
 
 func TestAccessList(t *testing.T){
@@ -27,7 +26,15 @@ resource "astra_access_list" "example" {
   database_id = "aba3cf20-d579-4091-a36d-9c9f75096031"
   addresses {
     request {
-      address= "0.0.0.0/0"
+      address= "0.0.0.1/0"
+      enabled= true
+    }
+    request {
+      address= "0.0.0.2/0"
+      enabled= true
+    }
+    request {
+      address= "0.0.0.3/0"
       enabled= true
     }
   }
@@ -40,7 +47,7 @@ func TestTimeUnmarshal(t *testing.T) {
 	//msg := `{"lastUpdateDateTime":"2021-08-03T15:20:29Z"}`
 	bodyBytes := []byte(msg)
 	type TestStruct struct{
-		LastUpdateDateTime *time.Time
+		LastUpdateDateTime *string
 	}
 	var dest TestStruct
 	if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -77,7 +84,7 @@ func TestMsgNewStructMarshal(t *testing.T){
 		Enabled *bool `json:"enabled,omitempty"`
 
 		// The last update date/time for the access list
-		//LastUpdateDateTime *time.Time `json:"lastUpdateDateTime,omitempty"`
+		LastUpdateDateTime *string `json:"lastUpdateDateTime,omitempty"`
 	}
 	// AccessListConfigurations defines model for AccessListConfigurations.
 	type AccessListConfigurations struct {

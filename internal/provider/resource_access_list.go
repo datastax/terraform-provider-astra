@@ -73,39 +73,38 @@ func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta 
 	client := meta.(*astra.ClientWithResponses)
 
 	databaseID := d.Get("database_id").(string)
-	addresses := d.Get("addresses")
+	addresses := d.Get("addresses").([]interface{})
 
-	addressList := make([]astra.AddressRequest, len(addresses.([]interface{})))
-
-	for k, v := range d.Get("addresses").([]interface{}) {
+	for _, v := range addresses {
 		a := v.(map[string]interface{})["request"]
 		request := a.(*schema.Set)
+		addressList := make([]astra.AddressRequest, len(request.List()))
+		requestCount := 0
 		for _, val := range request.List() {
 			rMap := val.(map[string]interface{})
-			addressList[k] = astra.AddressRequest{
+			addressList[requestCount] = astra.AddressRequest{
 				Address:    rMap["address"].(string),
 				Enabled: rMap["enabled"].(bool),
 				Description:  rMap["description"].(string),
 			}
-
+			requestCount++
 		}
+		resp, err := client.AddAddressesToAccessListForDatabaseWithResponse(ctx,
+			astra.DatabaseIdParam(databaseID),
+			addressList,
+		)
+
+		if err != nil {
+			return diag.FromErr(err)
+		} else if resp.StatusCode() >= 400 {
+			return diag.Errorf("error adding private link to database: %s", resp.Body)
+		}
+
+		if err := setAccessListData(d, databaseID); err != nil {
+			return diag.FromErr(err)
+		}
+
 	}
-
-	resp, err := client.AddAddressesToAccessListForDatabaseWithResponse(ctx,
-		astra.DatabaseIdParam(databaseID),
-		addressList,
-	)
-
-	if err != nil {
-		return diag.FromErr(err)
-	} else if resp.StatusCode() >= 400 {
-		return diag.Errorf("error adding private link to database: %s", resp.Body)
-	}
-
-	if err := setAccessListData(d, databaseID); err != nil {
-		return diag.FromErr(err)
-	}
-
 	return nil
 }
 
@@ -124,17 +123,31 @@ func resourceAccessListDelete(ctx context.Context, d *schema.ResourceData, meta 
 		return diag.FromErr(err)
 	}
 
-	aResp := *accessList.Addresses
-	addressesQP := astra.AddressesQueryParam{}
-	for _, v := range aResp {
-		address:= *v.Address
-		addressesQP = append(addressesQP, address)
-	}
+	// aResp := *accessList.Addresses
+	// addressesQP := astra.AddressesQueryParam{}
+	// for _, v := range aResp {
+	// 	address:= *v.Address
+	// 	addressesQP = append(addressesQP, address)
+	// }
 
-	params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{
-		&addressesQP,
+	// params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{
+	// 	&addressesQP,
+	// }
+	// client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
+
+	// The above code should work, but Astra seems to only delete the first address passed as a query param
+	// Until it's fixed in Astra, call DELETE for each address
+	aResp := *accessList.Addresses
+	if len(aResp) > 0 {
+		for _, v := range aResp {
+			addressesQP:= astra.AddressesQueryParam{*v.Address}
+			params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{&addressesQP}
+			client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
+		}
+	} else {
+		params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{nil}
+		client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
 	}
-	client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
 
 	return nil
 }
