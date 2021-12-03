@@ -1,3 +1,11 @@
+terraform {
+    required_providers {
+        astra = {
+            source = "datastax/astra"
+        }
+    }
+}
+
 variable "token" {}
 
 provider "astra" {
