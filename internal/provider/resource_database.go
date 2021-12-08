@@ -382,25 +382,25 @@ func addRegionsToDatabase(ctx context.Context, d *schema.ResourceData, client *a
 	if err := ensureValidRegions(ctx, client, d); err != nil {
 		return err
 	}
-	datacenters := make([]astra.Datacenter, len(regions))
-	for index, region := range regions {
-		datacenters[index] = astra.Datacenter {
+	// Currently, DevOps API only allows for adding 1 region at a time
+	for _, region := range regions {
+		datacenters := make([]astra.Datacenter, 1)
+		datacenters[0] = astra.Datacenter {
 			CloudProvider: cloudProvider,
 			Region:        region,
 			Tier:          "serverless",
 		}
-	}
-	// add the regions
-	resp, err := client.AddDatacentersWithResponse(ctx, astra.DatabaseIdParam(databaseID), datacenters)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	if resp.StatusCode() != http.StatusCreated {
-		return diag.FromErr(fmt.Errorf("Unexpected response addinng Regions: %s", string(resp.Body)))
-	}
-	// Wait for the database to be ACTIVE then set resource data
-	if err := waitForDatabaseAndUpdateResource(ctx, d, client, databaseID); err != nil {
-		return err
+		resp, err := client.AddDatacentersWithResponse(ctx, astra.DatabaseIdParam(databaseID), datacenters)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+		if resp.StatusCode() != http.StatusCreated {
+			return diag.FromErr(fmt.Errorf("Unexpected response addinng Regions: %s", string(resp.Body)))
+		}
+		// Wait for the database to be ACTIVE then set resource data
+		if err := waitForDatabaseAndUpdateResource(ctx, d, client, databaseID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
