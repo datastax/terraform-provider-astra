@@ -11,12 +11,12 @@ under Terraform plugin management.
 
 For each Datatbase under Terraform management:
 1. Obtain the database id (ex. b3107622-429d-45ab-a6da-0252cb091c86)
-2. Obtain the terraform resource name for the database (ex. "my_db", from the resouirce line in your terraform .tf file)
-3. Remove the databse from the terrafrom state
+2. Obtain the Terraform resource name for the database (ex. "my_db", from the resource line in your Terraform .tf file)
+3. Remove the database from the Terraform state
 ```sh
-   terrafrom state rm astra_database.<resource name from #2>
+   terraform state rm astra_database.<resource name from #2>
 ```
-4. Edit your terrafrom resource file and convert the "region" field value from a string to an array
+4. Edit your Terraform resource file and convert the "region" field value from a string to an array
 ```sh
    region = "us-east1"
 ```

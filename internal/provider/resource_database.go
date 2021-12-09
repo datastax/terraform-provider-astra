@@ -138,20 +138,20 @@ func resourceDatabase() *schema.Resource {
 	}
 }
 
-func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*astra.ClientWithResponses)
 
-	name := d.Get("name").(string)
-	keyspace := d.Get("keyspace").(string)
-	cloudProvider := d.Get("cloud_provider").(string)
-	regions := d.Get("region").([] interface{})
+	name := resourceData.Get("name").(string)
+	keyspace := resourceData.Get("keyspace").(string)
+	cloudProvider := resourceData.Get("cloud_provider").(string)
+	regions := resourceData.Get("region").([]interface{})
 
 	if len(regions) < 1 {
 		return diag.Errorf("\"region\" array must have at least 1 region specified")
 	}
 
 	// Make sure all regions are valid
-	if err := ensureValidRegions(ctx, client, d); err != nil {
+	if err := ensureValidRegions(ctx, client, resourceData); err != nil {
 		return err
 	}
 	// get the first region in the list to use as the region in which to create the database
@@ -183,13 +183,13 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 	databaseID := resp.HTTPResponse.Header.Get("location")
 
 	// Wait for the database to be ACTIVE then set resource data
-	if err := waitForDatabaseAndUpdateResource(ctx, d, client, databaseID); err != nil {
+	if err := waitForDatabaseAndUpdateResource(ctx, resourceData, client, databaseID); err != nil {
 		return err
 	}
 
 	// Add any additional regions/datacenters
 	if len(additionalRegions) > 0 {
-		if err:= addRegionsToDatabase(ctx, d, client, additionalRegions, databaseID, cloudProvider); err != nil {
+		if err:= addRegionsToDatabase(ctx, resourceData, client, additionalRegions, databaseID, cloudProvider); err != nil {
 			return err
 		}
 	}
@@ -197,12 +197,12 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 	return nil
 }
 
-func resourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceDatabaseRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*astra.ClientWithResponses)
 
-	databaseID := d.Id()
+	databaseID := resourceData.Id()
 
-	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutRead), func() *resource.RetryError {
+	if err := resource.RetryContext(ctx, resourceData.Timeout(schema.TimeoutRead), func() *resource.RetryError {
 		resp, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
 		if err != nil {
 			return resource.RetryableError(fmt.Errorf("unable to fetch database (%s): %v", databaseID, err))
@@ -210,7 +210,7 @@ func resourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta inte
 
 		// Remove from state when database not found
 		if resp.JSON404 != nil || resp.StatusCode() == http.StatusNotFound {
-			d.SetId("")
+			resourceData.SetId("")
 			return nil
 		}
 
@@ -227,12 +227,12 @@ func resourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta inte
 
 		// If the database is TERMINATING or TERMINATED then remove it from the state
 		if db.Status == astra.StatusEnumTERMINATING || db.Status == astra.StatusEnumTERMINATED {
-			d.SetId("")
+			resourceData.SetId("")
 			return nil
 		}
 
 		// Add the database to state
-		if err := setDatabaseResourceData(d, db); err != nil {
+		if err := setDatabaseResourceData(resourceData, db); err != nil {
 			return resource.NonRetryableError(err)
 		}
 
@@ -244,13 +244,13 @@ func resourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta inte
 	return nil
 }
 
-func resourceDatabaseDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*astra.ClientWithResponses)
 
-	databaseID := d.Id()
+	databaseID := resourceData.Id()
 	alreadyDeleted := false
 
-	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
+	if err := resource.RetryContext(ctx, resourceData.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
 		resp, err := client.TerminateDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID), &astra.TerminateDatabaseParams{})
 		if err != nil {
 			return resource.RetryableError(err)
@@ -279,12 +279,12 @@ func resourceDatabaseDelete(ctx context.Context, d *schema.ResourceData, meta in
 
 	// Return early since it has been determined that the database no longer exists
 	if alreadyDeleted {
-		d.SetId("")
+		resourceData.SetId("")
 		return nil
 	}
 
 	// Wait for the database to be TERMINATED or not found
-	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
+	if err := resource.RetryContext(ctx, resourceData.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
 		res, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
 		// Errors sending request should be retried and are assumed to be transient
 		if err != nil {
@@ -318,32 +318,32 @@ func resourceDatabaseDelete(ctx context.Context, d *schema.ResourceData, meta in
 		return diag.FromErr(err)
 	}
 
-	d.SetId("")
+	resourceData.SetId("")
 	return nil
 }
 
-func resourceDatabaseUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*astra.ClientWithResponses)
-	databaseID := d.Id()
-	cloudProvider := d.Get("cloud_provider").(string)
+	databaseID := resourceData.Id()
+	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	if d.HasChangeExcept("region") {
+	if resourceData.HasChangeExcept("region") {
 		// only region changes supported at the moment
 		return diag.Errorf("Update of Database resource only supported for fields: %s", "region")
 	}
 
-	if d.HasChange("region") {
+	if resourceData.HasChange("region") {
 		// get regions to add and delete
-		regionsToAdd, regionsToDelete := getRegionUpdates(d.GetChange("region"))
+		regionsToAdd, regionsToDelete := getRegionUpdates(resourceData.GetChange("region"))
 		if len(regionsToAdd) > 0 {
 			// add any regions to add first
-			if err := addRegionsToDatabase(ctx, d, client, regionsToAdd, databaseID, cloudProvider); err != nil {
+			if err := addRegionsToDatabase(ctx, resourceData, client, regionsToAdd, databaseID, cloudProvider); err != nil {
 				return err
 			}
 		}
 		if len(regionsToDelete) > 0 {
 			// delete any regions that should be removed
-			if err := deleteRegionsFromDatabase(ctx, d, client, regionsToDelete, databaseID, cloudProvider); err != nil {
+			if err := deleteRegionsFromDatabase(ctx, resourceData, client, regionsToDelete, databaseID, cloudProvider); err != nil {
 				return err
 			}
 		}
@@ -377,9 +377,9 @@ func getRegionUpdates(oldRegions interface{}, newRegions interface{}) ([]string,
 	return regionsToAdd, regionsToDelete
 }
 
-func addRegionsToDatabase(ctx context.Context, d *schema.ResourceData, client *astra.ClientWithResponses, regions []string, databaseID string, cloudProvider string) diag.Diagnostics {
+func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, regions []string, databaseID string, cloudProvider string) diag.Diagnostics {
 	// make sure the regions are valid
-	if err := ensureValidRegions(ctx, client, d); err != nil {
+	if err := ensureValidRegions(ctx, client, resourceData); err != nil {
 		return err
 	}
 	// Currently, DevOps API only allows for adding 1 region at a time
@@ -398,14 +398,14 @@ func addRegionsToDatabase(ctx context.Context, d *schema.ResourceData, client *a
 			return diag.FromErr(fmt.Errorf("Unexpected response addinng Regions: %s", string(resp.Body)))
 		}
 		// Wait for the database to be ACTIVE then set resource data
-		if err := waitForDatabaseAndUpdateResource(ctx, d, client, databaseID); err != nil {
+		if err := waitForDatabaseAndUpdateResource(ctx, resourceData, client, databaseID); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func deleteRegionsFromDatabase(ctx context.Context, d *schema.ResourceData, client *astra.ClientWithResponses, regions []string, databaseID string, cloudProvider string) diag.Diagnostics {
+func deleteRegionsFromDatabase(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, regions []string, databaseID string, cloudProvider string) diag.Diagnostics {
 	// get all the datacenetrs for the Datbase ID
 	dcListResp, err := client.ListDatacentersWithResponse(ctx, astra.DatabaseIdParam(databaseID), &astra.ListDatacentersParams{})
 	if err != nil {
@@ -415,14 +415,14 @@ func deleteRegionsFromDatabase(ctx context.Context, d *schema.ResourceData, clie
 		return diag.FromErr(fmt.Errorf("Unexpected response fetching Datacenters: %s", dcListResp.Body))
 	}
 	dcs := *dcListResp.JSON200
-	// map DCs to region
-	m := map[string]astra.Datacenter{}
+	// map regions to DCs
+	regionDcMap := map[string]astra.Datacenter{}
 	for _, v := range dcs {
-		m[v.Region] = v
+		regionDcMap[v.Region] = v
 	}
 	// delete each region that exists
 	for _, v := range regions {
-		if dc := m[v]; dc.Id != nil {
+		if dc := regionDcMap[v]; dc.Id != nil {
 			termResp, err := client.TerminateDatacenterWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.DatacenterIdParam(*dc.Id))
 			if err != nil {
 				return diag.FromErr(err)
@@ -431,7 +431,7 @@ func deleteRegionsFromDatabase(ctx context.Context, d *schema.ResourceData, clie
 				return diag.FromErr(fmt.Errorf("Error terminating datacenter for region \"%s\": %s", v, string(termResp.Body)))
 			}
 			// Wait for the database to be ACTIVE then set resource data
-			if err := waitForDatabaseAndUpdateResource(ctx, d, client, databaseID); err != nil {
+			if err := waitForDatabaseAndUpdateResource(ctx, resourceData, client, databaseID); err != nil {
 				return err
 			}
 		}
@@ -439,8 +439,8 @@ func deleteRegionsFromDatabase(ctx context.Context, d *schema.ResourceData, clie
 	return nil
 }
 
-func waitForDatabaseAndUpdateResource(ctx context.Context, d *schema.ResourceData, client *astra.ClientWithResponses, databaseID string) diag.Diagnostics {
-	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+func waitForDatabaseAndUpdateResource(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, databaseID string) diag.Diagnostics {
+	if err := resource.RetryContext(ctx, resourceData.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
 		res, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
 		// Errors sending request should be retried and are assumed to be transient
 		if err != nil {
@@ -464,7 +464,7 @@ func waitForDatabaseAndUpdateResource(ctx context.Context, d *schema.ResourceDat
 			// If the database reached a terminal state it will never become active
 			return resource.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
 		case astra.StatusEnumACTIVE:
-			if err := setDatabaseResourceData(d, db); err != nil {
+			if err := setDatabaseResourceData(resourceData, db); err != nil {
 				return resource.NonRetryableError(err)
 			}
 			return nil
@@ -477,14 +477,14 @@ func waitForDatabaseAndUpdateResource(ctx context.Context, d *schema.ResourceDat
 	return nil
 }
 
-func setDatabaseResourceData(d *schema.ResourceData, db *astra.Database) error {
-	d.SetId(db.Id)
+func setDatabaseResourceData(resourceData *schema.ResourceData, db *astra.Database) error {
+	resourceData.SetId(db.Id)
 	flatDb := flattenDatabase(db)
 	for k, v := range flatDb {
 		if k == "id" {
 			continue
 		}
-		if err := d.Set(k, v); err != nil {
+		if err := resourceData.Set(k, v); err != nil {
 			return err
 		}
 	}
@@ -523,7 +523,7 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 	return flatDB
 }
 
-func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, d *schema.ResourceData) diag.Diagnostics {
+func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, resourceData *schema.ResourceData) diag.Diagnostics {
 	// get the list of serveless regions
 	regionsResp, err := client.ListServerlessRegionsWithResponse(ctx)
 	if err != nil {
@@ -532,8 +532,8 @@ func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, 
 		return diag.Errorf("unexpected list available regions response: %s", string(regionsResp.Body))
 	}
 	// make sure all of the regions are valid
-	cloudProvider := d.Get("cloud_provider").(string)
-	regions := d.Get("region").([] interface{})
+	cloudProvider := resourceData.Get("cloud_provider").(string)
+	regions := resourceData.Get("region").([] interface{})
 	for _, r := range regions {
 		region := r.(string)
 		dbRegion := findMatchingRegion(cloudProvider, region, "serverless", *regionsResp.JSON200)
@@ -544,7 +544,7 @@ func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, 
 	return nil
 }
 
-func findMatchingRegion(provider, region, tier string, availableRegions []astra.ServerlessRegion) *astra.ServerlessRegion{
+func findMatchingRegion(provider, region, tier string, availableRegions []astra.ServerlessRegion) *astra.ServerlessRegion {
 	for _, ar := range availableRegions {
 		if strings.EqualFold(ar.CloudProvider, provider) &&
 			strings.EqualFold(ar.Name, region) {
