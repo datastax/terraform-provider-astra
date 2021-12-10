@@ -168,10 +168,10 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 	resp, err := client.CreateDatabaseWithResponse(ctx, astra.CreateDatabaseJSONRequestBody{
 		Name:          name,
 		Keyspace:      keyspace,
-		CloudProvider: astra.DatabaseInfoCreateCloudProvider(cloudProvider),
+		CloudProvider: astra.CloudProvider(cloudProvider),
 		CapacityUnits: 1,
 		Region:        region,
-		Tier:          astra.DatabaseInfoCreateTier("serverless"),
+		Tier:          astra.Tier("serverless"),
 	})
 	if err != nil {
 		return diag.FromErr(err)
@@ -386,7 +386,7 @@ func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData
 	for _, region := range regions {
 		datacenters := make([]astra.Datacenter, 1)
 		datacenters[0] = astra.Datacenter {
-			CloudProvider: cloudProvider,
+			CloudProvider: astra.CloudProvider(cloudProvider),
 			Region:        region,
 			Tier:          "serverless",
 		}
@@ -549,7 +549,7 @@ func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, 
 
 func findMatchingRegion(provider, region, tier string, availableRegions []astra.ServerlessRegion) *astra.ServerlessRegion {
 	for _, ar := range availableRegions {
-		if strings.EqualFold(ar.CloudProvider, provider) &&
+		if strings.EqualFold(string(ar.CloudProvider), provider) &&
 			strings.EqualFold(ar.Name, region) {
 			return &ar
 		}
