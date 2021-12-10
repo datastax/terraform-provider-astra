@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"strings"
+	"sync"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
+// Mutex for synchronizing Keyspace creation
+var keyspaceMutex sync.Mutex
 
 func resourceKeyspace() *schema.Resource {
 	return &schema.Resource{
@@ -52,7 +55,9 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 	//Wait for DB to be in Active status
 	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		keyspaceMutex.Lock()
 		res, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
+		keyspaceMutex.Unlock()
 		// Errors sending request should be retried and are assumed to be transient
 		if err != nil {
 			return resource.RetryableError(err)
@@ -75,7 +80,9 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 			// If the database reached a terminal state it will never become active
 			return resource.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
 		case astra.StatusEnumACTIVE:
+			keyspaceMutex.Lock()
 			resp, err := client.AddKeyspaceWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.KeyspaceNameParam(keyspaceName))
+			keyspaceMutex.Unlock()
 			if err != nil {
 				return resource.NonRetryableError(fmt.Errorf("Error calling add keyspace (not retrying) %s", err))
 			} else if resp.StatusCode() == 409 {
@@ -96,9 +103,6 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 	}); err != nil {
 		return diag.FromErr(err)
 	}
-
-
-
 
 	return nil
 }
