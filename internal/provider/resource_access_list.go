@@ -141,11 +141,11 @@ func resourceAccessListDelete(ctx context.Context, d *schema.ResourceData, meta 
 	if len(aResp) > 0 {
 		for _, v := range aResp {
 			addressesQP:= astra.AddressesQueryParam{*v.Address}
-			params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{&addressesQP}
+			params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{Addresses: &addressesQP}
 			client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
 		}
 	} else {
-		params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{nil}
+		params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{Addresses: nil}
 		client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
 	}
 
