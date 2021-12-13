@@ -25,7 +25,7 @@ resource "astra_database" "dev" {
   name           = "puppies"
   keyspace       = "puppies"
   cloud_provider = "gcp"
-  region         = ["us-east1"]
+  regions        = ["us-east1"]
 }
 
 data "astra_secure_connect_bundle_url" "dev" {
