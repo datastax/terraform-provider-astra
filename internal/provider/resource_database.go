@@ -65,7 +65,7 @@ func resourceDatabase() *schema.Resource {
 				ValidateFunc:     validation.StringInSlice(availableCloudProviders, true),
 				DiffSuppressFunc: ignoreCase,
 			},
-			"region": {
+			"regions": {
 				Description: "Cloud region to launch the database.",
 				Type:        schema.TypeList,
 				Required:    true,
@@ -144,7 +144,7 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 	name := resourceData.Get("name").(string)
 	keyspace := resourceData.Get("keyspace").(string)
 	cloudProvider := resourceData.Get("cloud_provider").(string)
-	regions := resourceData.Get("region").([]interface{})
+	regions := resourceData.Get("regions").([]interface{})
 
 	if len(regions) < 1 {
 		return diag.Errorf("\"region\" array must have at least 1 region specified")
@@ -327,14 +327,14 @@ func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceDa
 	databaseID := resourceData.Id()
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	if resourceData.HasChangeExcept("region") {
+	if resourceData.HasChangeExcept("regions") {
 		// only region changes supported at the moment
-		return diag.Errorf("Update of Database resource only supported for fields: %s", "region")
+		return diag.Errorf("Update of Database resource only supported for fields: %s", "regions")
 	}
 
-	if resourceData.HasChange("region") {
+	if resourceData.HasChange("regions") {
 		// get regions to add and delete
-		regionsToAdd, regionsToDelete := getRegionUpdates(resourceData.GetChange("region"))
+		regionsToAdd, regionsToDelete := getRegionUpdates(resourceData.GetChange("regions"))
 		if len(regionsToAdd) > 0 {
 			// add any regions to add first
 			if err := addRegionsToDatabase(ctx, resourceData, client, regionsToAdd, databaseID, cloudProvider); err != nil {
@@ -503,7 +503,7 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		"data_endpoint_url":    astra.StringValue(db.DataEndpointUrl),
 		"cqlsh_url":            astra.StringValue(db.CqlshUrl),
 		"cloud_provider":       "",
-		"region":               [1]string{astra.StringValue(db.Info.Region)},
+		"regions":              [1]string{astra.StringValue(db.Info.Region)},
 		"keyspace":             astra.StringValue(db.Info.Keyspace),
 		"additional_keyspaces": astra.StringSlice(db.Info.AdditionalKeyspaces),
 		"node_count":           db.Storage.NodeCount,
@@ -521,7 +521,7 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		for index, dc := range *db.Info.Datacenters {
 			regions[index] = dc.Region
 		}
-		flatDB["region"] = regions
+		flatDB["regions"] = regions
 	}
 	return flatDB
 }
@@ -536,7 +536,7 @@ func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, 
 	}
 	// make sure all of the regions are valid
 	cloudProvider := resourceData.Get("cloud_provider").(string)
-	regions := resourceData.Get("region").([] interface{})
+	regions := resourceData.Get("regions").([] interface{})
 	for _, r := range regions {
 		region := r.(string)
 		dbRegion := findMatchingRegion(cloudProvider, region, "serverless", *regionsResp.JSON200)
