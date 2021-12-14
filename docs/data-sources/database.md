@@ -42,7 +42,7 @@ data "astra_database" "db" {
 - **node_count** (Number) Node count (not relevant for serverless databases)
 - **organization_id** (String) Ordg id (system generated)
 - **owner_id** (String) Owner id (system generated)
-- **region** (String) Cloud provider region. Get list of supported regions from regions data-source
+- **regions** (List of String) Cloud provider region. Get list of supported regions from regions data-source
 - **replication_factor** (Number) Replication Factor (not relevant for serverless databases)
 - **status** (String) Database status
 - **total_storage** (Number) Storage Capacity (not relevant for serverelss databases)

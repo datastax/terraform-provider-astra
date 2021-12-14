@@ -29,7 +29,7 @@ resource "astra_database" "example" {
 - **cloud_provider** (String) The cloud provider to launch the database.
 - **keyspace** (String) keyspace
 - **name** (String) Astra database name.
-- **region** (String) Cloud region to launch the database.
+- **regions** (List of String) Cloud region to launch the database.
 
 ### Optional
 
