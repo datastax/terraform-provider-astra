@@ -1,30 +1,29 @@
-## 1.0.14
-[Feature] Add multi-region support
+## 2.0.0 (Unreleased)
 
 BACKWARDS INCOMPATIBILITIES / NOTES:
 
-The Multi-Region support feature has changed the Terraform resource structure for Databases.
-Specifically, the "region" field is now an array of strings, as opposed to a single string.
-When updating the plugin, from a version prior to 1.0.14, to version 1.0.14 or newer, you
-will have to perform a manual Terraform state migration in order to keep existing databases
-under Terraform plugin management.
+* Data source and Resource `database` attribute `region` has been renamed to `regions`. The value is changed from a string to a list of strings. See https://github.com/datastax/terraform-provider-astra/blob/main/RELEASE_NOTES.md for more details.
 
-For each Datatbase under Terraform management:
-1. Obtain the database id (ex. b3107622-429d-45ab-a6da-0252cb091c86)
-2. Obtain the Terraform resource name for the database (ex. "my_db", from the resource line in your Terraform .tf file)
-3. Remove the database from the Terraform state
-```sh
-   terraform state rm astra_database.<resource name from #2>
-```
-4. Edit your Terraform resource file and convert the "region" field value from a string to an array
-```sh
-   region = "us-east1"
-```
-to
-```sh
-   region = ["us-east1"]
-```
-5. Import the database back into the Terraform state
-```sh
-   terraform import astra_database.<resource name from #2> <database uuid from #1>
-```
+FEATURES:
+
+* resource/database: Add Multi-Region support [GH-60] (see BACKWARDS INCOMPATIBILITIES notes above)
+
+IMPROVEMENTS:
+
+* resource/database: Not all database attributes are available [GH-61]
+
+BUG FIXES:
+
+* resource/keyspace: Incomplete resource provisioning on Astra [GH-62]
+
+## 1.0.13 (November 23, 2021)
+
+BUG FIXES:
+
+* resource/access_list: Fix access-list address adds and deletes [GH-54]
+
+## 1.0.12 (November 19, 2021)
+
+BUG FIXES:
+
+* resource/access_list: Access list fix [GH-49]
