@@ -153,7 +153,7 @@ func setKeyspaceResourceData(d *schema.ResourceData, databaseID string, keyspace
 }
 
 func parseKeyspaceID(id string) (string, string, error) {
-	idParts := strings.Split(strings.ToLower(id), "/keyspace/")
+	idParts := strings.Split(id, "/keyspace/")
 	if len(idParts) != 2 {
 		return "", "", errors.New("invalid keyspace id format: expected database_id/keyspace")
 	}
