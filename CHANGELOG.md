@@ -1,4 +1,11 @@
-## 2.0.0 (Unreleased)
+## 2.0.2 (December 23, 2021)
+
+BUG FIXES:
+
+* resource/keyspace: Allow keyspace names to be case sensitive [GH-68]
+* documentation: Fix "regions" documentation for database/databases resources/data sources [GH-66, GH-69]
+
+## 2.0.1 (December 14, 2021)
 
 BACKWARDS INCOMPATIBILITIES / NOTES:
 
