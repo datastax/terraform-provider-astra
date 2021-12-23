@@ -52,7 +52,7 @@ Read-Only:
 - **node_count** (Number)
 - **organization_id** (String)
 - **owner_id** (String)
-- **region** (String)
+- **regions** (List of String)
 - **replication_factor** (Number)
 - **status** (String)
 - **total_storage** (Number)
