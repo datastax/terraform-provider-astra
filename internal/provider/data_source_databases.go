@@ -60,10 +60,13 @@ func dataSourceDatabases() *schema.Resource {
 							Type:        schema.TypeString,
 							Computed:    true,
 						},
-						"region": {
-							Description: "The cloud provider region",
-							Type:        schema.TypeString,
+						"regions": {
+							Description: "List of cloud provider supported regions",
+							Type:        schema.TypeList,
 							Computed:    true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
 						},
 						"status": {
 							Description: "The status",
