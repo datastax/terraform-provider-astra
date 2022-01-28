@@ -25,7 +25,7 @@ func resourceToken() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			// Required
 			"roles": {
-				Description:  "Roles for generated token",
+				Description:  "List of Role IDs to be assigned to the generated token",
 				Type:         schema.TypeList,
 				Required:     true,
 				ForceNew: true,
@@ -62,7 +62,13 @@ func resourceTokenCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	rolesList := make([]string, len(roles))
 
 	for k, v := range roles {
-		rolesList[k] = v.(string)
+		roleId := v.(string)
+		// ensure the role exists
+		_, err := listRole(ctx, client, roleId)
+		if err != nil {
+			return diag.Errorf("Failed to create token. Role ID not found: %s", roleId)
+		}
+		rolesList[k] = roleId
 	}
 
 	tokenJSON := astra.GenerateTokenForClientJSONRequestBody{
