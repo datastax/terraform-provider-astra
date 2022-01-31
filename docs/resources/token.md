@@ -14,7 +14,7 @@ description: |-
 
 ```terraform
 resource "astra_token" "example" {
-  roles = ["puppies"]
+  roles = ["a8cd363d-5069-4a2b-86d8-0578139812ac"]
 }
 ```
 
@@ -23,7 +23,7 @@ resource "astra_token" "example" {
 
 ### Required
 
-- **roles** (List of String) Roles for generated token
+- **roles** (List of String) List of Role IDs to be assigned to the generated token
 
 ### Optional
 

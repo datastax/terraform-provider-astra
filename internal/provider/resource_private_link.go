@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
+	"regexp"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -143,9 +143,13 @@ func setPrivateLinkData(d *schema.ResourceData, databaseID string, datacenterID 
 }
 
 func parsePrivateLinkID(id string) (string, string, string, error) {
-	idParts := strings.Split(strings.ToLower(id), "/")
-	if len(idParts) != 5 {
-		return "", "", "", errors.New("invalid private link id format: expected datacenter/servicenames")
+	re := regexp.MustCompile(`(?P<databaseid>.*)/datacenter/(?P<datacenterid>.*)/serviceNames/(?P<servicename>.*)`)
+	if !re.MatchString(id) {
+		return "", "", "", errors.New("invalid private link id format: expected dataceneter/servicenames")
 	}
-	return idParts[0], idParts[2], idParts[4], nil
+	matches := re.FindStringSubmatch(id)
+	dbIdIndex := re.SubexpIndex("databaseid")
+	dcIdIndex := re.SubexpIndex("datacenterid")
+	svcNameIndex := re.SubexpIndex("servicename")
+	return matches[dbIdIndex], matches[dcIdIndex], matches[svcNameIndex], nil
 }

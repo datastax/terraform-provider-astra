@@ -49,6 +49,7 @@ func resourceRole() *schema.Resource {
 				ForceNew: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
+					ValidateDiagFunc: validateRoleResources,
 				},
 			},
 
@@ -111,7 +112,7 @@ func resourceRoleCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	if err != nil {
 		return diag.FromErr(err)
 	} else if resp.StatusCode() >= 400 {
-		return diag.Errorf("error adding role to org: %s", resp.Body)
+		return diag.Errorf("error adding role to org: Status: %s, %s", resp.Status(), resp.Body)
 	}
 
 	role := resp.JSON201
