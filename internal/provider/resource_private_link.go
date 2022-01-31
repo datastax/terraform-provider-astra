@@ -145,7 +145,7 @@ func setPrivateLinkData(d *schema.ResourceData, databaseID string, datacenterID 
 func parsePrivateLinkID(id string) (string, string, string, error) {
 	re := regexp.MustCompile(`(?P<databaseid>.*)/datacenter/(?P<datacenterid>.*)/serviceNames/(?P<servicename>.*)`)
 	if !re.MatchString(id) {
-		return "", "", "", errors.New("invalidprivate link id format: expected dataceneter/servicenames")
+		return "", "", "", errors.New("invalid private link id format: expected dataceneter/servicenames")
 	}
 	matches := re.FindStringSubmatch(id)
 	dbIdIndex := re.SubexpIndex("databaseid")

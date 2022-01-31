@@ -37,7 +37,7 @@ func validateRoleResources(v interface{}, path cty.Path) diag.Diagnostics {
 			{
 				Severity:      diag.Error,
 				Summary:       "Invalid role resource",
-				Detail:        fmt.Sprintf("\"%s\": invlaid role resource - must have prefix \"%s\"", roleResource, roleResourcePrefix),
+				Detail:        fmt.Sprintf("\"%s\": invalid role resource - must have prefix \"%s\"", roleResource, roleResourcePrefix),
 				AttributePath: path,
 			},
 		}
