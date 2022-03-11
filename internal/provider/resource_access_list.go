@@ -45,17 +45,17 @@ func resourceAccessList() *schema.Resource {
 							Elem:  &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"address": {
-										Description:  "Address",
+										Description:  "IP Address/CIDR group that should have access",
 										Type:         schema.TypeString,
 										Required:     true,
 									},
 									"description": {
-										Description:  "Description",
+										Description:  "Description for the IP Address/CIDR group",
 										Type:         schema.TypeString,
 										Optional:     true,
 									},
 									"enabled": {
-										Description:  "Description",
+										Description:  "Enable/disable this IP Address/CIDR group's access",
 										Type:         schema.TypeBool,
 										Required:     true,
 									},
@@ -64,6 +64,12 @@ func resourceAccessList() *schema.Resource {
 						},
 					},
 				},
+			},
+			"enabled": {
+				Description: "Public access restrictions enabled or disabled",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				ForceNew:    true,
 			},
 		},
 	}
@@ -74,37 +80,39 @@ func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta 
 
 	databaseID := d.Get("database_id").(string)
 	addresses := d.Get("addresses").([]interface{})
+	restricted := d.Get("enabled").(bool)
+	addressList := getAddressList(addresses)
 
-	for _, v := range addresses {
-		a := v.(map[string]interface{})["request"]
-		request := a.(*schema.Set)
-		addressList := make([]astra.AddressRequest, len(request.List()))
-		requestCount := 0
-		for _, val := range request.List() {
-			rMap := val.(map[string]interface{})
-			addressList[requestCount] = astra.AddressRequest{
-				Address:    rMap["address"].(string),
-				Enabled: rMap["enabled"].(bool),
-				Description:  rMap["description"].(string),
-			}
-			requestCount++
-		}
-		resp, err := client.AddAddressesToAccessListForDatabaseWithResponse(ctx,
-			astra.DatabaseIdParam(databaseID),
-			addressList,
-		)
+	addResp, err := client.AddAddressesToAccessListForDatabaseWithResponse(ctx,
+		astra.DatabaseIdParam(databaseID),
+		addressList,
+	)
 
-		if err != nil {
-			return diag.FromErr(err)
-		} else if resp.StatusCode() >= 400 {
-			return diag.Errorf("error adding private link to database: %s", resp.Body)
-		}
-
-		if err := setAccessListData(d, databaseID); err != nil {
-			return diag.FromErr(err)
-		}
-
+	if err != nil {
+		return diag.FromErr(err)
+	} else if addResp.StatusCode() >= 400 {
+		return diag.Errorf("error adding private link to database: %s", addResp.Body)
 	}
+
+	if err := setAccessListData(d, databaseID); err != nil {
+		return diag.FromErr(err)
+	}
+
+	accessListConfig := astra.AccessListConfigurations{AccessListEnabled: restricted}
+	updResp, err := client.UpdateAccessListForDatabaseWithResponse(ctx,
+		astra.DatabaseIdParam(databaseID),
+		astra.UpdateAccessListForDatabaseJSONRequestBody{
+			Addresses: &addressList,
+			Configurations: &accessListConfig,
+		},
+	)
+	if err != nil {
+		fmt.Print(err)
+		return diag.FromErr(err)
+	} else if updResp.StatusCode() >= 400 {
+		return diag.Errorf("error updating access list configuration: %d\n%s", updResp.StatusCode(), updResp.Body)
+	}
+
 	return nil
 }
 
@@ -196,4 +204,24 @@ func parseAccessListID(id string) (string, error) {
 		return "",  errors.New("invalid access list id format: expected databaseId/")
 	}
 	return idParts[0],  nil
+}
+
+func getAddressList(addresses []interface{}) []astra.AddressRequest {
+	var addressList []astra.AddressRequest
+	// There should only be 1 addresses object
+	v := addresses[0]
+	a := v.(map[string]interface{})["request"]
+	request := a.(*schema.Set)
+	addressList = make([]astra.AddressRequest, len(request.List()))
+	requestCount := 0
+	for _, val := range request.List() {
+		rMap := val.(map[string]interface{})
+		addressList[requestCount] = astra.AddressRequest{
+			Address:    rMap["address"].(string),
+			Enabled: rMap["enabled"].(bool),
+			Description:  rMap["description"].(string),
+		}
+		requestCount++
+	}
+	return addressList
 }
