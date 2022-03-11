@@ -43,7 +43,7 @@ func resourceRole() *schema.Resource {
 				ForceNew: true,
 			},
 			"resources": {
-				Description:  "Resources for which role is applicable",
+				Description:  "Resources for which role is applicable (format is \"drn:astra:org:<org UUID>\", followed by optional resource criteria. See example usage above).",
 				Type:         schema.TypeList,
 				Required:     true,
 				ForceNew: true,
@@ -54,7 +54,7 @@ func resourceRole() *schema.Resource {
 			},
 
 			"policy": {
-				Description:  "List of policies for the role.",
+				Description:  "List of policies for the role. See https://docs.datastax.com/en/astra/docs/user-permissions.html#_operational_roles_detail for spported policies.",
 				Type:         schema.TypeList,
 				Required:     true,
 				ForceNew:     true,

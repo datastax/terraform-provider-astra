@@ -3,12 +3,12 @@
 page_title: "astra_database Resource - terraform-provider-astra"
 subcategory: ""
 description: |-
-  astra_database provides an Astra Serverless Database resource. You can create and delete databases. Note: Classic Tier databases are not supported by the Terraform provider.
+  astra_database provides an Astra Serverless Database resource. You can create and delete databases. Note: Classic Tier databases are not supported by the Terraform provider. (see https://docs.datastax.com/en/astra/docs/index.html for more about Astra DB)
 ---
 
 # astra_database (Resource)
 
-`astra_database` provides an Astra Serverless Database resource. You can create and delete databases. Note: Classic Tier databases are not supported by the Terraform provider.
+`astra_database` provides an Astra Serverless Database resource. You can create and delete databases. Note: Classic Tier databases are not supported by the Terraform provider. (see https://docs.datastax.com/en/astra/docs/index.html for more about Astra DB)
 
 ## Example Usage
 
@@ -26,10 +26,10 @@ resource "astra_database" "example" {
 
 ### Required
 
-- **cloud_provider** (String) The cloud provider to launch the database.
-- **keyspace** (String) keyspace
+- **cloud_provider** (String) The cloud provider to launch the database. (Currently supported: aws, azure, gcp)
+- **keyspace** (String) Initial keyspace name. For additionaly kepyspaces, use the astra_keyspace resource.
 - **name** (String) Astra database name.
-- **regions** (List of String) Cloud region to launch the database.
+- **regions** (List of String) Cloud regions to launch the database. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)
 
 ### Optional
 
