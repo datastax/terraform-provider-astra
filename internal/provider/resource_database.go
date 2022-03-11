@@ -51,7 +51,7 @@ func resourceDatabase() *schema.Resource {
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
 			"keyspace": {
-				Description:      "Initial keyspace name. For additionaly kepyspaces, use the astra_keyspace resource.",
+				Description:      "Initial keyspace name. For additional kepyspaces, use the astra_keyspace resource.",
 				Type:             schema.TypeString,
 				Required:         true,
 				ForceNew:         true,
