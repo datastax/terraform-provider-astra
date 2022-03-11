@@ -38,7 +38,7 @@ resource "astra_access_list" "example" {
       enabled= true
     }
   }
-  restricted = true
+  enabled = true
 }
 `)
 }
