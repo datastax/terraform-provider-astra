@@ -54,7 +54,7 @@ func resourceRole() *schema.Resource {
 			},
 
 			"policy": {
-				Description:  "List of policies for the role. See https://docs.datastax.com/en/astra/docs/user-permissions.html#_operational_roles_detail for spported policies.",
+				Description:  "List of policies for the role. See https://docs.datastax.com/en/astra/docs/user-permissions.html#_operational_roles_detail for supported policies.",
 				Type:         schema.TypeList,
 				Required:     true,
 				ForceNew:     true,

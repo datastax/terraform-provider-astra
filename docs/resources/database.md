@@ -27,7 +27,7 @@ resource "astra_database" "example" {
 ### Required
 
 - **cloud_provider** (String) The cloud provider to launch the database. (Currently supported: aws, azure, gcp)
-- **keyspace** (String) Initial keyspace name. For additional kepyspaces, use the astra_keyspace resource.
+- **keyspace** (String) Initial keyspace name. For additional keyspaces, use the astra_keyspace resource.
 - **name** (String) Astra database name.
 - **regions** (List of String) Cloud regions to launch the database. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)
 
