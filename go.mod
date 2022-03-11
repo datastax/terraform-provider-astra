@@ -1,4 +1,4 @@
-module github.com/datastax/terraform-provider-astra
+module github.com/datastax/terraform-provider-astra/v2
 
 go 1.16
 
