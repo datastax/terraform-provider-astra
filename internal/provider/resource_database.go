@@ -26,7 +26,7 @@ var databaseReadTimeout = time.Minute * 5
 
 func resourceDatabase() *schema.Resource {
 	return &schema.Resource{
-		Description: "`astra_database` provides an Astra Serverless Database resource. You can create and delete databases. Note: Classic Tier databases are not supported by the Terraform provider.",
+		Description: "`astra_database` provides an Astra Serverless Database resource. You can create and delete databases. Note: Classic Tier databases are not supported by the Terraform provider. (see https://docs.datastax.com/en/astra/docs/index.html for more about Astra DB)",
 		CreateContext: resourceDatabaseCreate,
 		ReadContext:   resourceDatabaseRead,
 		DeleteContext: resourceDatabaseDelete,
@@ -51,14 +51,14 @@ func resourceDatabase() *schema.Resource {
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
 			"keyspace": {
-				Description:      "keyspace",
+				Description:      "Initial keyspace name. For additional keyspaces, use the astra_keyspace resource.",
 				Type:             schema.TypeString,
 				Required:         true,
 				ForceNew:         true,
 				ValidateDiagFunc: validateKeyspace,
 			},
 			"cloud_provider": {
-				Description:      "The cloud provider to launch the database.",
+				Description:      "The cloud provider to launch the database. (Currently supported: aws, azure, gcp)",
 				Type:             schema.TypeString,
 				Required:         true,
 				ForceNew:         true,
@@ -66,7 +66,7 @@ func resourceDatabase() *schema.Resource {
 				DiffSuppressFunc: ignoreCase,
 			},
 			"regions": {
-				Description: "Cloud region to launch the database.",
+				Description: "Cloud regions to launch the database. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)",
 				Type:        schema.TypeList,
 				Required:    true,
 				ForceNew:    false,
