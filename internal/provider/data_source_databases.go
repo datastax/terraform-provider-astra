@@ -129,7 +129,7 @@ func dataSourceDatabases() *schema.Resource {
 }
 
 func dataSourceDatabasesRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	params := &astra.ListDatabasesParams{
 		Include:       nil,

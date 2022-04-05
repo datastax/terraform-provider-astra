@@ -73,7 +73,8 @@ func dataSourcePrivateLinkEndpoints() *schema.Resource {
 func dataSourcePrivateLinkEndpointsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	fmt.Printf("testing")
 
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	databaseID := d.Get("database_id").(string)
 	datacenterID := d.Get("datacenter_id").(string)

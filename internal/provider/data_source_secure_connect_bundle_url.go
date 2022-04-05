@@ -38,7 +38,8 @@ func dataSourceSecureConnectBundleURL() *schema.Resource {
 }
 
 func dataSourceSecureConnectBundleURLRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	databaseID := d.Get("database_id").(string)
 

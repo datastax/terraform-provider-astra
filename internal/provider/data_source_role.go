@@ -76,7 +76,8 @@ func dataSourceRole() *schema.Resource {
 func dataSourceRoleRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	fmt.Printf("role data source")
 
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	roleID := d.Get("role_id").(string)
 

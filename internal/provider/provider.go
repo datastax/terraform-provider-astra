@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
 	"net/http"
 
 	"github.com/datastax/astra-client-go/v2/astra"
@@ -50,6 +51,7 @@ func New(version string) func() *schema.Provider {
 				"astra_access_list": resourceAccessList(),
 				"astra_role": resourceRole(),
 				"astra_token": resourceToken(),
+				"astra_cdc": resourceCDC(),
 			},
 			Schema: map[string]*schema.Schema{
 				"token": {
@@ -74,7 +76,7 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 		authorization := fmt.Sprintf("Bearer %s", token)
 		clientVersion := fmt.Sprintf("go/%s", astra.Version)
 
-		// Build a retryable http client to automatically
+		// Build a retryable http astraClient to automatically
 		// handle intermittent api errors
 		retryClient := retryablehttp.NewClient()
 		retryClient.RetryMax = 10
@@ -86,7 +88,19 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
 		}
 
-		client, err := astra.NewClientWithResponses(astra.ServerURL, func(c *astra.Client) error {
+		astraClient, err := astra.NewClientWithResponses(astra.ServerURL, func(c *astra.Client) error {
+			c.Client = retryClient.StandardClient()
+			c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
+				req.Header.Set("Authorization", authorization)
+				req.Header.Set("User-Agent", userAgent)
+				req.Header.Set("X-Astra-Provider-Version", providerVersion)
+				req.Header.Set("X-Astra-Client-Version", clientVersion)
+				return nil
+			})
+			return nil
+		})
+
+		streamingClient, err := astrastreaming.NewClientWithResponses(astra.ServerURL, func(c *astrastreaming.Client) error {
 			c.Client = retryClient.StandardClient()
 			c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
 				req.Header.Set("Authorization", authorization)
@@ -101,6 +115,16 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return nil, diag.FromErr(err)
 		}
 
-		return client, nil
+		clients := astraClients{
+			astraClient:          astraClient,
+			astraStreamingClient: streamingClient,
+		}
+		return clients, nil
 	}
+}
+
+
+type astraClients struct {
+	astraClient     interface{}
+	astraStreamingClient interface{}
 }

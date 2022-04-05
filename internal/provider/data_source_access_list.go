@@ -69,7 +69,8 @@ func dataSourceAccessList() *schema.Resource {
 func dataSourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	fmt.Printf("testing")
 
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	databaseID := d.Get("database_id").(string)
 

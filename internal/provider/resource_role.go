@@ -73,7 +73,8 @@ func resourceRole() *schema.Resource {
 }
 
 func resourceRoleCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	roleName := d.Get("role_name").(string)
 	description := d.Get("description").(string)
@@ -124,7 +125,8 @@ func resourceRoleCreate(ctx context.Context, d *schema.ResourceData, meta interf
 }
 
 func resourceRoleDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	id := d.Id()
 
@@ -140,7 +142,8 @@ func resourceRoleDelete(ctx context.Context, d *schema.ResourceData, meta interf
 }
 
 func resourceRoleRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	id := d.Id()
 

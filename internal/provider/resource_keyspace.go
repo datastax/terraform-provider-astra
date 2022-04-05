@@ -48,7 +48,8 @@ func resourceKeyspace() *schema.Resource {
 }
 
 func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	databaseID := d.Get("database_id").(string)
 	keyspaceName := d.Get("name").(string)
@@ -108,7 +109,8 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 }
 
 func resourceKeyspaceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	id := d.Id()
 	databaseID, keyspaceName, err := parseKeyspaceID(id)

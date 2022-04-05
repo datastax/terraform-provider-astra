@@ -46,7 +46,7 @@ func dataSourceKeyspaces() *schema.Resource {
 }
 
 func dataSourceKeyspacesRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	databaseID := d.Get("database_id").(string)
 

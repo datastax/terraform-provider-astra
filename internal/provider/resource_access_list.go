@@ -76,7 +76,8 @@ func resourceAccessList() *schema.Resource {
 }
 
 func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	databaseID := d.Get("database_id").(string)
 	addresses := d.Get("addresses").([]interface{})
@@ -117,7 +118,8 @@ func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta 
 }
 
 func resourceAccessListDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	id := d.Id()
 
@@ -161,7 +163,8 @@ func resourceAccessListDelete(ctx context.Context, d *schema.ResourceData, meta 
 }
 
 func resourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	id := d.Id()
 

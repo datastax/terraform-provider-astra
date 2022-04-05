@@ -139,7 +139,7 @@ func resourceDatabase() *schema.Resource {
 }
 
 func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	name := resourceData.Get("name").(string)
 	keyspace := resourceData.Get("keyspace").(string)
@@ -198,7 +198,7 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 }
 
 func resourceDatabaseRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	databaseID := resourceData.Id()
 
@@ -245,7 +245,8 @@ func resourceDatabaseRead(ctx context.Context, resourceData *schema.ResourceData
 }
 
 func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	databaseID := resourceData.Id()
 	alreadyDeleted := false
@@ -323,7 +324,8 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 }
 
 func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 	databaseID := resourceData.Id()
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 

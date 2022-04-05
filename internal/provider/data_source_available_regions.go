@@ -50,7 +50,8 @@ func dataSourceAvailableRegions() *schema.Resource {
 }
 
 func dataSourceRegionsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	regionsResp, err := client.ListServerlessRegionsWithResponse(ctx)
 	if err != nil {

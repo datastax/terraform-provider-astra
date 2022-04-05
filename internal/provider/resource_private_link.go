@@ -57,7 +57,7 @@ func resourcePrivateLink() *schema.Resource {
 }
 
 func resourcePrivateLinkCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	databaseID := d.Get("database_id").(string)
 	datacenterID := d.Get("datacenter_id").(string)
@@ -99,7 +99,7 @@ func resourcePrivateLinkDelete(ctx context.Context, d *schema.ResourceData, meta
 	return nil
 }
 func resourcePrivateLinkRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	id := d.Id()
 

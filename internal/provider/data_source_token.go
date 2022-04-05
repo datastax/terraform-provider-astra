@@ -56,7 +56,7 @@ func dataSourceToken() *schema.Resource {
 func dataSourceTokenRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	fmt.Printf("token data source")
 
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	clientID := d.Get("client_id").(string)
 

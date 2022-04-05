@@ -55,7 +55,8 @@ func resourceToken() *schema.Resource {
 }
 
 func resourceTokenCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	roles := d.Get("roles").([]interface{})
 
@@ -94,7 +95,7 @@ func resourceTokenCreate(ctx context.Context, d *schema.ResourceData, meta inter
 }
 
 func resourceTokenDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	id := d.Id()
 
@@ -110,7 +111,8 @@ func resourceTokenDelete(ctx context.Context, d *schema.ResourceData, meta inter
 
 func resourceTokenRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	id := d.Id()
 

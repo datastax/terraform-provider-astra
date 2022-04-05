@@ -50,7 +50,8 @@ func resourcePrivateLinkEndpoint() *schema.Resource {
 }
 
 func resourcePrivateLinkEndpointCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	databaseID := d.Get("database_id").(string)
 	datacenterID := d.Get("datacenter_id").(string)
@@ -78,7 +79,7 @@ func resourcePrivateLinkEndpointCreate(ctx context.Context, d *schema.ResourceDa
 }
 
 func resourcePrivateLinkEndpointDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	id := d.Id()
 
@@ -99,7 +100,8 @@ func resourcePrivateLinkEndpointDelete(ctx context.Context, d *schema.ResourceDa
 }
 
 func resourcePrivateLinkEndpointRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*astra.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
 
 	id := d.Id()
 
