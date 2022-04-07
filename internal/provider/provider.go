@@ -52,6 +52,7 @@ func New(version string) func() *schema.Provider {
 				"astra_role": resourceRole(),
 				"astra_token": resourceToken(),
 				"astra_cdc": resourceCDC(),
+				"astra_streaming_tenant": resourceStreamingTenant(),
 			},
 			Schema: map[string]*schema.Schema{
 				"token": {
