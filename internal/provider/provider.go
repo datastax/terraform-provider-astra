@@ -116,9 +116,27 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return nil, diag.FromErr(err)
 		}
 
+		const v3ServerURL = "https://api.streaming.datastax.com/"
+
+		streamingV3Client, err := astrastreaming.NewClientWithResponses(v3ServerURL, func(c *astrastreaming.Client) error {
+			c.Client = retryClient.StandardClient()
+			c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
+				req.Header.Set("User-Agent", userAgent)
+				req.Header.Set("X-Astra-Provider-Version", providerVersion)
+				req.Header.Set("X-Astra-Client-Version", clientVersion)
+				return nil
+			})
+			return nil
+		})
+		if err != nil {
+			return nil, diag.FromErr(err)
+		}
+
 		clients := astraClients{
 			astraClient:          astraClient,
 			astraStreamingClient: streamingClient,
+			astraStreamingClientv3: streamingV3Client,
+			token:                token,
 		}
 		return clients, nil
 	}
@@ -126,6 +144,8 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 
 
 type astraClients struct {
-	astraClient     interface{}
-	astraStreamingClient interface{}
+	astraClient            interface{}
+	astraStreamingClient   interface{}
+	token                  string
+	astraStreamingClientv3 *astrastreaming.ClientWithResponses
 }

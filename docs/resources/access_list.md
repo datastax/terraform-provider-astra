@@ -15,7 +15,7 @@ description: |-
 ```terraform
 resource "astra_access_list" "example" {
   database_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
-  enabled = true
+  enabled     = true
   addresses {
     request {
       address = "0.0.0.0/0"
@@ -30,32 +30,32 @@ resource "astra_access_list" "example" {
 
 ### Required
 
-- **addresses** (Block List, Min: 1) List of address requests that should have access to database endpoints. (see [below for nested schema](#nestedblock--addresses))
-- **database_id** (String) The ID of the Astra database.
+- `addresses` (Block List, Min: 1) List of address requests that should have access to database endpoints. (see [below for nested schema](#nestedblock--addresses))
+- `database_id` (String) The ID of the Astra database.
 
 ### Optional
 
-- **enabled** (Boolean) Public access restrictions enabled or disabled
-- **id** (String) The ID of this resource.
+- `enabled` (Boolean) Public access restrictions enabled or disabled
+- `id` (String) The ID of this resource.
 
 <a id="nestedblock--addresses"></a>
 ### Nested Schema for `addresses`
 
 Required:
 
-- **request** (Block Set, Min: 1) (see [below for nested schema](#nestedblock--addresses--request))
+- `request` (Block Set, Min: 1) (see [below for nested schema](#nestedblock--addresses--request))
 
 <a id="nestedblock--addresses--request"></a>
 ### Nested Schema for `addresses.request`
 
 Required:
 
-- **address** (String) IP Address/CIDR group that should have access
-- **enabled** (Boolean) Enable/disable this IP Address/CIDR group's access
+- `address` (String) IP Address/CIDR group that should have access
+- `enabled` (Boolean) Enable/disable this IP Address/CIDR group's access
 
 Optional:
 
-- **description** (String) Description for the IP Address/CIDR group
+- `description` (String) Description for the IP Address/CIDR group
 
 ## Import
 

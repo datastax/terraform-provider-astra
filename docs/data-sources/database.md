@@ -23,28 +23,28 @@ data "astra_database" "db" {
 
 ### Required
 
-- **database_id** (String) Astra Database ID (system generated)
+- `database_id` (String) Astra Database ID (system generated)
 
 ### Optional
 
-- **id** (String) The ID of this resource.
+- `id` (String) The ID of this resource.
 
 ### Read-Only
 
-- **additional_keyspaces** (List of String) Additional keyspaces
-- **cloud_provider** (String) Cloud provider (AWS, GCP, AZURE)
-- **cqlsh_url** (String) URL for cqlsh web
-- **data_endpoint_url** (String) REST API URL
-- **grafana_url** (String) URL for the grafana dashboard for this database
-- **graphql_url** (String) Graphql URL
-- **keyspace** (String) Initial keyspace
-- **name** (String) Database name (user provided)
-- **node_count** (Number) Node count (not relevant for serverless databases)
-- **organization_id** (String) Ordg id (system generated)
-- **owner_id** (String) Owner id (system generated)
-- **regions** (List of String) Cloud provider region. Get list of supported regions from regions data-source
-- **replication_factor** (Number) Replication Factor (not relevant for serverless databases)
-- **status** (String) Database status
-- **total_storage** (Number) Storage Capacity (not relevant for serverelss databases)
+- `additional_keyspaces` (List of String) Additional keyspaces
+- `cloud_provider` (String) Cloud provider (AWS, GCP, AZURE)
+- `cqlsh_url` (String) URL for cqlsh web
+- `data_endpoint_url` (String) REST API URL
+- `grafana_url` (String) URL for the grafana dashboard for this database
+- `graphql_url` (String) Graphql URL
+- `keyspace` (String) Initial keyspace
+- `name` (String) Database name (user provided)
+- `node_count` (Number) Node count (not relevant for serverless databases)
+- `organization_id` (String) Ordg id (system generated)
+- `owner_id` (String) Owner id (system generated)
+- `regions` (List of String) Cloud provider region. Get list of supported regions from regions data-source
+- `replication_factor` (Number) Replication Factor (not relevant for serverless databases)
+- `status` (String) Database status
+- `total_storage` (Number) Storage Capacity (not relevant for serverelss databases)
 
 

@@ -27,34 +27,34 @@ output "existing_dbs" {
 
 ### Optional
 
-- **cloud_provider** (String) The cloud provider
-- **id** (String) The ID of this resource.
-- **status** (String) The list of Astra databases that match the search criteria.
+- `cloud_provider` (String) The cloud provider
+- `id` (String) The ID of this resource.
+- `status` (String) The list of Astra databases that match the search criteria.
 
 ### Read-Only
 
-- **results** (List of Object) The list of Astra databases that match the search criteria. (see [below for nested schema](#nestedatt--results))
+- `results` (List of Object) The list of Astra databases that match the search criteria. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>
 ### Nested Schema for `results`
 
 Read-Only:
 
-- **additional_keyspaces** (List of String)
-- **cloud_provider** (String)
-- **cqlsh_url** (String)
-- **data_endpoint_url** (String)
-- **grafana_url** (String)
-- **graphql_url** (String)
-- **id** (String)
-- **keyspace** (String)
-- **name** (String)
-- **node_count** (Number)
-- **organization_id** (String)
-- **owner_id** (String)
-- **regions** (List of String)
-- **replication_factor** (Number)
-- **status** (String)
-- **total_storage** (Number)
+- `additional_keyspaces` (List of String)
+- `cloud_provider` (String)
+- `cqlsh_url` (String)
+- `data_endpoint_url` (String)
+- `grafana_url` (String)
+- `graphql_url` (String)
+- `id` (String)
+- `keyspace` (String)
+- `name` (String)
+- `node_count` (Number)
+- `organization_id` (String)
+- `owner_id` (String)
+- `regions` (List of String)
+- `replication_factor` (Number)
+- `status` (String)
+- `total_storage` (Number)
 
 

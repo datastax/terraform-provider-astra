@@ -37,13 +37,13 @@ resource "astra_private_link_endpoint" "example" {
 
 ### Required
 
-- **database_id** (String) The ID of the Astra database.
-- **datacenter_id** (String) Astra datacenter in the region where the private link will be created.
-- **endpoint_id** (String) Endpoint created in your cloud provider account example: "vpce-svc-1148ea04af8675309"
+- `database_id` (String) The ID of the Astra database.
+- `datacenter_id` (String) Astra datacenter in the region where the private link will be created.
+- `endpoint_id` (String) Endpoint created in your cloud provider account example: "vpce-svc-1148ea04af8675309"
 
 ### Optional
 
-- **id** (String) The ID of this resource.
+- `id` (String) The ID of this resource.
 
 ## Import
 

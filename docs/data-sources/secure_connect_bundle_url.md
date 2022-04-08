@@ -23,14 +23,14 @@ data "astra_secure_connect_bundle_url" "dev" {
 
 ### Required
 
-- **database_id** (String) The ID of the Astra database.
+- `database_id` (String) The ID of the Astra database.
 
 ### Optional
 
-- **id** (String) The ID of this resource.
+- `id` (String) The ID of this resource.
 
 ### Read-Only
 
-- **url** (String) The temporary download url to the secure connect bundle zip file.
+- `url` (String) The temporary download url to the secure connect bundle zip file.
 
 

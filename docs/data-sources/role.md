@@ -23,25 +23,25 @@ data "astra_role" "dev" {
 
 ### Required
 
-- **role_id** (String) Role ID, system generated
+- `role_id` (String) Role ID, system generated
 
 ### Optional
 
-- **id** (String) The ID of this resource.
+- `id` (String) The ID of this resource.
 
 ### Read-Only
 
-- **results** (List of Object) The list of private links that match the search criteria. (see [below for nested schema](#nestedatt--results))
+- `results` (List of Object) The list of private links that match the search criteria. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>
 ### Nested Schema for `results`
 
 Read-Only:
 
-- **description** (String)
-- **effect** (String)
-- **policy** (List of String)
-- **resources** (List of String)
-- **role_name** (String)
+- `description` (String)
+- `effect` (String)
+- `policy` (List of String)
+- `resources` (List of String)
+- `role_name` (String)
 
 

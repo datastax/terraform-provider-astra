@@ -24,11 +24,11 @@ data "astra_keyspace" "dev" {
 
 ### Required
 
-- **database_id** (String) The ID of the Astra database.
-- **name** (String) The keyspace name.
+- `database_id` (String) The ID of the Astra database.
+- `name` (String) The keyspace name.
 
 ### Optional
 
-- **id** (String) The ID of this resource.
+- `id` (String) The ID of this resource.
 
 

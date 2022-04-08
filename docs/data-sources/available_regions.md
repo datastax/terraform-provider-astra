@@ -22,20 +22,20 @@ data "astra_available_regions" "regions" {
 
 ### Optional
 
-- **id** (String) The ID of this resource.
+- `id` (String) The ID of this resource.
 
 ### Read-Only
 
-- **results** (List of Object) The list of supported Astra regions by cloud provider and tier. (see [below for nested schema](#nestedatt--results))
+- `results` (List of Object) The list of supported Astra regions by cloud provider and tier. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>
 ### Nested Schema for `results`
 
 Read-Only:
 
-- **cloud_provider** (String)
-- **display_name** (String)
-- **region** (String)
-- **zone** (String)
+- `cloud_provider` (String)
+- `display_name` (String)
+- `region` (String)
+- `zone` (String)
 
 

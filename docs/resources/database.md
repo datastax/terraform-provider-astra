@@ -26,37 +26,37 @@ resource "astra_database" "example" {
 
 ### Required
 
-- **cloud_provider** (String) The cloud provider to launch the database. (Currently supported: aws, azure, gcp)
-- **keyspace** (String) Initial keyspace name. For additional keyspaces, use the astra_keyspace resource.
-- **name** (String) Astra database name.
-- **regions** (List of String) Cloud regions to launch the database. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)
+- `cloud_provider` (String) The cloud provider to launch the database. (Currently supported: aws, azure, gcp)
+- `keyspace` (String) Initial keyspace name. For additional keyspaces, use the astra_keyspace resource.
+- `name` (String) Astra database name.
+- `regions` (List of String) Cloud regions to launch the database. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)
 
 ### Optional
 
-- **id** (String) The ID of this resource.
-- **timeouts** (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
+- `id` (String) The ID of this resource.
+- `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
 
-- **additional_keyspaces** (List of String) The total_storage
-- **cqlsh_url** (String) The cqlsh_url
-- **data_endpoint_url** (String) The data_endpoint_url
-- **grafana_url** (String) The grafana_url
-- **graphql_url** (String) The graphql_url
-- **node_count** (Number) The node_count
-- **organization_id** (String) The org id.
-- **owner_id** (String) The owner id.
-- **replication_factor** (Number) The replication_factor
-- **status** (String) The status
-- **total_storage** (Number) The total_storage
+- `additional_keyspaces` (List of String) The total_storage
+- `cqlsh_url` (String) The cqlsh_url
+- `data_endpoint_url` (String) The data_endpoint_url
+- `grafana_url` (String) The grafana_url
+- `graphql_url` (String) The graphql_url
+- `node_count` (Number) The node_count
+- `organization_id` (String) The org id.
+- `owner_id` (String) The owner id.
+- `replication_factor` (Number) The replication_factor
+- `status` (String) The status
+- `total_storage` (Number) The total_storage
 
 <a id="nestedblock--timeouts"></a>
 ### Nested Schema for `timeouts`
 
 Optional:
 
-- **create** (String)
-- **read** (String)
+- `create` (String)
+- `read` (String)
 
 ## Import
 

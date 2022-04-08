@@ -168,7 +168,7 @@ func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.Resou
 
 	id := resourceData.Id()
 
-	tenantID, err := parseRoleID(id)
+	tenantID, err := parseStreamingTenantID(id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -286,9 +286,6 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 	}
 
 	setStreamingTenantData(resourceData, streamingTenant.TenantName)
-	// Step 2: create cdc
-
-	// Step 3: create sink https://pulsar.apache.org/sink-rest-api/?version=2.8.0&apiversion=v3#operation/registerSink
 
 
     return nil

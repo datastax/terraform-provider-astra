@@ -25,26 +25,26 @@ data "astra_private_link_endpoints" "dev" {
 
 ### Required
 
-- **database_id** (String) The ID of the Astra database.
-- **datacenter_id** (String) The Datacenter ID of the Astra database.
-- **endpoint_id** (String) Endpoint ID.
+- `database_id` (String) The ID of the Astra database.
+- `datacenter_id` (String) The Datacenter ID of the Astra database.
+- `endpoint_id` (String) Endpoint ID.
 
 ### Optional
 
-- **id** (String) The ID of this resource.
+- `id` (String) The ID of this resource.
 
 ### Read-Only
 
-- **results** (List of Object) The list of private links that match the search criteria. (see [below for nested schema](#nestedatt--results))
+- `results` (List of Object) The list of private links that match the search criteria. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>
 ### Nested Schema for `results`
 
 Read-Only:
 
-- **create_time** (String)
-- **description** (String)
-- **endpoint_id** (String)
-- **status** (String)
+- `create_time` (String)
+- `description` (String)
+- `endpoint_id` (String)
+- `status` (String)
 
 

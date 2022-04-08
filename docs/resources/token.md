@@ -23,17 +23,17 @@ resource "astra_token" "example" {
 
 ### Required
 
-- **roles** (List of String) List of Role IDs to be assigned to the generated token
+- `roles` (List of String) List of Role IDs to be assigned to the generated token
 
 ### Optional
 
-- **id** (String) The ID of this resource.
+- `id` (String) The ID of this resource.
 
 ### Read-Only
 
-- **client_id** (String) Client id, use as username in cql to connect
-- **secret** (String) Secret, use as password in cql to connect
-- **token** (String) Token, use as auth bearer for API calls or as password in combination with the word `token` in cql
+- `client_id` (String) Client id, use as username in cql to connect
+- `secret` (String) Secret, use as password in cql to connect
+- `token` (String) Token, use as auth bearer for API calls or as password in combination with the word `token` in cql
 
 ## Import
 

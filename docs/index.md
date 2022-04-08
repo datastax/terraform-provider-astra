@@ -19,11 +19,11 @@ description: |-
 
   ```terraform
 terraform {
-    required_providers {
-        astra = {
-            source = "datastax/astra"
-        }
+  required_providers {
+    astra = {
+      source = "datastax/astra"
     }
+  }
 }
 
 variable "token" {}
