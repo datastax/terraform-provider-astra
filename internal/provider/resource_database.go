@@ -505,7 +505,7 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		"data_endpoint_url":    astra.StringValue(db.DataEndpointUrl),
 		"cqlsh_url":            astra.StringValue(db.CqlshUrl),
 		"cloud_provider":       "",
-		"regions":              [1]string{astra.StringValue(db.Info.Region)},
+		"regions":              []string{astra.StringValue(db.Info.Region)},
 		"keyspace":             astra.StringValue(db.Info.Keyspace),
 		"additional_keyspaces": astra.StringSlice(db.Info.AdditionalKeyspaces),
 		"node_count":           db.Storage.NodeCount,
