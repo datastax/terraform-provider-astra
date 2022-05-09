@@ -44,3 +44,25 @@ resource "astra_private_link_endpoint" "example" {
 }
 `)
 }
+
+func TestParsePrivateLinkEndpointId(t *testing.T){
+	id := "b504911d-4982-4e45-84c2-607524cb533b/datacenter/b504911d-4982-4e45-84c2-607524cb533b-1/endpoint//subscriptions/123456/resourceGroups/123456/providers/Microsoft.Network/privateEndpoints/123456"
+	databaseID, datacenterID, endpointID, err := parsePrivateLinkEndpointID(id)
+	if err != nil {
+		t.Logf("Private link ID failed to parse: \"%s\", %s", id, err)
+		t.Fail()
+	}
+	// assert databaseID, dataceneterID and endpointID
+	if databaseID != "b504911d-4982-4e45-84c2-607524cb533b" {
+		t.Logf("Database ID parsed from private link ID: \"%s\", expected \"%s\"", databaseID, "b504911d-4982-4e45-84c2-607524cb533b")
+		t.Fail()
+	}
+	if datacenterID != "b504911d-4982-4e45-84c2-607524cb533b-1" {
+		t.Logf("Datacenter ID parsed from private link ID: \"%s\", expected \"%s\"", datacenterID, "b504911d-4982-4e45-84c2-607524cb533b-1")
+		t.Fail()
+	}
+	if (endpointID != "/subscriptions/123456/resourceGroups/123456/providers/Microsoft.Network/privateEndpoints/123456") {
+		t.Logf("endpoint ID parsed from private link ID: \"%s\", expected \"%s\"", endpointID, "/subscriptions/123456/resourceGroups/123456/providers/Microsoft.Network/privateEndpoints/123456")
+		t.Fail()
+	}
+}
