@@ -102,6 +102,9 @@ func listRole(ctx context.Context, client *astra.ClientWithResponses, roleID str
 		return nil, err
 	}
 
+	if resp.StatusCode() > 200 {
+		return nil, fmt.Errorf("Fetching role \"%s\" was not successful. Message: %s", roleID, string(resp.Body))
+	}
 	roleRaw := (*resp.JSON200).(map[string]interface{})
 
 	return roleRaw, err
