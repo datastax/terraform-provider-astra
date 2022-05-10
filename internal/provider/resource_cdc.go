@@ -81,7 +81,7 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 
 	id := resourceData.Id()
 
-	databaseId, keyspace, table, tenantName, err := parseCDCID(id)
+	databaseId, _, _, tenantName, err := parseCDCID(id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -105,16 +105,8 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 		XDataStaxPulsarCluster: pulsarCluster,
 		Authorization:          pulsarToken,
 	}
-	deleteRequestBody := astrastreaming.DeleteCDCJSONRequestBody{
-		DatabaseId:      databaseId,
-		DatabaseName:    resourceData.Get("database_name").(string),
-		Keyspace:        keyspace,
-		OrgId:           org.ID,
-		TableName:       table,
-		TopicPartitions: resourceData.Get("topic_partitions").(int),
-	}
 
-	getCDCResponse, err := streamingClientv3.DeleteCDC(ctx, tenantName, &deleteCDCParams, deleteRequestBody)
+	getCDCResponse, err := streamingClientv3.DeleteCDC(ctx, tenantName, &deleteCDCParams)
 	if err != nil{
 		diag.FromErr(err)
 	}
