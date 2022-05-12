@@ -5,7 +5,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/datastax/terraform-provider-astra/v2/internal/provider"
+	"github.com/datastax/terraform-provider-astra/v2/provider"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 
