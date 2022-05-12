@@ -127,8 +127,16 @@ func resourceDatabase() *schema.Resource {
 				Computed:    true,
 			},
 			"additional_keyspaces": {
-				Description: "The total_storage",
+				Description: "Additional keyspaces",
 				Type:        schema.TypeList,
+				Computed:    true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"datacenters": {
+				Description: "Map of Datacenter IDs. The map key is \"cloud_provider.region\". Example: \"GCP.us-east4\".",
+				Type:        schema.TypeMap,
 				Computed:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -511,6 +519,7 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		"node_count":           db.Storage.NodeCount,
 		"replication_factor":   db.Storage.ReplicationFactor,
 		"total_storage":        db.Storage.TotalStorage,
+		"datacenters":          map[string]interface{}{},
 	}
 
 	if db.Info.CloudProvider != nil {
@@ -518,12 +527,17 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		flatDB["cloud_provider"] = string(cloudProvider)
 	}
 
-	if db.Info.Datacenters != nil && len(*db.Info.Datacenters) > 1 {
+	if db.Info.Datacenters != nil {
 		regions := make([]string, len(*db.Info.Datacenters))
+		datacenters := make(map[string]interface{}, len(*db.Info.Datacenters))
 		for index, dc := range *db.Info.Datacenters {
 			regions[index] = dc.Region
+			// make a datacenter key of cloud_provider.region
+			dcKey := strings.ToLower(flatDB["cloud_provider"].(string) + "." + dc.Region)
+			datacenters[dcKey] = *dc.Id
 		}
 		flatDB["regions"] = regions
+		flatDB["datacenters"] = datacenters
 	}
 	return flatDB
 }

@@ -38,9 +38,10 @@ resource "astra_database" "example" {
 
 ### Read-Only
 
-- `additional_keyspaces` (List of String) The total_storage
+- `additional_keyspaces` (List of String) Additional keyspaces
 - `cqlsh_url` (String) The cqlsh_url
 - `data_endpoint_url` (String) The data_endpoint_url
+- `datacenters` (Map of String) Map of Datacenter IDs. The map key is "cloud_provider.region". Example: "GCP.us-east4".
 - `grafana_url` (String) The grafana_url
 - `graphql_url` (String) The graphql_url
 - `node_count` (Number) The node_count
