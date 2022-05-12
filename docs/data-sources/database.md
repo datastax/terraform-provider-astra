@@ -35,6 +35,7 @@ data "astra_database" "db" {
 - `cloud_provider` (String) Cloud provider (AWS, GCP, AZURE)
 - `cqlsh_url` (String) URL for cqlsh web
 - `data_endpoint_url` (String) REST API URL
+- `datacenters` (List of Object) List of Datacenter IDs (see [below for nested schema](#nestedatt--datacenters))
 - `grafana_url` (String) URL for the grafana dashboard for this database
 - `graphql_url` (String) Graphql URL
 - `keyspace` (String) Initial keyspace
@@ -46,5 +47,14 @@ data "astra_database" "db" {
 - `replication_factor` (Number) Replication Factor (not relevant for serverless databases)
 - `status` (String) Database status
 - `total_storage` (Number) Storage Capacity (not relevant for serverelss databases)
+
+<a id="nestedatt--datacenters"></a>
+### Nested Schema for `datacenters`
+
+Read-Only:
+
+- `cloud_provider` (String)
+- `id` (String)
+- `region` (String)
 
 

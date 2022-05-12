@@ -127,11 +127,35 @@ func resourceDatabase() *schema.Resource {
 				Computed:    true,
 			},
 			"additional_keyspaces": {
-				Description: "The total_storage",
+				Description: "Additional keyspaces",
 				Type:        schema.TypeList,
 				Computed:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
+				},
+			},
+			"datacenters": {
+				Description: "List of Datacenter IDs",
+				Type:        schema.TypeList,
+				Computed:    true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id": {
+							Description:  "Datacenter ID",
+							Type:         schema.TypeString,
+							Computed:     true,
+						},
+						"cloud_provider": {
+							Description:  "The cloud provider in which the datacenter is deployed. (Currently supported: aws, azure, gcp)",
+							Type:         schema.TypeString,
+							Computed:     true,
+						},
+						"region": {
+							Description:  "The region in which the datacenter is deployed. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)",
+							Type:         schema.TypeString,
+							Computed:     true,
+						},
+					},
 				},
 			},
 		},
@@ -511,6 +535,7 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		"node_count":           db.Storage.NodeCount,
 		"replication_factor":   db.Storage.ReplicationFactor,
 		"total_storage":        db.Storage.TotalStorage,
+		"datacenters":          []interface{}{},
 	}
 
 	if db.Info.CloudProvider != nil {
@@ -518,12 +543,21 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		flatDB["cloud_provider"] = string(cloudProvider)
 	}
 
-	if db.Info.Datacenters != nil && len(*db.Info.Datacenters) > 1 {
+	if db.Info.Datacenters != nil {
 		regions := make([]string, len(*db.Info.Datacenters))
+		datacenters := make([]interface{}, 0, len(*db.Info.Datacenters))
 		for index, dc := range *db.Info.Datacenters {
 			regions[index] = dc.Region
+			// make a datacenter
+			datacenter := map[string]interface{}{
+				"id": *dc.Id,
+				"cloud_provider": string(dc.CloudProvider),
+				"region": dc.Region,
+			}
+			datacenters = append(datacenters, datacenter)
 		}
 		flatDB["regions"] = regions
+		flatDB["datacenters"] = datacenters
 	}
 	return flatDB
 }

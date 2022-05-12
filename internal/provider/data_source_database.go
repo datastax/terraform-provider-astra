@@ -106,6 +106,30 @@ func dataSourceDatabase() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"datacenters": {
+				Description: "List of Datacenter IDs",
+				Type:        schema.TypeList,
+				Computed:    true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id": {
+							Description:  "Datacenter ID",
+							Type:         schema.TypeString,
+							Computed:     true,
+						},
+						"cloud_provider": {
+							Description:  "The cloud provider in which the datacenter is deployed. (Currently supported: aws, azure, gcp)",
+							Type:         schema.TypeString,
+							Computed:     true,
+						},
+						"region": {
+							Description:  "The region in which the datacenter is deployed. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)",
+							Type:         schema.TypeString,
+							Computed:     true,
+						},
+					},
+				},
+			},
 		},
 	}
 }

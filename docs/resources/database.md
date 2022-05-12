@@ -38,9 +38,10 @@ resource "astra_database" "example" {
 
 ### Read-Only
 
-- `additional_keyspaces` (List of String) The total_storage
+- `additional_keyspaces` (List of String) Additional keyspaces
 - `cqlsh_url` (String) The cqlsh_url
 - `data_endpoint_url` (String) The data_endpoint_url
+- `datacenters` (List of Object) List of Datacenter IDs (see [below for nested schema](#nestedatt--datacenters))
 - `grafana_url` (String) The grafana_url
 - `graphql_url` (String) The graphql_url
 - `node_count` (Number) The node_count
@@ -57,6 +58,16 @@ Optional:
 
 - `create` (String)
 - `read` (String)
+
+
+<a id="nestedatt--datacenters"></a>
+### Nested Schema for `datacenters`
+
+Read-Only:
+
+- `cloud_provider` (String)
+- `id` (String)
+- `region` (String)
 
 ## Import
 
