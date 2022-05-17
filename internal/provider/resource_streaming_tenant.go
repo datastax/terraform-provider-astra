@@ -123,7 +123,9 @@ func resourceStreamingTenantDelete(ctx context.Context, resourceData *schema.Res
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-	region := resourceData.Get("region").(string)
+	rawRegion:= resourceData.Get("region").(string)
+	region := strings.ReplaceAll(rawRegion, "-", "")
+
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
 	id := resourceData.Id()
@@ -218,7 +220,8 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 
 	//name := resourceData.Get("name").(string)
 	topic := resourceData.Get("topic").(string)
-	region := resourceData.Get("region").(string)
+	rawRegion:= resourceData.Get("region").(string)
+	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 	tenantName:= resourceData.Get("tenant_name").(string)
 	userEmail:= resourceData.Get("user_email").(string)
@@ -271,11 +274,11 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 
 	tenantCreationResponse, err := streamingClient.IdOfCreateTenantEndpoint(ctx, &params, tenantRequest)
 	if err != nil{
-		diag.FromErr(err)
+		return diag.FromErr(err)
 	}
 	if !strings.HasPrefix(tenantCreationResponse.Status, "2") {
 		bodyBuffer, err = ioutil.ReadAll(tenantCreationResponse.Body)
-		return diag.Errorf("Error creating tenant %s", tenantCreationResponse.Body)
+		return diag.Errorf("Error creating tenant %s", bodyBuffer)
 	}
 	bodyBuffer, err = ioutil.ReadAll(tenantCreationResponse.Body)
 
@@ -283,10 +286,10 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 	err = json.Unmarshal(bodyBuffer, &streamingTenant)
 	if err != nil {
 		fmt.Println("Can't deserislize", orgBody)
+		return diag.Errorf("Error creating tenant %s", err)
 	}
 
 	setStreamingTenantData(resourceData, streamingTenant.TenantName)
-
 
     return nil
 }
