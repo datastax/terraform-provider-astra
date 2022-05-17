@@ -308,7 +308,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	}
 
 	//TODO: fix this
-	inputs := destination
+	inputs := []string{destination}
 	createSinkBody := astrastreaming.CreateSinkJSONJSONRequestBody{
 		Archive:                      &archive,
 		AutoAck:                      &autoAck,
@@ -318,7 +318,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		CustomRuntimeOptions:         nil,
 		DeadLetterTopic:              nil,
 		InputSpecs:                   &inputSpecs,
-		Inputs:                       inputs,
+		Inputs:                       &inputs,
 		MaxMessageRetries:            nil,
 		Name:                         &sinkName,
 		Namespace:                    &namespace,
