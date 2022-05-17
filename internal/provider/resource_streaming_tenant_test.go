@@ -24,7 +24,7 @@ func testAccStreamingTenantConfiguration() string {
 resource "astra_streaming_tenant" "streaming_tenant-1" {
   tenant_name        = "terraform_test"
   topic              = "terraform_test"
-  region             = "useast4"
+  region             = "useast-4"
   cloud_provider     = "gcp"
   user_email         = "seb@datastax.com"
 }

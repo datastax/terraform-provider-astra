@@ -115,9 +115,10 @@ func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta in
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 
-	db, diagnostics, done := getDatabase(ctx, d, client, databaseID)
-	if done {
-		return diagnostics
+	db, err := getDatabase(ctx, d, client, databaseID)
+	if err != nil {
+		diag.Errorf("error fetching database: %s", err.Error())
+		return nil
 	}
 
 	if err := setDatabaseResourceData(d, db); err != nil {
@@ -127,19 +128,20 @@ func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta in
 	return nil
 }
 
-func getDatabase(ctx context.Context, d *schema.ResourceData, client *astra.ClientWithResponses, databaseID string) (*astra.Database, diag.Diagnostics, bool) {
+func getDatabase(ctx context.Context, d *schema.ResourceData, client *astra.ClientWithResponses, databaseID string) (*astra.Database, error) {
 	resp, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
 	if err != nil {
-		return nil, diag.FromErr(err), true
+		return nil, err
 	}
 	if resp.StatusCode() == http.StatusNotFound {
 		d.SetId("")
-		return nil, nil, true
+		return nil, err
 	}
 
 	db := resp.JSON200
 	if db == nil {
-		return nil, diag.Errorf("error fetching database: %s", string(resp.Body)), true
+		diag.Errorf("error fetching database: %s", string(resp.Body))
+		return nil, err
 	}
-	return db, nil, false
+	return db, nil
 }
