@@ -22,9 +22,9 @@ func TestStreamingTenant(t *testing.T){
 func testAccStreamingTenantConfiguration() string {
 	return fmt.Sprintf(`
 resource "astra_streaming_tenant" "streaming_tenant-1" {
-  tenant_name        = "terraform_test"
-  topic              = "terraform_test"
-  region             = "useast4"
+  tenant_name        = "terraformtest"
+  topic              = "terraformtest"
+  region             = "useast-4"
   cloud_provider     = "gcp"
   user_email         = "seb@datastax.com"
 }

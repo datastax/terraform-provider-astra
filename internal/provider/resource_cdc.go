@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -68,6 +69,17 @@ func resourceCDC() *schema.Resource {
 				Required:     true,
 				ForceNew:     true,
 			},
+			"connector_status": {
+				Description:  "Streaming tenant name",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+			"data_topic": {
+				Description:  "Streaming tenant name",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+
 		},
 	}
 }
@@ -81,7 +93,7 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 
 	id := resourceData.Id()
 
-	databaseId, _, _, tenantName, err := parseCDCID(id)
+	databaseId, keyspace, table, tenantName, err := parseCDCID(id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -96,9 +108,9 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 		fmt.Println("Can't deserialize", orgBody)
 	}
 
-	pulsarCluster, err, pulsarToken, d, done2 := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
-	if done2 {
-		return d
+	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
+	if err != nil{
+		diag.FromErr(err)
 	}
 
 	deleteCDCParams := astrastreaming.DeleteCDCParams{
@@ -106,12 +118,21 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 		Authorization:          pulsarToken,
 	}
 
-	getCDCResponse, err := streamingClientv3.DeleteCDC(ctx, tenantName, &deleteCDCParams)
+	deleteRequestBody := astrastreaming.DeleteCDCJSONRequestBody{
+		DatabaseId:      databaseId,
+		DatabaseName:    resourceData.Get("database_name").(string),
+		Keyspace:        keyspace,
+		OrgId:           org.ID,
+		TableName:       table,
+		TopicPartitions: resourceData.Get("topic_partitions").(int),
+	}
+	getDeleteCDCResponse, err := streamingClientv3.DeleteCDC(ctx, tenantName, &deleteCDCParams, deleteRequestBody)
+
 	if err != nil{
 		diag.FromErr(err)
 	}
-	if !strings.HasPrefix(getCDCResponse.Status, "2") {
-		body, _ :=ioutil.ReadAll(getCDCResponse.Body)
+	if !strings.HasPrefix(getDeleteCDCResponse.Status, "2") {
+		body, _ :=ioutil.ReadAll(getDeleteCDCResponse.Body)
 		return diag.Errorf("Error deleting cdc %s", body)
 	}
 
@@ -169,9 +190,9 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 		fmt.Println("Can't deserialize", orgBody)
 	}
 
-	pulsarCluster, err, pulsarToken, d, done2 := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
-	if done2 {
-		return d
+	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
+	if err != nil{
+		diag.FromErr(err)
 	}
 
 	getCDCParams := astrastreaming.GetCDCParams{
@@ -201,6 +222,14 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 				return nil
 			}
 		}
+	}
+
+
+	if err := resourceData.Set("connector_status", cdcResult[0].ConnectorStatus); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := resourceData.Set("data_topic", cdcResult[0].DataTopic); err != nil {
+		return diag.FromErr(err)
 	}
 
 	// Not found. Remove from state.
@@ -271,10 +300,6 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		fmt.Println("Can't deserialize", orgBody)
 	}
 
-	pulsarCluster, err, pulsarToken, d, done2 := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
-	if done2 {
-		return d
-	}
 
 	cdcRequestJSON := astrastreaming.EnableCDCJSONRequestBody{
 		DatabaseId:      databaseId,
@@ -285,21 +310,81 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		TopicPartitions: topicPartitions,
 	}
 
-	enableCDCParams := astrastreaming.EnableCDCParams{
-		XDataStaxPulsarCluster: pulsarCluster,
-		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
-	}
-	enableClientResult, err := streamingClientv3.EnableCDC(ctx, tenantName, &enableCDCParams, cdcRequestJSON)
-
+	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	if !strings.HasPrefix(enableClientResult.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(enableClientResult.Body)
-		return diag.Errorf("Error enabling client %s", string(bodyBuffer))
+	enableCDCParams := astrastreaming.EnableCDCParams{
+		XDataStaxPulsarCluster: pulsarCluster,
+		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
-	bodyBuffer, err = ioutil.ReadAll(enableClientResult.Body)
+
+
+	var enableClientResult *http.Response
+	retryCount:=0
+	for enableClientResult ==nil || strings.HasPrefix(enableClientResult.Status, "401") {
+
+
+		enableClientResult, err = streamingClientv3.EnableCDC(ctx, tenantName, &enableCDCParams, cdcRequestJSON)
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		if strings.HasPrefix(enableClientResult.Status, "2") {
+			bodyBuffer, err = ioutil.ReadAll(enableClientResult.Body)
+			break
+		}
+		if retryCount>0{
+			time.Sleep(20*time.Second)
+		}
+		if retryCount>6{
+			return diag.Errorf("Could not enable CDC with token: %s", bodyBuffer)
+		}
+		retryCount = retryCount + 1
+
+		pulsarCluster, pulsarToken, err = prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		enableCDCParams = astrastreaming.EnableCDCParams{
+			XDataStaxPulsarCluster: pulsarCluster,
+			Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
+		}
+
+	}
+
+	getCDCParams := astrastreaming.GetCDCParams{
+		XDataStaxPulsarCluster: pulsarCluster,
+		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
+	}
+
+	var cdcResult CDCResult
+	for cdcResult == nil || len(cdcResult) <=0 {
+		getCDCResponse, err  := streamingClientv3.GetCDC(ctx, tenantName, &getCDCParams)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		if !strings.HasPrefix(getCDCResponse.Status, "2") {
+			bodyBuffer, err = ioutil.ReadAll(getCDCResponse.Body)
+			return diag.Errorf("Error enabling client %s", string(bodyBuffer))
+		}
+		bodyBuffer, err = ioutil.ReadAll(getCDCResponse.Body)
+		json.Unmarshal(bodyBuffer, &cdcResult)
+
+		time.Sleep(10*time.Second)
+	}
+
+
+	if err := resourceData.Set("connector_status", cdcResult[0].ConnectorStatus); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := resourceData.Set("data_topic", cdcResult[0].DataTopic); err != nil {
+		return diag.FromErr(err)
+	}
 
 	setCDCData(resourceData, fmt.Sprintf("%s/%s/%s/%s", databaseId, keyspace, table, tenantName))
 
@@ -308,20 +393,29 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 	return nil
 }
 
-func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId string, token string, org OrgId, err error, streamingClient *astrastreaming.ClientWithResponses, tenantName string) (string, error, string, diag.Diagnostics, bool) {
+func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId string, token string, org OrgId, err error, streamingClient *astrastreaming.ClientWithResponses, tenantName string) (string, string, error) {
 	databaseResourceData := schema.ResourceData{}
-	db, diagnostics, done := getDatabase(ctx, &databaseResourceData, client, databaseId)
-	if done {
-		return "", nil, "", diagnostics, true
+	db, err := getDatabase(ctx, &databaseResourceData, client, databaseId)
+	if err != nil {
+		return "", "", err
 	}
 
 	// In most astra APIs there are dashes in region names depending on the cloud provider, this seems not to be the case for streaming
-	regions := strings.ReplaceAll(*interface{}(db.Info.Region).(*string), "-", "")
 	cloudProvider := string(*db.Info.CloudProvider)
-	fmt.Printf("%s", regions)
 	fmt.Printf("%s", cloudProvider)
 
-	pulsarCluster := strings.ToLower(fmt.Sprintf("pulsar-%s-%s", cloudProvider, regions))
+	pulsarCluster := GetPulsarCluster(cloudProvider, *db.Info.Region)
+	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
+	return pulsarCluster, pulsarToken, err
+}
+
+func GetPulsarCluster(cloudProvider string, rawRegion string) string {
+	// In most astra APIs there are dashes in region names depending on the cloud provider, this seems not to be the case for streaming
+	region := strings.ReplaceAll(rawRegion, "-", "")
+	return strings.ToLower(fmt.Sprintf("pulsar-%s-%s", cloudProvider, region))
+}
+
+func getPulsarToken(ctx context.Context, pulsarCluster string, token string, org OrgId, err error, streamingClient *astrastreaming.ClientWithResponses, tenantName string) (string, error) {
 
 	tenantTokenParams := astrastreaming.IdListTenantTokensParams{
 		Authorization:          fmt.Sprintf("Bearer %s", token),
@@ -332,13 +426,15 @@ func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId 
 	pulsarTokenResponse, err := streamingClient.IdListTenantTokensWithResponse(ctx, tenantName, &tenantTokenParams)
 	if err != nil {
 		fmt.Println("Can't generate token", err)
-		return "", nil, "", diag.Errorf("Can't generate token"), true
+		diag.Errorf("Can't get pulsar token")
+		return "", err
 	}
 
 	var streamingTokens StreamingTokens
 	err = json.Unmarshal(pulsarTokenResponse.Body, &streamingTokens)
 	if err != nil {
 		fmt.Println("Can't deserialize", pulsarTokenResponse.Body)
+		return "", err
 	}
 
 	tokenId := streamingTokens[0].Tokenid
@@ -352,11 +448,11 @@ func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId 
 
 	if err != nil {
 		fmt.Println("Can't get token", err)
-		return "", nil, "", diag.Errorf("Can't gettoken"), true
+		return "", err
 	}
 
 	pulsarToken := string(getTokenResponse.Body)
-	return pulsarCluster, err, pulsarToken, nil, false
+	return pulsarToken, err
 }
 
 func setCDCData(d *schema.ResourceData, id string) error {

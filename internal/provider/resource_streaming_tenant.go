@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
 )
@@ -33,7 +34,7 @@ func resourceStreamingTenant() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+				ValidateFunc: validation.StringMatch(regexp.MustCompile("^[a-z]([-a-z0-9]*[a-z0-9])$"), "name must be atleast 2 characters and contain only alphanumeric characters"),
 			},
 			"topic": {
 				Description:  "Streaming tenant topic.",
@@ -123,7 +124,9 @@ func resourceStreamingTenantDelete(ctx context.Context, resourceData *schema.Res
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-	region := resourceData.Get("region").(string)
+	rawRegion:= resourceData.Get("region").(string)
+	region := strings.ReplaceAll(rawRegion, "-", "")
+
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
 	id := resourceData.Id()
@@ -218,7 +221,8 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 
 	//name := resourceData.Get("name").(string)
 	topic := resourceData.Get("topic").(string)
-	region := resourceData.Get("region").(string)
+	rawRegion:= resourceData.Get("region").(string)
+	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 	tenantName:= resourceData.Get("tenant_name").(string)
 	userEmail:= resourceData.Get("user_email").(string)
@@ -250,7 +254,7 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 		if streamingClusters[i].CloudProvider == cloudProvider{
 			if streamingClusters[i].CloudRegion == region{
 				// TODO - validation
-				fmt.Printf("body %s", streamingClusters[i].ClusterName)
+				//fmt.Printf("body %s", streamingClusters[i].ClusterName)
 			}
 		}
 	}
@@ -269,24 +273,17 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 		UserEmail:     &userEmail,
 	}
 
-	tenantCreationResponse, err := streamingClient.IdOfCreateTenantEndpoint(ctx, &params, tenantRequest)
+	tenantCreationResponse, err := streamingClient.IdOfCreateTenantEndpointWithResponse(ctx, &params, tenantRequest)
 	if err != nil{
-		diag.FromErr(err)
+		return diag.FromErr(err)
 	}
-	if !strings.HasPrefix(tenantCreationResponse.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(tenantCreationResponse.Body)
-		return diag.Errorf("Error creating tenant %s", tenantCreationResponse.Body)
-	}
-	bodyBuffer, err = ioutil.ReadAll(tenantCreationResponse.Body)
-
-	var streamingTenant StreamingTenant
-	err = json.Unmarshal(bodyBuffer, &streamingTenant)
-	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
+	if tenantCreationResponse.StatusCode() != http.StatusOK {
+		return diag.Errorf("Error creating tenant. Status Code: %d, Message: %s", tenantCreationResponse.StatusCode(), string(tenantCreationResponse.Body))
 	}
 
-	setStreamingTenantData(resourceData, streamingTenant.TenantName)
+	streamingTenant := * tenantCreationResponse.JSON200
 
+	setStreamingTenantData(resourceData, *streamingTenant.TenantName)
 
     return nil
 }
