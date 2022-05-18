@@ -68,6 +68,17 @@ func resourceCDC() *schema.Resource {
 				Required:     true,
 				ForceNew:     true,
 			},
+			"connector_status": {
+				Description:  "Streaming tenant name",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+			"data_topic": {
+				Description:  "Streaming tenant name",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+
 		},
 	}
 }
@@ -114,13 +125,13 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 		TableName:       table,
 		TopicPartitions: resourceData.Get("topic_partitions").(int),
 	}
-	getCDCResponse, err := streamingClientv3.DeleteCDC(ctx, tenantName, &deleteCDCParams, deleteRequestBody)
+	getDeleteCDCResponse, err := streamingClientv3.DeleteCDC(ctx, tenantName, &deleteCDCParams, deleteRequestBody)
 
 	if err != nil{
 		diag.FromErr(err)
 	}
-	if !strings.HasPrefix(getCDCResponse.Status, "2") {
-		body, _ :=ioutil.ReadAll(getCDCResponse.Body)
+	if !strings.HasPrefix(getDeleteCDCResponse.Status, "2") {
+		body, _ :=ioutil.ReadAll(getDeleteCDCResponse.Body)
 		return diag.Errorf("Error deleting cdc %s", body)
 	}
 
@@ -210,6 +221,14 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 				return nil
 			}
 		}
+	}
+
+
+	if err := resourceData.Set("connector_status", cdcResult[0].ConnectorStatus); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := resourceData.Set("data_topic", cdcResult[0].DataTopic); err != nil {
+		return diag.FromErr(err)
 	}
 
 	// Not found. Remove from state.
@@ -309,6 +328,36 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		return diag.Errorf("Error enabling client %s", string(bodyBuffer))
 	}
 	bodyBuffer, err = ioutil.ReadAll(enableClientResult.Body)
+
+	getCDCParams := astrastreaming.GetCDCParams{
+		XDataStaxPulsarCluster: pulsarCluster,
+		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
+	}
+
+	var cdcResult CDCResult
+	for cdcResult ==nil || len(cdcResult) <=0 {
+		getCDCResponse, err  := streamingClientv3.GetCDC(ctx, tenantName, &getCDCParams)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		if !strings.HasPrefix(getCDCResponse.Status, "2") {
+			bodyBuffer, err = ioutil.ReadAll(getCDCResponse.Body)
+			return diag.Errorf("Error enabling client %s", string(bodyBuffer))
+		}
+		bodyBuffer, err = ioutil.ReadAll(getCDCResponse.Body)
+		json.Unmarshal(bodyBuffer, &cdcResult)
+
+		time.Sleep(10*time.Second)
+	}
+
+
+	if err := resourceData.Set("connector_status", cdcResult[0].ConnectorStatus); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := resourceData.Set("data_topic", cdcResult[0].DataTopic); err != nil {
+		return diag.FromErr(err)
+	}
 
 	setCDCData(resourceData, fmt.Sprintf("%s/%s/%s/%s", databaseId, keyspace, table, tenantName))
 
