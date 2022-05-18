@@ -24,8 +24,8 @@ resource "astra_private_link_endpoint" "example" {
 # https://registry.terraform.io/providers/hashicorp/google/latest/docs/guides/getting_started#adding-credentials
 provider "google" {
   project = "my-project"
-  region = "us-east1"
-  zone = "us-east1-b"
+  region  = "us-east1"
+  zone    = "us-east1-b"
 }
 
 resource "astra_private_link" "example" {
@@ -35,32 +35,32 @@ resource "astra_private_link" "example" {
 }
 
 resource "google_compute_network" "example" {
- name                    = "example-network"
- auto_create_subnetworks = false
+  name                    = "example-network"
+  auto_create_subnetworks = false
 }
 
 resource "google_compute_subnetwork" "example" {
- name          = "example-subnetwork"
- ip_cidr_range = "10.142.0.0/20"
- region        = "us-east1"
- network       = google_compute_network.example.id
+  name          = "example-subnetwork"
+  ip_cidr_range = "10.142.0.0/20"
+  region        = "us-east1"
+  network       = google_compute_network.example.id
 }
 
 resource "google_compute_address" "example" {
- name         = "endpoint-address"
- subnetwork   = google_compute_subnetwork.example.id
- address_type = "INTERNAL"
- region       = "us-east1"
+  name         = "endpoint-address"
+  subnetwork   = google_compute_subnetwork.example.id
+  address_type = "INTERNAL"
+  region       = "us-east1"
 }
 
 resource "google_compute_forwarding_rule" "example" {
- name                  = "psc-endpoint"
- target                = "https://www.googleapis.com/compute/v1/${astra_private_link.example.service_name}"
- project               = google_compute_network.example.project
- ip_address            = google_compute_address.example.id
- network               = google_compute_network.example.id
- region                = "us-east1"
- load_balancing_scheme = ""
+  name                  = "psc-endpoint"
+  target                = "https://www.googleapis.com/compute/v1/${astra_private_link.example.service_name}"
+  project               = google_compute_network.example.project
+  ip_address            = google_compute_address.example.id
+  network               = google_compute_network.example.id
+  region                = "us-east1"
+  load_balancing_scheme = ""
 }
 
 # The endpoint ID (PSC Connection ID) is not currently accessible from the google_compute_forwarding_rule terraform object.
@@ -120,8 +120,8 @@ resource "azurerm_private_endpoint" "example" {
 # you will have to destroy and recreate the azurerm_private_endpoint resource in order to
 # reconnect and Astra private link endpoint.
 resource "astra_private_link_endpoint" "az_private_link_endpoint" {
-  database_id        = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
-  datacenter_id      = "a6bc9c26-e7ce-424f-84c7-0a00afb12588-1"
+  database_id   = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
+  datacenter_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588-1"
   endpoint_id   = "${data.azurerm_resource_group.example.id}/providers/Microsoft.Network/privateEndpoints/${azurerm_private_endpoint.example.name}"
 }
 

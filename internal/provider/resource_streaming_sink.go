@@ -456,10 +456,10 @@ func setStreamingSinkData(d *schema.ResourceData, tenantName string, topic strin
 	return nil
 }
 
-func parseStreamingSinkID(id string) (string, error) {
+func parseStreamingSinkID(id string) (string, string, error) {
 	idParts := strings.Split(strings.ToLower(id), "/")
 	if len(idParts) != 1 {
-		return "",  errors.New("invalid role id format: expected tenantID/")
+		return "",  "", errors.New("invalid role id format: expected tenant_name/topic")
 	}
-	return idParts[0],  nil
+	return idParts[0], idParts[1],  nil
 }

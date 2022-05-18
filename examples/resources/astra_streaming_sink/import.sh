@@ -1,0 +1,1 @@
+terraform import astra_streaming_sink.example tenant_name/topic

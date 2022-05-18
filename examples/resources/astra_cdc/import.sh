@@ -1,0 +1,1 @@
+terraform import astra_cdc.example databaseId/keyspace/table/tenantName

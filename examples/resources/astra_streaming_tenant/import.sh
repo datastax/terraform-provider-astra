@@ -1,0 +1,1 @@
+terraform import astra_streaming_tenant.example tenant_name
