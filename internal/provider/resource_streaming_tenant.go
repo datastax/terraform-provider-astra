@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
 )
@@ -33,7 +34,7 @@ func resourceStreamingTenant() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+				ValidateFunc: validation.StringMatch(regexp.MustCompile("^[a-z]([-a-z0-9]*[a-z0-9])$"), "name must be atleast 2 characters and contain only alphanumeric characters"),
 			},
 			"topic": {
 				Description:  "Streaming tenant topic.",
@@ -272,24 +273,17 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 		UserEmail:     &userEmail,
 	}
 
-	tenantCreationResponse, err := streamingClient.IdOfCreateTenantEndpoint(ctx, &params, tenantRequest)
+	tenantCreationResponse, err := streamingClient.IdOfCreateTenantEndpointWithResponse(ctx, &params, tenantRequest)
 	if err != nil{
 		return diag.FromErr(err)
 	}
-	if !strings.HasPrefix(tenantCreationResponse.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(tenantCreationResponse.Body)
-		return diag.Errorf("Error creating tenant %s", bodyBuffer)
-	}
-	bodyBuffer, err = ioutil.ReadAll(tenantCreationResponse.Body)
-
-	var streamingTenant StreamingTenant
-	err = json.Unmarshal(bodyBuffer, &streamingTenant)
-	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
-		return diag.Errorf("Error creating tenant %s", err)
+	if tenantCreationResponse.StatusCode() != http.StatusOK {
+		return diag.Errorf("Error creating tenant. Status Code: %d, Message: %s", tenantCreationResponse.StatusCode(), string(tenantCreationResponse.Body))
 	}
 
-	setStreamingTenantData(resourceData, streamingTenant.TenantName)
+	streamingTenant := * tenantCreationResponse.JSON200
+
+	setStreamingTenantData(resourceData, *streamingTenant.TenantName)
 
     return nil
 }
