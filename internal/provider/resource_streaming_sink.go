@@ -93,21 +93,9 @@ func resourceStreamingSink() *schema.Resource {
 				Required:     true,
 				ForceNew:     true,
 			},
-			"destination": {
-				Description:  "endpoint destination in target system",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-			},
 			"auto_ack": {
 				Description:  "auto ack",
 				Type:         schema.TypeBool,
-				Required:     true,
-				ForceNew:     true,
-			},
-			"class_name": {
-				Description:  "Class name",
-				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
 			},
@@ -196,12 +184,10 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	parallelism := int32(resourceData.Get("parallelism").(int))
 	namespace := resourceData.Get("namespace").(string)
 	rawConfigs := resourceData.Get("sink_configs").(string)
-	destination := resourceData.Get("destination").(string)
+	topic := resourceData.Get("topic").(string)
 	autoAck := resourceData.Get("auto_ack").(bool)
 
-	configs := make(map[string]interface{})
 
-	configs["test"]= rawConfigs
 
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
@@ -286,6 +272,9 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		}
 	}
 
+	var configs map[string]interface{}
+	json.Unmarshal([]byte(rawConfigs), &configs)
+
 	if sinkConfig == nil{
 		return diag.Errorf("Could not find sink name %s in prebuilt sinks", sinkName)
 	}
@@ -294,7 +283,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 
 	inputSpecs := astrastreaming.SinkConfig_InputSpecs{
 		AdditionalProperties: map[string]astrastreaming.ConsumerConfig{
-			destination: {
+			topic: {
 				ConsumerProperties: nil,
 				CryptoConfig:       nil,
 				PoolMessages:       nil,
@@ -307,14 +296,13 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		},
 	}
 
-	//TODO: fix this
-	inputs := []string{destination}
+	inputs := []string{topic}
 	createSinkBody := astrastreaming.CreateSinkJSONJSONRequestBody{
 		Archive:                      &archive,
 		AutoAck:                      &autoAck,
 		ClassName:                    nil,
 		CleanupSubscription:          nil,
-		Configs:                      &sinkConfig,
+		Configs:                      &configs,
 		CustomRuntimeOptions:         nil,
 		DeadLetterTopic:              nil,
 		InputSpecs:                   &inputSpecs,
@@ -352,18 +340,18 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	}
 	bodyBuffer, err = ioutil.ReadAll(sinkCreationResponse.Body)
 
-	setStreamingSinkData(resourceData, tenantName, destination)
+	setStreamingSinkData(resourceData, tenantName, topic)
 
     return nil
 }
 
-func setStreamingSinkData(d *schema.ResourceData, tenantName string, destination string) error {
-	d.SetId(fmt.Sprintf("%s", tenantName))
+func setStreamingSinkData(d *schema.ResourceData, tenantName string, topic string) error {
+	d.SetId(fmt.Sprintf("%s/%s", tenantName, topic))
 
 	if err := d.Set("tenant_name", tenantName); err != nil {
 		return err
 	}
-	if err := d.Set("destination", destination); err != nil {
+	if err := d.Set("topic", topic); err != nil {
 		return err
 	}
 
