@@ -22,7 +22,7 @@ func TestStreamingSink(t *testing.T){
 func testAccStreamingSinkConfiguration() string {
 	return fmt.Sprintf(`
 resource "astra_streaming_tenant" "streaming_tenant-1" {
-  tenant_name        = "terraformtest11"
+  tenant_name        = "terraformtest2"
   topic              = "terraformtest"
   region             = "useast-4"
   cloud_provider     = "gcp"

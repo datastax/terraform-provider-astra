@@ -254,7 +254,7 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 		if streamingClusters[i].CloudProvider == cloudProvider{
 			if streamingClusters[i].CloudRegion == region{
 				// TODO - validation
-				fmt.Printf("body %s", streamingClusters[i].ClusterName)
+				//fmt.Printf("body %s", streamingClusters[i].ClusterName)
 			}
 		}
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -299,10 +300,6 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		fmt.Println("Can't deserialize", orgBody)
 	}
 
-	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
-	if err != nil {
-		return diag.FromErr(err)
-	}
 
 	cdcRequestJSON := astrastreaming.EnableCDCJSONRequestBody{
 		DatabaseId:      databaseId,
@@ -313,21 +310,51 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		TopicPartitions: topicPartitions,
 	}
 
-	enableCDCParams := astrastreaming.EnableCDCParams{
-		XDataStaxPulsarCluster: pulsarCluster,
-		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
-	}
-	enableClientResult, err := streamingClientv3.EnableCDC(ctx, tenantName, &enableCDCParams, cdcRequestJSON)
-
+	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	if !strings.HasPrefix(enableClientResult.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(enableClientResult.Body)
-		return diag.Errorf("Error enabling client %s", string(bodyBuffer))
+	enableCDCParams := astrastreaming.EnableCDCParams{
+		XDataStaxPulsarCluster: pulsarCluster,
+		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
-	bodyBuffer, err = ioutil.ReadAll(enableClientResult.Body)
+
+
+	var enableClientResult *http.Response
+	retryCount:=0
+	for enableClientResult ==nil || strings.HasPrefix(enableClientResult.Status, "401") {
+
+
+		enableClientResult, err = streamingClientv3.EnableCDC(ctx, tenantName, &enableCDCParams, cdcRequestJSON)
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		if strings.HasPrefix(enableClientResult.Status, "2") {
+			bodyBuffer, err = ioutil.ReadAll(enableClientResult.Body)
+			break
+		}
+		if retryCount>0{
+			time.Sleep(20*time.Second)
+		}
+		if retryCount>6{
+			return diag.Errorf("Could not enable CDC with token: %s", bodyBuffer)
+		}
+		retryCount = retryCount + 1
+
+		pulsarCluster, pulsarToken, err = prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		enableCDCParams = astrastreaming.EnableCDCParams{
+			XDataStaxPulsarCluster: pulsarCluster,
+			Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
+		}
+
+	}
 
 	getCDCParams := astrastreaming.GetCDCParams{
 		XDataStaxPulsarCluster: pulsarCluster,
@@ -335,7 +362,7 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 	}
 
 	var cdcResult CDCResult
-	for cdcResult ==nil || len(cdcResult) <=0 {
+	for cdcResult == nil || len(cdcResult) <=0 {
 		getCDCResponse, err  := streamingClientv3.GetCDC(ctx, tenantName, &getCDCParams)
 		if err != nil {
 			return diag.FromErr(err)

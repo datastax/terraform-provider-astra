@@ -108,26 +108,21 @@ func resourceStreamingSink() *schema.Resource {
 func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	//TODO: call delete endpoint
 
-	// Deleted. Remove from state.
-	resourceData.SetId("")
-
-	return nil
-}
-
-func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	/*
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
 
 
-	id := resourceData.Id()
+	tenantName := resourceData.Get("tenant_name").(string)
+	sinkName := resourceData.Get("sink_name").(string)
+	namespace := resourceData.Get("namespace").(string)
 
-	tenantID, err := parseStreamingSinkID(id)
-	if err != nil {
-		return diag.FromErr(err)
-	}
+	rawRegion := resourceData.Get("region").(string)
+	region := strings.ReplaceAll(rawRegion, "-", "")
+	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	//tenantName:= resourceData.Get("tenant_name").(string)
+
+	pulsarCluster := GetPulsarCluster(cloudProvider, region)
 
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
@@ -139,31 +134,133 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 		fmt.Println("Can't deserialize", orgBody)
 	}
 
-	getTenantResponse, err := streamingClient.GetStreamingTenantWithResponse(ctx, org.ID, tenantID)
+
+	token := meta.(astraClients).token
+	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
+	if err != nil {
+		diag.FromErr(err)
+	}
+
+	deleteSinkParams := astrastreaming.DeleteSinkParams{
+		XDataStaxPulsarCluster: pulsarCluster,
+		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
+	}
+
+	deleteSinkResponse, err := streamingClientv3.DeleteSinkWithResponse(ctx, tenantName, namespace, sinkName, &deleteSinkParams)
 	if err != nil{
 		diag.FromErr(err)
 	}
-	if !strings.HasPrefix(getTenantResponse.HTTPResponse.Status, "2") {
-		return diag.Errorf("Error reading tenant %s", getTenantResponse.Body)
-	}
-
-	var streamingTenant StreamingTenant
-	err = json.Unmarshal(getTenantResponse.Body, &streamingTenant)
-	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
-	}
-
-	if streamingTenant.TenantName == tenantID {
-		if err := setStreamingSinkData(resourceData, tenantID); err != nil {
-			return diag.FromErr(err)
-		}
-		return nil
+	if !strings.HasPrefix(deleteSinkResponse.Status(), "2") {
+		return diag.Errorf("Error creating tenant %s", deleteSinkResponse.Body)
 	}
 
 	// Not found. Remove from state.
 	resourceData.SetId("")
 
-	*/
+	return nil
+}
+
+type SinkResponse struct {
+	Tenant                     string      `json:"tenant"`
+	Namespace                  string      `json:"namespace"`
+	Name                       string      `json:"name"`
+	ClassName                  string      `json:"className"`
+	SourceSubscriptionName     interface{} `json:"sourceSubscriptionName"`
+	SourceSubscriptionPosition string      `json:"sourceSubscriptionPosition"`
+	Inputs                     interface{} `json:"inputs"`
+	TopicToSerdeClassName      interface{} `json:"topicToSerdeClassName"`
+	TopicsPattern              interface{} `json:"topicsPattern"`
+	TopicToSchemaType          interface{} `json:"topicToSchemaType"`
+	TopicToSchemaProperties    interface{} `json:"topicToSchemaProperties"`
+	InputSpecs                 struct {
+		PersistentTerraformtest11AstracdcData5B70892FE01A459598E619Ecc9985D50SaiTestTest struct {
+			SchemaType       interface{} `json:"schemaType"`
+			SerdeClassName   interface{} `json:"serdeClassName"`
+			SchemaProperties struct {
+			} `json:"schemaProperties"`
+			ConsumerProperties struct {
+			} `json:"consumerProperties"`
+			ReceiverQueueSize interface{} `json:"receiverQueueSize"`
+			CryptoConfig      interface{} `json:"cryptoConfig"`
+			PoolMessages      bool        `json:"poolMessages"`
+			RegexPattern      bool        `json:"regexPattern"`
+		} `json:"persistent://terraformtest11/astracdc/data-5b70892f-e01a-4595-98e6-19ecc9985d50-sai_test.test"`
+	} `json:"inputSpecs"`
+	MaxMessageRetries interface{} `json:"maxMessageRetries"`
+	DeadLetterTopic   interface{} `json:"deadLetterTopic"`
+	Configs           struct {
+		Password  string `json:"password"`
+		JdbcURL   string `json:"jdbcUrl"`
+		UserName  string `json:"userName"`
+		TableName string `json:"tableName"`
+	} `json:"configs"`
+	Secrets                      interface{} `json:"secrets"`
+	Parallelism                  int         `json:"parallelism"`
+	ProcessingGuarantees         string      `json:"processingGuarantees"`
+	RetainOrdering               bool        `json:"retainOrdering"`
+	RetainKeyOrdering            bool        `json:"retainKeyOrdering"`
+	Resources                    interface{} `json:"resources"`
+	AutoAck                      bool        `json:"autoAck"`
+	TimeoutMs                    interface{} `json:"timeoutMs"`
+	NegativeAckRedeliveryDelayMs interface{} `json:"negativeAckRedeliveryDelayMs"`
+	Archive                      string      `json:"archive"`
+	CleanupSubscription          interface{} `json:"cleanupSubscription"`
+	RuntimeFlags                 interface{} `json:"runtimeFlags"`
+	CustomRuntimeOptions         interface{} `json:"customRuntimeOptions"`
+}
+
+func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+
+
+	tenantName := resourceData.Get("tenant_name").(string)
+	sinkName := resourceData.Get("sink_name").(string)
+	topic := resourceData.Get("topic").(string)
+	namespace := resourceData.Get("namespace").(string)
+
+	rawRegion := resourceData.Get("region").(string)
+	region := strings.ReplaceAll(rawRegion, "-", "")
+	cloudProvider := resourceData.Get("cloud_provider").(string)
+
+
+	pulsarCluster := GetPulsarCluster(cloudProvider, region)
+
+	orgBody, _ := client.GetCurrentOrganization(ctx)
+
+	var org OrgId
+	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+
+	err = json.Unmarshal(bodyBuffer, &org)
+	if err != nil {
+		fmt.Println("Can't deserislize", orgBody)
+	}
+
+
+	token := meta.(astraClients).token
+	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
+	if err != nil {
+		diag.FromErr(err)
+	}
+
+	getSinksParams := astrastreaming.GetSinksParams{
+		XDataStaxPulsarCluster: pulsarCluster,
+		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
+	}
+
+	getSinkResponse, err := streamingClientv3.GetSinksWithResponse(ctx, tenantName, namespace, sinkName, &getSinksParams)
+	if err != nil{
+		diag.FromErr(err)
+	}
+	if !strings.HasPrefix(getSinkResponse.Status(), "2") {
+		return diag.Errorf("Error creating tenant %s", getSinkResponse.Body)
+	}
+
+	var sinkResponse SinkResponse
+	json.Unmarshal(getSinkResponse.Body, sinkResponse)
+
+	setStreamingSinkData(resourceData, tenantName, topic)
 
 	return nil
 }
