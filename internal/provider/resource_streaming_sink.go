@@ -172,20 +172,6 @@ type SinkResponse struct {
 	TopicsPattern              interface{} `json:"topicsPattern"`
 	TopicToSchemaType          interface{} `json:"topicToSchemaType"`
 	TopicToSchemaProperties    interface{} `json:"topicToSchemaProperties"`
-	InputSpecs                 struct {
-		PersistentTerraformtest11AstracdcData5B70892FE01A459598E619Ecc9985D50SaiTestTest struct {
-			SchemaType       interface{} `json:"schemaType"`
-			SerdeClassName   interface{} `json:"serdeClassName"`
-			SchemaProperties struct {
-			} `json:"schemaProperties"`
-			ConsumerProperties struct {
-			} `json:"consumerProperties"`
-			ReceiverQueueSize interface{} `json:"receiverQueueSize"`
-			CryptoConfig      interface{} `json:"cryptoConfig"`
-			PoolMessages      bool        `json:"poolMessages"`
-			RegexPattern      bool        `json:"regexPattern"`
-		} `json:"persistent://terraformtest11/astracdc/data-5b70892f-e01a-4595-98e6-19ecc9985d50-sai_test.test"`
-	} `json:"inputSpecs"`
 	MaxMessageRetries interface{} `json:"maxMessageRetries"`
 	DeadLetterTopic   interface{} `json:"deadLetterTopic"`
 	Configs           struct {
@@ -378,20 +364,6 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 
 	archive := fmt.Sprintf("builtin://%s", sinkName)
 
-	inputSpecs := astrastreaming.SinkConfig_InputSpecs{
-		AdditionalProperties: map[string]astrastreaming.ConsumerConfig{
-			topic: {
-				ConsumerProperties: nil,
-				CryptoConfig:       nil,
-				PoolMessages:       nil,
-				ReceiverQueueSize:  nil,
-				RegexPattern:       nil,
-				SchemaProperties:   nil,
-				SchemaType:         nil,
-				SerdeClassName:     nil,
-		    },
-		},
-	}
 
 	inputs := []string{topic}
 	createSinkBody := astrastreaming.CreateSinkJSONJSONRequestBody{
@@ -402,7 +374,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		Configs:                      &configs,
 		CustomRuntimeOptions:         nil,
 		DeadLetterTopic:              nil,
-		InputSpecs:                   &inputSpecs,
+		InputSpecs:                   nil,
 		Inputs:                       &inputs,
 		MaxMessageRetries:            nil,
 		Name:                         &sinkName,
