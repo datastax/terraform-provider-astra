@@ -337,6 +337,7 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 			break
 		}
 		if retryCount>0{
+			fmt.Printf("failed to set up cdc with token %s for table %s", pulsarToken, table)
 			time.Sleep(20*time.Second)
 		}
 		if retryCount>6{
@@ -362,6 +363,7 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 	}
 
 	var cdcResult CDCResult
+	retryCount=0
 	for cdcResult == nil || len(cdcResult) <=0 {
 		getCDCResponse, err  := streamingClientv3.GetCDC(ctx, tenantName, &getCDCParams)
 		if err != nil {
@@ -375,7 +377,13 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		bodyBuffer, err = ioutil.ReadAll(getCDCResponse.Body)
 		json.Unmarshal(bodyBuffer, &cdcResult)
 
-		time.Sleep(10*time.Second)
+		if retryCount>0{
+			fmt.Printf("failed to set up cdc with token %s for table %s", pulsarToken, table)
+			time.Sleep(20*time.Second)
+		}
+		if retryCount>6{
+			return diag.Errorf("Could not enable CDC with token: %s", bodyBuffer)
+		}
 	}
 
 

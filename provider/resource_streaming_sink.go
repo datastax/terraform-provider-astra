@@ -151,7 +151,7 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 		diag.FromErr(err)
 	}
 	if !strings.HasPrefix(deleteSinkResponse.Status(), "2") {
-		return diag.Errorf("Error creating tenant %s", deleteSinkResponse.Body)
+		return diag.Errorf("Error deleting sink %s", deleteSinkResponse.Body)
 	}
 
 	// Not found. Remove from state.
@@ -240,7 +240,7 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 		diag.FromErr(err)
 	}
 	if !strings.HasPrefix(getSinkResponse.Status(), "2") {
-		return diag.Errorf("Error creating tenant %s", getSinkResponse.Body)
+		return diag.Errorf("Error getting sinks %s", getSinkResponse.Body)
 	}
 
 	var sinkResponse SinkResponse
@@ -293,11 +293,11 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	}
 
 	for i :=0 ; i < len(streamingClusters) ; i++{
-		fmt.Printf("body %s", streamingClusters[i].ClusterName)
+		//fmt.Printf("body %s", streamingClusters[i].ClusterName)
 		if streamingClusters[i].CloudProvider == cloudProvider{
 			if streamingClusters[i].CloudRegion == region{
 				// TODO - validation
-				fmt.Printf("body %s", streamingClusters[i].ClusterName)
+				//fmt.Printf("body %s", streamingClusters[i].ClusterName)
 			}
 		}
 	}
@@ -405,7 +405,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	}
 	if !strings.HasPrefix(sinkCreationResponse.Status, "2") {
 		bodyBuffer, err = ioutil.ReadAll(sinkCreationResponse.Body)
-		return diag.Errorf("Error creating tenant %s", bodyBuffer)
+		return diag.Errorf("Error creating sink %s", bodyBuffer)
 	}
 	bodyBuffer, err = ioutil.ReadAll(sinkCreationResponse.Body)
 

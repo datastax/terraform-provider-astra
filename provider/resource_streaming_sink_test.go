@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"testing"
 )
@@ -11,9 +12,9 @@ func TestStreamingSink(t *testing.T){
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		Steps: []resource.TestStep{
-			{
-				Config: testAccStreamingSinkConfiguration(),
-			},
+//			{
+//				Config: testAccStreamingSinkConfiguration(),
+//			},
 			{
 				Config: testAccStreamingSnowflakeSinkConfiguration(),
 			},
@@ -23,14 +24,16 @@ func TestStreamingSink(t *testing.T){
 
 //https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
 func testAccStreamingSinkConfiguration() string {
+	tenantName := fmt.Sprintf("terraformtest-%s", uuid.New().String())[0:20]
 	return fmt.Sprintf(`
 resource "astra_streaming_tenant" "streaming_tenant-1" {
-  tenant_name        = "terraformtest2"
+  tenant_name        = "%s"
   topic              = "terraformtest"
   region             = "useast-4"
   cloud_provider     = "gcp"
   user_email         = "seb@datastax.com"
 }
+
 resource "astra_cdc" "cdc-1" {
   depends_on            = [ astra_streaming_tenant.streaming_tenant-1 ]
   database_id           = "5b70892f-e01a-4595-98e6-19ecc9985d50"
@@ -59,21 +62,38 @@ resource "astra_streaming_sink" "streaming_sink-1" {
   })
   auto_ack              = true
 }
-`)
+`, tenantName)
 }
 func testAccStreamingSnowflakeSinkConfiguration() string {
+	tenantName := fmt.Sprintf("snowflake-%s", uuid.New().String())[0:20]
 	return fmt.Sprintf(`
-resource "astra_cdc" "cdc-1" { 
-  database_id           = "5b70892f-e01a-4595-98e6-19ecc9985d50" 
-  database_name         = "sai_test" 
-  table                 = "test" 
-  keyspace              = "sai_test" 
-  topic_partitions      = 3 
-  tenant_name           = "terraformtestsnowflake"
-} 
+resource "astra_streaming_tenant" "streaming_tenant-1" {
+  tenant_name        = "%s"
+  topic              = "snowflake"
+  region             = "useast-4"
+  cloud_provider     = "gcp"
+  user_email         = "seb@datastax.com"
+}
+resource "astra_cdc" "cdc-1" {
+  depends_on            = [ astra_streaming_tenant.streaming_tenant-1 ]
+  database_id           = "5b70892f-e01a-4595-98e6-19ecc9985d50"
+  database_name         = "sai_test"
+  table                 = "test"
+  keyspace              = "sai_test"
+  topic_partitions      = 3
+  tenant_name           = astra_streaming_tenant.streaming_tenant-1.tenant_name
+}
+resource "astra_streaming_topic" "offset_topic" {
+  depends_on         = [ astra_streaming_tenant.streaming_tenant-1 ]
+  topic              = "offset"
+  tenant_name        = astra_streaming_tenant.streaming_tenant-1.tenant_name
+  region             = "useast-4"
+  cloud_provider     = "gcp"
+  namespace          = "default"
+}
 resource "astra_streaming_sink" "streaming_sink-1" { 
-  depends_on            = [ astra_cdc.cdc-1 ] 
-  tenant_name           = "terraformtestsnowflake"
+  depends_on            = [ astra_cdc.cdc-1 , astra_streaming_tenant.streaming_tenant-1] 
+  tenant_name           = astra_streaming_tenant.streaming_tenant-1.tenant_name
   topic                 = astra_cdc.cdc-1.data_topic 
   region                = "useast-4" 
   cloud_provider        = "gcp" 
@@ -82,15 +102,12 @@ resource "astra_streaming_sink" "streaming_sink-1" {
   processing_guarantees = "ATLEAST_ONCE" 
   parallelism           = 3 
   namespace             = "astracdc" 
+  auto_ack              = true
   sink_configs          = jsonencode({ 
-{
-  "archive": "builtin://snowflake",
-  "autoAck": true,
-  "configs": {
     "lingerTimeMs": "10",
     "batchSize": "10",
     "topic": replace(astra_cdc.cdc-1.data_topic, "persistent://",""), 
-    "offsetStorageTopic": "terraformtestsnowflake/default/offset",
+    "offsetStorageTopic": format("%s/%s/%s",astra_streaming_tenant.streaming_tenant-1.tenant_name, astra_streaming_topic.offset_topic.namespace, astra_streaming_topic.offset_topic.topic), 
     "kafkaConnectorConfigProperties": {
       "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
       "key.converter": "org.apache.kafka.connect.storage.StringConverter",
@@ -107,16 +124,7 @@ resource "astra_streaming_sink" "streaming_sink-1" {
       "buffer.count.records": 10,
       "buffer.size.bytes": 10
     }
-  },
-  "inputs": [
-    astra_cdc.cdc-1.data_topic 
-  ],
-  "name": "snowflake",
-  "namespace": "astracdc",
-  "parallelism": 3,
-  "processingGuarantees": "ATLEAST_ONCE",
-  "retainOrdering": true,
-  "tenant": "terraformtestsnowflake"
+ })
 }
-`)
+`,tenantName, "%s", "%s", "%s")
 }

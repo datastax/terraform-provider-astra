@@ -108,7 +108,7 @@ func resourceStreamingTopicDelete(ctx context.Context, resourceData *schema.Reso
 
 	if !strings.HasPrefix(deleteTopicResponse.Status, "2") {
 		bodyBuffer, err = ioutil.ReadAll(deleteTopicResponse.Body)
-		return diag.Errorf("Error creating tenant %s", bodyBuffer)
+		return diag.Errorf("Error deleting topic %s", bodyBuffer)
 	}
 	bodyBuffer, err = ioutil.ReadAll(deleteTopicResponse.Body)
 
@@ -157,7 +157,7 @@ func resourceStreamingTopicRead(ctx context.Context, resourceData *schema.Resour
 
 	if !strings.HasPrefix(createTopicResponse.Status, "2") {
 		bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
-		return diag.Errorf("Error creating tenant %s", bodyBuffer)
+		return diag.Errorf("Error reading topic %s", bodyBuffer)
 	}
 	bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
 
@@ -197,6 +197,7 @@ func resourceStreamingTopicCreate(ctx context.Context, resourceData *schema.Reso
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenant)
 
 	createTopicParams := astrastreaming.CreateTopicParams{
+		XDataStaxCurrentOrg: &org.ID,
 		XDataStaxPulsarCluster: pulsarCluster,
 		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
@@ -208,7 +209,7 @@ func resourceStreamingTopicCreate(ctx context.Context, resourceData *schema.Reso
 
 	if !strings.HasPrefix(createTopicResponse.Status, "2") {
 		bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
-		return diag.Errorf("Error creating tenant %s", bodyBuffer)
+		return diag.Errorf("Error creating topic %s", bodyBuffer)
 	}
 	bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
 
