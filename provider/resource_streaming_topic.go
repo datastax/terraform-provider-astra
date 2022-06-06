@@ -17,7 +17,7 @@ import (
 
 func resourceStreamingTopic() *schema.Resource {
 	return &schema.Resource{
-		Description:   "`astra_cdc` enables cdc for an Astra Serverless table.",
+		Description:   "`astra_streaming_topic` creates an Astra Streaming topic.",
 		CreateContext: resourceStreamingTopicCreate,
 		ReadContext:   resourceStreamingTopicRead,
 		DeleteContext: resourceStreamingTopicDelete,

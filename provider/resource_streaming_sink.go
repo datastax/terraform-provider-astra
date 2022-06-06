@@ -17,7 +17,7 @@ import (
 
 func resourceStreamingSink() *schema.Resource {
 	return &schema.Resource{
-		Description:   "`astra_cdc` enables cdc for an Astra Serverless table.",
+		Description:   "`astra_streaming_sink` creates a streaming sink which sends data from a topic to a target system.",
 		CreateContext: resourceStreamingSinkCreate,
 		ReadContext:   resourceStreamingSinkRead,
 		DeleteContext: resourceStreamingSinkDelete,
