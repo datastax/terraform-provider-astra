@@ -95,8 +95,8 @@ github.com/cncf/xds/go v0.0.0-20210922020428-25de7278fc84/go.mod h1:eXthEFrGJvWH
 github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1/go.mod h1:eXthEFrGJvWHgFFCl3hGmgk+/aYT6PnTQLykKQRLhEs=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/cyberdelia/templates v0.0.0-20141128023046-ca7fffd4298c/go.mod h1:GyV+0YP4qX0UQ7r2MoYZ+AvYDp12OF5yg4q8rGnyNh4=
-github.com/datastax/astra-client-go/v2 v2.2.34 h1:X+MDSVh95DU4qgx1Teh67N51PQqxR4uQYYXB8ReE2YI=
-github.com/datastax/astra-client-go/v2 v2.2.34/go.mod h1:4sV7e/n7TFQ9IKv4cwtGC5r0ko6cKn3Dq2iUwLY+7nY=
+github.com/datastax/astra-client-go/v2 v2.2.36 h1:N2FcTm67lGsPQ8rn5voD4JoexfzMxvSnnK34P30A+kg=
+github.com/datastax/astra-client-go/v2 v2.2.36/go.mod h1:4sV7e/n7TFQ9IKv4cwtGC5r0ko6cKn3Dq2iUwLY+7nY=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
