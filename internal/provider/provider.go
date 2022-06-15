@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
 	"net/http"
 
@@ -32,29 +33,30 @@ func New(version string) func() *schema.Provider {
 	return func() *schema.Provider {
 		p := &schema.Provider{
 			DataSourcesMap: map[string]*schema.Resource{
-				"astra_database":                      dataSourceDatabase(),
-				"astra_databases":                     dataSourceDatabases(),
-				"astra_keyspace":                      dataSourceKeyspace(),
-				"astra_keyspaces":                     dataSourceKeyspaces(),
-				"astra_secure_connect_bundle_url":     dataSourceSecureConnectBundleURL(),
-				"astra_available_regions":			   dataSourceAvailableRegions(),
-				"astra_private_links":			       dataSourcePrivateLinks(),
-				"astra_private_link_endpoints":		   dataSourcePrivateLinkEndpoints(),
-				"astra_access_list":				   dataSourceAccessList(),
-				"astra_role":				           dataSourceRole(),
+				"astra_database":                  dataSourceDatabase(),
+				"astra_databases":                 dataSourceDatabases(),
+				"astra_keyspace":                  dataSourceKeyspace(),
+				"astra_keyspaces":                 dataSourceKeyspaces(),
+				"astra_secure_connect_bundle_url": dataSourceSecureConnectBundleURL(),
+				"astra_available_regions":         dataSourceAvailableRegions(),
+				"astra_private_links":             dataSourcePrivateLinks(),
+				"astra_private_link_endpoints":    dataSourcePrivateLinkEndpoints(),
+				"astra_access_list":               dataSourceAccessList(),
+				"astra_role":                      dataSourceRole(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
-				"astra_database": resourceDatabase(),
-				"astra_keyspace": resourceKeyspace(),
-				"astra_private_link": resourcePrivateLink(),
+				"astra_database":              resourceDatabase(),
+				"astra_keyspace":              resourceKeyspace(),
+				"astra_private_link":          resourcePrivateLink(),
 				"astra_private_link_endpoint": resourcePrivateLinkEndpoint(),
-				"astra_access_list": resourceAccessList(),
-				"astra_role": resourceRole(),
-				"astra_token": resourceToken(),
-				"astra_cdc": resourceCDC(),
-				"astra_streaming_tenant": resourceStreamingTenant(),
-				"astra_streaming_sink": resourceStreamingSink(),
-				"astra_streaming_topic": resourceStreamingTopic(),
+				"astra_access_list":           resourceAccessList(),
+				"astra_role":                  resourceRole(),
+				"astra_token":                 resourceToken(),
+				"astra_cdc":                   resourceCDC(),
+				"astra_streaming_tenant":      resourceStreamingTenant(),
+				"astra_streaming_sink":        resourceStreamingSink(),
+				"astra_streaming_topic":       resourceStreamingTopic(),
+				"astra_table":                 resourceTable(),
 			},
 			Schema: map[string]*schema.Schema{
 				"token": {
@@ -134,14 +136,50 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return nil, diag.FromErr(err)
 		}
 
+		var clientCache = make(map[string]astrarestapi.Client);
+
 		clients := astraClients{
-			astraClient:          astraClient,
-			astraStreamingClient: streamingClient,
+			astraClient:            astraClient,
+			astraStreamingClient:   streamingClient,
 			astraStreamingClientv3: streamingV3Client,
-			token:                token,
+			token:                  token,
+			stargateClientCache:    clientCache,
+			providerVersion:        providerVersion,
+			userAgent:              userAgent,
 		}
 		return clients, nil
 	}
+}
+
+func newRestClient(dbid string, providerVersion string, userAgent string, region string) (astrarestapi.Client, error) {
+	clientVersion := fmt.Sprintf("go/%s", astra.Version)
+	// Build a retryable http astraClient to automatically
+	// handle intermittent api errors
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 10
+	retryClient.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+		// Never retry POST requests because of side effects
+		if resp.Request.Method == "POST" {
+			return false, err
+		}
+		return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+	}
+
+	serverURL := fmt.Sprintf("https://%s-%s.apps.astra.datastax.com/api/rest/", dbid, region)
+	restClient, err := astrarestapi.NewClient(serverURL, func(c *astrarestapi.Client) error {
+		c.Client = retryClient.StandardClient()
+		c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
+			req.Header.Set("User-Agent", userAgent)
+			req.Header.Set("X-Astra-Provider-Version", providerVersion)
+			req.Header.Set("X-Astra-Client-Version", clientVersion)
+			return nil
+		})
+		return nil
+	})
+	if err != nil {
+		return *restClient, err
+	}
+	return *restClient, nil
 }
 
 
@@ -150,4 +188,7 @@ type astraClients struct {
 	astraStreamingClient   interface{}
 	token                  string
 	astraStreamingClientv3 *astrastreaming.ClientWithResponses
+	stargateClientCache    map[string]astrarestapi.Client
+	providerVersion        string
+	userAgent              string
 }
