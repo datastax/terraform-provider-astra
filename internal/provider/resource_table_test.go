@@ -28,7 +28,7 @@ resource "astra_database" "dev" {
   regions        = ["us-east1"]
 }
 resource "astra_table" "table-1" {
-  table       = "table"
+  table       = "mytable"
   keyspace = "puppies"
   database_id = astra_database.dev.id
   region = "us-east1"

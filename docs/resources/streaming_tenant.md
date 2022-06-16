@@ -3,22 +3,22 @@
 page_title: "astra_streaming_tenant Resource - terraform-provider-astra"
 subcategory: ""
 description: |-
-  astra_cdc enables cdc for an Astra Serverless table.
+  astra_streaming_tenant creates an Astra Streaming tenant.
 ---
 
 # astra_streaming_tenant (Resource)
 
-`astra_cdc` enables cdc for an Astra Serverless table.
+`astra_streaming_tenant` creates an Astra Streaming tenant.
 
 ## Example Usage
 
 ```terraform
 resource "astra_streaming_tenant" "streaming_tenant-1" {
-  tenant_name        = "terraformtest"
-  topic              = "terraformtest"
-  region             = "useast-4"
-  cloud_provider     = "gcp"
-  user_email         = "seb@datastax.com"
+  tenant_name    = "terraformtest"
+  topic          = "terraformtest"
+  region         = "useast-4"
+  cloud_provider = "gcp"
+  user_email     = "seb@datastax.com"
 }
 ```
 
