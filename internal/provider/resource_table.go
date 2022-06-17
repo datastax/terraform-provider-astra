@@ -175,10 +175,10 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 		// Success fetching database
 		db := res.JSON200
 		switch db.Status {
-		case astra.StatusEnumERROR, astra.StatusEnumTERMINATED, astra.StatusEnumTERMINATING:
+		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
 			// If the database reached a terminal state it will never become active
 			return resource.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
-		case astra.StatusEnumACTIVE:
+		case astra.ACTIVE:
 			resp, err := restClient.CreateTable(ctx, keyspaceName, &tableParams, createJSON)
 			if err != nil {
 				b, _:= io.ReadAll(resp.Body)

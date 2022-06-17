@@ -226,7 +226,7 @@ func resourceDatabaseRead(ctx context.Context, resourceData *schema.ResourceData
 		}
 
 		// If the database is TERMINATING or TERMINATED then remove it from the state
-		if db.Status == astra.StatusEnumTERMINATING || db.Status == astra.StatusEnumTERMINATED {
+		if db.Status == astra.TERMINATING || db.Status == astra.TERMINATED {
 			resourceData.SetId("")
 			return nil
 		}
@@ -309,7 +309,7 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 
 		// Return when the database is in a TERMINATED state
 		db := res.JSON200
-		if db.Status == astra.StatusEnumTERMINATED {
+		if db.Status == astra.TERMINATED {
 			return nil
 		}
 
@@ -462,10 +462,10 @@ func waitForDatabaseAndUpdateResource(ctx context.Context, resourceData *schema.
 		// Success fetching database
 		db := res.JSON200
 		switch db.Status {
-		case astra.StatusEnumERROR, astra.StatusEnumTERMINATED, astra.StatusEnumTERMINATING:
+		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
 			// If the database reached a terminal state it will never become active
 			return resource.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
-		case astra.StatusEnumACTIVE:
+		case astra.ACTIVE:
 			if err := setDatabaseResourceData(resourceData, db); err != nil {
 				return resource.NonRetryableError(err)
 			}
