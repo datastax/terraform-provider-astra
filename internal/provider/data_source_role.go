@@ -25,7 +25,7 @@ func dataSourceRole() *schema.Resource {
 			// Computed
 			"results": {
 				Type:        schema.TypeList,
-				Description: "The list of private links that match the search criteria.",
+				Description: "The list of role details for the specified role id.",
 				Computed:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{

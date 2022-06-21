@@ -41,11 +41,13 @@ func resourceToken() *schema.Resource {
 			"secret": {
 				Description:  "Secret, use as password in cql to connect",
 				Type:         schema.TypeString,
+				Sensitive:    true,
 				Computed: true,
 			},
 			"token": {
 				Description:  "Token, use as auth bearer for API calls or as password in combination with the word `token` in cql",
 				Type:         schema.TypeString,
+				Sensitive:    true,
 				Computed: true,
 			},
 

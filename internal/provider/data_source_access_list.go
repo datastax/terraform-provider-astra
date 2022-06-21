@@ -29,7 +29,7 @@ func dataSourceAccessList() *schema.Resource {
 			// Computed
 			"results": {
 				Type:        schema.TypeList,
-				Description: "The list of private links that match the search criteria.",
+				Description: "The access list details for the supplied Database.",
 				Computed:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{

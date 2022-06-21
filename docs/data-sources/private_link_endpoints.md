@@ -35,7 +35,7 @@ data "astra_private_link_endpoints" "dev" {
 
 ### Read-Only
 
-- `results` (List of Object) The list of private links that match the search criteria. (see [below for nested schema](#nestedatt--results))
+- `results` (List of Object) The list of private links endpoint details that match the search criteria. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>
 ### Nested Schema for `results`

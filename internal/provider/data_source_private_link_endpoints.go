@@ -39,7 +39,7 @@ func dataSourcePrivateLinkEndpoints() *schema.Resource {
 			// Computed
 			"results": {
 				Type:        schema.TypeList,
-				Description: "The list of private links that match the search criteria.",
+				Description: "The list of private links endpoint details that match the search criteria.",
 				Computed:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{

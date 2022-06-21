@@ -19,7 +19,7 @@ func dataSourceDatabases() *schema.Resource {
 			// Optional
 			"status": {
 				Type:        schema.TypeString,
-				Description: "The list of Astra databases that match the search criteria.",
+				Description: "Status flter. Only return databases with matching status, if supplied. Otherwise return all databases matching other requirements",
 				Optional:    true,
 			},
 			"cloud_provider": {
