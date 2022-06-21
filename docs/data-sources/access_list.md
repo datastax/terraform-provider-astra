@@ -31,7 +31,7 @@ data "astra_access_list" "dev" {
 
 ### Read-Only
 
-- `results` (List of Object) The list of private links that match the search criteria. (see [below for nested schema](#nestedatt--results))
+- `results` (List of Object) The access list details for the supplied Database. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>
 ### Nested Schema for `results`

@@ -32,8 +32,8 @@ resource "astra_token" "example" {
 ### Read-Only
 
 - `client_id` (String) Client id, use as username in cql to connect
-- `secret` (String) Secret, use as password in cql to connect
-- `token` (String) Token, use as auth bearer for API calls or as password in combination with the word `token` in cql
+- `secret` (String, Sensitive) Secret, use as password in cql to connect
+- `token` (String, Sensitive) Token, use as auth bearer for API calls or as password in combination with the word `token` in cql
 
 ## Import
 

@@ -29,7 +29,7 @@ output "existing_dbs" {
 
 - `cloud_provider` (String) The cloud provider
 - `id` (String) The ID of this resource.
-- `status` (String) The list of Astra databases that match the search criteria.
+- `status` (String) Status flter. Only return databases with matching status, if supplied. Otherwise return all databases matching other requirements
 
 ### Read-Only
 

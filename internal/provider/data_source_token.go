@@ -26,7 +26,7 @@ func dataSourceToken() *schema.Resource {
 			// Computed
 			"results": {
 				Type:        schema.TypeList,
-				Description: "The list of private links that match the search criteria.",
+				Description: "The list of roles for the specified client id.",
 				Computed:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
