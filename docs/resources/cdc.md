@@ -43,14 +43,11 @@ resource "astra_cdc" "cdc-1" {
 - `tenant_name` (String) Streaming tenant name
 - `topic_partitions` (Number) Number of partitions in cdc topic.
 
-### Optional
-
-- `id` (String) The ID of this resource.
-
 ### Read-Only
 
 - `connector_status` (String) Streaming tenant name
 - `data_topic` (String) Streaming tenant name
+- `id` (String) The ID of this resource.
 
 ## Import
 

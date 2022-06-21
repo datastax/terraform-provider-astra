@@ -25,12 +25,9 @@ data "astra_access_list" "dev" {
 
 - `database_id` (String) The ID of the Astra database.
 
-### Optional
-
-- `id` (String) The ID of this resource.
-
 ### Read-Only
 
+- `id` (String) The ID of this resource.
 - `results` (List of Object) The access list details for the supplied Database. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>

@@ -25,12 +25,9 @@ data "astra_role" "dev" {
 
 - `role_id` (String) Role ID, system generated
 
-### Optional
-
-- `id` (String) The ID of this resource.
-
 ### Read-Only
 
+- `id` (String) The ID of this resource.
 - `results` (List of Object) The list of role details for the specified role id. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>

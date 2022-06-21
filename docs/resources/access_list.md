@@ -36,6 +36,9 @@ resource "astra_access_list" "example" {
 ### Optional
 
 - `enabled` (Boolean) Public access restrictions enabled or disabled
+
+### Read-Only
+
 - `id` (String) The ID of this resource.
 
 <a id="nestedblock--addresses"></a>

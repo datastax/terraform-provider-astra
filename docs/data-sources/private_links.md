@@ -27,12 +27,9 @@ data "astra_private_links" "dev" {
 - `database_id` (String) The ID of the Astra database.
 - `datacenter_id` (String) The datacenter where of the Astra database.
 
-### Optional
-
-- `id` (String) The ID of this resource.
-
 ### Read-Only
 
+- `id` (String) The ID of this resource.
 - `results` (List of Object) The list of private links that match the search criteria. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>

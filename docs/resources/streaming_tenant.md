@@ -33,7 +33,7 @@ resource "astra_streaming_tenant" "streaming_tenant-1" {
 - `topic` (String) Streaming tenant topic.
 - `user_email` (String) User email for tenant.
 
-### Optional
+### Read-Only
 
 - `id` (String) The ID of this resource.
 

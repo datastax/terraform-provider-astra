@@ -25,10 +25,6 @@ data "astra_database" "db" {
 
 - `database_id` (String) Astra Database ID (system generated)
 
-### Optional
-
-- `id` (String) The ID of this resource.
-
 ### Read-Only
 
 - `additional_keyspaces` (List of String) Additional keyspaces
@@ -38,6 +34,7 @@ data "astra_database" "db" {
 - `datacenters` (Map of String) Map of Datacenter IDs. The map key is "cloud_provider.region". Example: "GCP.us-east4".
 - `grafana_url` (String) URL for the grafana dashboard for this database
 - `graphql_url` (String) Graphql URL
+- `id` (String) The ID of this resource.
 - `keyspace` (String) Initial keyspace
 - `name` (String) Database name (user provided)
 - `node_count` (Number) Node count (not relevant for serverless databases)

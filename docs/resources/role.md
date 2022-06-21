@@ -49,12 +49,9 @@ resource "astra_role" "example2" {
 - `resources` (List of String) Resources for which role is applicable (format is "drn:astra:org:<org UUID>", followed by optional resource criteria. See example usage above).
 - `role_name` (String) Role name
 
-### Optional
-
-- `id` (String) The ID of this resource.
-
 ### Read-Only
 
+- `id` (String) The ID of this resource.
 - `role_id` (String) Role ID, system generated
 
 ## Import

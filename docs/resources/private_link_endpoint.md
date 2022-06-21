@@ -150,13 +150,10 @@ resource "astra_private_link_endpoint" "az_private_link_endpoint" {
 - `datacenter_id` (String) Astra datacenter in the region where the private link will be created.
 - `endpoint_id` (String) Endpoint created in your cloud provider account example: "vpce-svc-1148ea04af8675309"
 
-### Optional
-
-- `id` (String) The ID of this resource.
-
 ### Read-Only
 
 - `astra_endpoint_id` (String) Endpoint ID for referencing within Astra. May be different than the endpoint_id of this resource.
+- `id` (String) The ID of this resource.
 
 ## Import
 

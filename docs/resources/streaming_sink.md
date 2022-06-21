@@ -67,7 +67,7 @@ resource "astra_streaming_sink" "streaming_sink-1" {
 - `tenant_name` (String) Streaming tenant name.
 - `topic` (String) Streaming tenant topic.
 
-### Optional
+### Read-Only
 
 - `id` (String) The ID of this resource.
 
