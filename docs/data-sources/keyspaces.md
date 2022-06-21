@@ -25,12 +25,9 @@ data "astra_keyspaces" "dev" {
 
 - `database_id` (String) The ID of the Astra database.
 
-### Optional
-
-- `id` (String) The ID of this resource.
-
 ### Read-Only
 
+- `id` (String) The ID of this resource.
 - `results` (List of Object) The list of keyspaces that match the search criteria. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>

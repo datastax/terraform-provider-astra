@@ -29,12 +29,9 @@ data "astra_private_link_endpoints" "dev" {
 - `datacenter_id` (String) The Datacenter ID of the Astra database.
 - `endpoint_id` (String) Endpoint ID.
 
-### Optional
-
-- `id` (String) The ID of this resource.
-
 ### Read-Only
 
+- `id` (String) The ID of this resource.
 - `results` (List of Object) The list of private links endpoint details that match the search criteria. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>

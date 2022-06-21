@@ -27,7 +27,7 @@ data "astra_keyspace" "dev" {
 - `database_id` (String) The ID of the Astra database.
 - `name` (String) The keyspace name.
 
-### Optional
+### Read-Only
 
 - `id` (String) The ID of this resource.
 

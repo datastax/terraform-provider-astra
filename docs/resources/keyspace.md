@@ -27,7 +27,7 @@ resource "astra_keyspace" "example" {
 - `database_id` (String) Astra database to create the keyspace.
 - `name` (String) Keyspace name can have up to 48 alpha-numeric characters and contain underscores; only letters and numbers are supported as the first character.
 
-### Optional
+### Read-Only
 
 - `id` (String) The ID of this resource.
 

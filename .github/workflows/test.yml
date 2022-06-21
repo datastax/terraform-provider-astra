@@ -26,6 +26,22 @@ jobs:
       run: |
         go mod download
 
+    - name: Install tfplugindocs
+      run: |
+        go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
+
+    - name: Run doc generation
+      id: doc_gen
+      run: |
+        tfplugindocs && echo "::set-output name=local_changes::$(git status --porcelain ./docs | wc -l)"
+
+    - name: Uncommitted changes Check
+      if: ${{ steps.doc_gen.outputs.local_changes != 0 }}
+      uses: actions/github-script@v3
+      with:
+        script: |
+          core.setFailed('tfplugindocs generated uncommitted doc changes. Please run tfplugindocs and add doc changes to your commits.')
+
     - name: Build
       run: |
         go build -v .

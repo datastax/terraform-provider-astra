@@ -74,7 +74,7 @@ resource "astra_table" "table-1" {
 - `region` (String) region.
 - `table` (String) Table name can have up to 48 alpha-numeric characters and contain underscores; only letters are supported as the first character.
 
-### Optional
+### Read-Only
 
 - `id` (String) The ID of this resource.
 

@@ -28,11 +28,11 @@ output "existing_dbs" {
 ### Optional
 
 - `cloud_provider` (String) The cloud provider
-- `id` (String) The ID of this resource.
 - `status` (String) Status flter. Only return databases with matching status, if supplied. Otherwise return all databases matching other requirements
 
 ### Read-Only
 
+- `id` (String) The ID of this resource.
 - `results` (List of Object) The list of Astra databases that match the search criteria. (see [below for nested schema](#nestedatt--results))
 
 <a id="nestedatt--results"></a>

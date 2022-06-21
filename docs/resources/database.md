@@ -33,7 +33,6 @@ resource "astra_database" "example" {
 
 ### Optional
 
-- `id` (String) The ID of this resource.
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
@@ -44,6 +43,7 @@ resource "astra_database" "example" {
 - `datacenters` (Map of String) Map of Datacenter IDs. The map key is "cloud_provider.region". Example: "GCP.us-east4".
 - `grafana_url` (String) The grafana_url
 - `graphql_url` (String) The graphql_url
+- `id` (String) The ID of this resource.
 - `node_count` (Number) The node_count
 - `organization_id` (String) The org id.
 - `owner_id` (String) The owner id.
