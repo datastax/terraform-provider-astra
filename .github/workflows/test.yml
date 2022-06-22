@@ -37,7 +37,7 @@ jobs:
 
     - name: Uncommitted changes Check
       if: ${{ steps.doc_gen.outputs.local_changes != 0 }}
-      uses: actions/github-script@v3
+      uses: actions/github-script@v6
       with:
         script: |
           core.setFailed('tfplugindocs generated uncommitted doc changes. Please run tfplugindocs and add doc changes to your commits.')
