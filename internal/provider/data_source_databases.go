@@ -121,6 +121,14 @@ func dataSourceDatabases() *schema.Resource {
 								Type: schema.TypeString,
 							},
 						},
+						"datacenters": {
+							Description: "Map of Datacenter IDs. The map key is \"cloud_provider.region\". Example: \"GCP.us-east4\".",
+							Type:        schema.TypeMap,
+							Computed:    true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
 					},
 				},
 			},
