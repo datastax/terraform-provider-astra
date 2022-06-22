@@ -44,6 +44,7 @@ Read-Only:
 - `cloud_provider` (String)
 - `cqlsh_url` (String)
 - `data_endpoint_url` (String)
+- `datacenters` (Map of String)
 - `grafana_url` (String)
 - `graphql_url` (String)
 - `id` (String)
