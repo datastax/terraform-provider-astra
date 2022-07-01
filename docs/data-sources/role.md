@@ -27,18 +27,11 @@ data "astra_role" "dev" {
 
 ### Read-Only
 
+- `description` (String) Role description
+- `effect` (String) Role effect
 - `id` (String) The ID of this resource.
-- `results` (List of Object) The list of role details for the specified role id. (see [below for nested schema](#nestedatt--results))
-
-<a id="nestedatt--results"></a>
-### Nested Schema for `results`
-
-Read-Only:
-
-- `description` (String)
-- `effect` (String)
-- `policy` (List of String)
-- `resources` (List of String)
-- `role_name` (String)
+- `policy` (List of String) List of policies for the role. See https://docs.datastax.com/en/astra/docs/user-permissions.html#_operational_roles_detail for supported policies.
+- `resources` (List of String) Resources for which role is applicable (format is "drn:astra:org:<org UUID>", followed by optional resource criteria. See example usage above).
+- `role_name` (String) Role name
 
 

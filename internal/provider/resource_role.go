@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/datastax/astra-client-go/v2/astra"
@@ -111,7 +110,8 @@ func resourceRoleCreate(ctx context.Context, d *schema.ResourceData, meta interf
 	}
 
 	role := resp.JSON201
-	if err := setRoleData(d, *role.Id); err != nil {
+	d.SetId(*role.Id)
+	if err := setRoleData(d, role); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -151,17 +151,10 @@ func resourceRoleRead(ctx context.Context, d *schema.ResourceData, meta interfac
 		return diag.FromErr(err)
 	}
 
-
-	if role["id"].(string) == roleID {
-		if err := setRoleData(d, roleID); err != nil {
-			return diag.FromErr(err)
-		}
-		return nil
+	d.SetId(roleID)
+	if err := setRoleData(d, role); err != nil {
+		return diag.FromErr(err)
 	}
-
-	// Not found. Remove from state.
-	d.SetId("")
-
 	return nil
 }
 
@@ -223,16 +216,6 @@ func resourceRoleUpdate(ctx context.Context, resourceData *schema.ResourceData, 
 	return nil
 }
 
-func setRoleData(d *schema.ResourceData, roleID string) error {
-	d.SetId(fmt.Sprintf("%s", roleID))
-
-	if err := d.Set("role_id", roleID); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func parseRoleID(id string) (string, error) {
 	idParts := strings.Split(strings.ToLower(id), "/")
 	if len(idParts) != 1 {
@@ -241,14 +224,6 @@ func parseRoleID(id string) (string, error) {
 	return idParts[0],  nil
 }
 
-func revertRole(oldRole map[string]interface{}, resourceData *schema.ResourceData) {
-	oldRolePolicy := oldRole["policy"].(map[string]interface{})
-	oldDescription := oldRolePolicy["description"]
-	oldEffect := oldRolePolicy["effect"]
-	oldResources := oldRolePolicy["resources"]
-	oldPolicy := oldRolePolicy["actions"]
-	resourceData.Set("description", oldDescription)
-	resourceData.Set("effect", oldEffect)
-	resourceData.Set("resources", oldResources)
-	resourceData.Set("policy", oldPolicy)
+func revertRole(oldRole *astra.Role, resourceData *schema.ResourceData) {
+	setRoleData(resourceData, oldRole)
 }
