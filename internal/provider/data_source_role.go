@@ -23,50 +23,36 @@ func dataSourceRole() *schema.Resource {
 			},
 
 			// Computed
-			"results": {
-				Type:        schema.TypeList,
-				Description: "The list of role details for the specified role id.",
-				Computed:    true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"role_name": {
-							Description:  "Role name",
-							Type:         schema.TypeString,
-							Required:     true,
-							ForceNew: true,
-						},
-						"description": {
-							Description:  "Role description",
-							Type:         schema.TypeString,
-							Required:     true,
-							ForceNew: true,
-						},
-						"effect": {
-							Description:  "Role effect",
-							Type:         schema.TypeString,
-							Required:     true,
-							ForceNew: true,
-						},
-						"resources": {
-							Description:  "Resources for which role is applicable",
-							Type:         schema.TypeList,
-							Required:     true,
-							ForceNew: true,
-							Elem: &schema.Schema{
-								Type: schema.TypeString,
-							},
-						},
-
-						"policy": {
-							Description:  "List of policies for the role.",
-							Type:         schema.TypeList,
-							Required:     true,
-							ForceNew:     true,
-							Elem: &schema.Schema{
-								Type: schema.TypeString,
-							},
-						},
-					},
+			"role_name": {
+				Description:  "Role name",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+			"description": {
+				Description:  "Role description",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+			"effect": {
+				Description:  "Role effect",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+			"resources": {
+				Description:  "Resources for which role is applicable (format is \"drn:astra:org:<org UUID>\", followed by optional resource criteria. See example usage above).",
+				Type:         schema.TypeList,
+				Computed:     true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+					ValidateDiagFunc: validateRoleResources,
+				},
+			},
+			"policy": {
+				Description:  "List of policies for the role. See https://docs.datastax.com/en/astra/docs/user-permissions.html#_operational_roles_detail for supported policies.",
+				Type:         schema.TypeList,
+				Computed:     true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
 				},
 			},
 		},
@@ -86,17 +72,15 @@ func dataSourceRoleRead(ctx context.Context, d *schema.ResourceData, meta interf
 		return diag.FromErr(err)
 	}
 
-	id := role["id"].(string)
-	d.SetId(id)
-	if err := d.Set("results", role); err != nil {
+	d.SetId(roleID)
+	if err := setRoleData(d, role); err != nil {
 		return diag.FromErr(err)
 	}
-
 
 	return nil
 }
 
-func listRole(ctx context.Context, client *astra.ClientWithResponses, roleID string) (map[string]interface{}, error) {
+func listRole(ctx context.Context, client *astra.ClientWithResponses, roleID string) (*astra.Role, error) {
 	resp, err := client.GetOrganizationRoleWithResponse(ctx, astra.RoleIdParam(roleID))
 	if err != nil {
 		return nil, err
@@ -105,7 +89,43 @@ func listRole(ctx context.Context, client *astra.ClientWithResponses, roleID str
 	if resp.StatusCode() > 200 {
 		return nil, fmt.Errorf("Fetching role \"%s\" was not successful. Message: %s", roleID, string(resp.Body))
 	}
-	roleRaw := (*resp.JSON200).(map[string]interface{})
 
-	return roleRaw, err
+	return resp.JSON200, err
+}
+
+func flattenRole(role astra.Role) map[string]interface{} {
+	flatRole := map[string]interface{}{
+		"role_id":     *role.Id,
+		"role_name":   *role.Name,
+		"description": "",
+		"effect":      "",
+		"resources":   []string{},
+		"policy":      []string{},
+	}
+
+	if role.Policy != nil {
+		policy := *role.Policy
+		flatRole["description"] = policy.Description
+		flatRole["effect"] = policy.Effect
+		flatRole["resources"] = policy.Resources
+		if policy.Actions != nil {
+			policies := make([]string, len(policy.Actions))
+			for index, p := range policy.Actions {
+				policies[index] = string(p)
+			}
+			flatRole["policy"] = policies
+		}
+	}
+
+	return flatRole
+}
+
+func setRoleData(d *schema.ResourceData, role *astra.Role) error {
+	flatRole := flattenRole(*role)
+	for k, v := range flatRole {
+		if err := d.Set(k, v); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -60,7 +60,7 @@ func dataSourceTokenRead(ctx context.Context, d *schema.ResourceData, meta inter
 
 	clientID := d.Get("client_id").(string)
 
-	token, err := listRole(ctx, client, clientID)
+	token, err := listToken(ctx, client, clientID)
 	if err != nil {
 		return diag.FromErr(err)
 	}

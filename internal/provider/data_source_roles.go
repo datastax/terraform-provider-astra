@@ -99,24 +99,3 @@ func getRoleSlice(roleResp *[]astra.Role) []astra.Role {
 	}
 	return *roleResp
 }
-
-func flattenRole(role astra.Role) map[string]interface{} {
-	flatRole := map[string]interface{}{
-		"role_id":     *role.Id,
-		"role_name":   *role.Name,
-		"description": role.Policy.Description,
-		"effect":      role.Policy.Effect,
-		"resources":   role.Policy.Resources,
-		"policy":      []string{},
-	}
-
-	if role.Policy.Actions != nil {
-		policies := make([]string, len(role.Policy.Actions))
-		for index, p := range role.Policy.Actions {
-			policies[index] = string(p)
-		}
-		flatRole["policy"] = policies
-	}
-
-	return flatRole
-}
