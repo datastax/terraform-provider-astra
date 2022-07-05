@@ -1,3 +1,54 @@
+## Version 2.1.1 Notes
+
+### Astra CDC and Streaming
+
+Astra CDC and Streaming have been added as of version 2.1.0!
+
+### access_list Data Source and Resource format change
+
+As of version 2.1.1, the format for access_lists Resources is chnaging from:
+```sh
+resource "astra_access_list" "example" {
+  database_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
+  enabled = true
+  addresses {
+    request {
+      address = "0.0.0.1/0"
+      enabled = true
+    }
+    request {
+      address = "0.0.0.2/0"
+      enabled = true
+    }
+    request {
+      address = "0.0.0.3/0"
+      enabled = true
+    }
+  }
+}
+```
+to:
+```sh
+resource "astra_access_list" "example" {
+  database_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
+  enabled = true
+  addresses {
+    address = "0.0.0.1/0"
+    enabled = true
+  }
+  addresses {
+    address = "0.0.0.2/0"
+    enabled = true
+  }
+  addresses {
+    address = "0.0.0.3/0"
+    enabled = true
+  }
+}
+```
+
+Also, the access_list data source format is changing to match more closely the changes made to the resource.
+
 ## Version 2.0.0 Notes
 
 ### Database Resource Changes

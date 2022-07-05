@@ -27,17 +27,17 @@ data "astra_access_list" "dev" {
 
 ### Read-Only
 
+- `addresses` (List of Object) Addresses in the access list. (see [below for nested schema](#nestedatt--addresses))
+- `enabled` (Boolean) The Access list is enabled or disabled.
 - `id` (String) The ID of this resource.
-- `results` (List of Object) The access list details for the supplied Database. (see [below for nested schema](#nestedatt--results))
 
-<a id="nestedatt--results"></a>
-### Nested Schema for `results`
+<a id="nestedatt--addresses"></a>
+### Nested Schema for `addresses`
 
 Read-Only:
 
-- `addresses` (List of String)
-- `datacenter_id` (String)
-- `enabled` (String)
-- `organization_id` (String)
+- `address` (String)
+- `description` (String)
+- `enabled` (Boolean)
 
 
