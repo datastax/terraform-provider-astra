@@ -15,12 +15,18 @@ description: |-
 ```terraform
 resource "astra_access_list" "example" {
   database_id = "a6bc9c26-e7ce-424f-84c7-0a00afb12588"
-  enabled     = true
+  enabled = true
   addresses {
-    request {
-      address = "0.0.0.0/0"
-      enabled = true
-    }
+    address = "0.0.0.1/0"
+    enabled = true
+  }
+  addresses {
+    address = "0.0.0.2/0"
+    enabled = true
+  }
+  addresses {
+    address = "0.0.0.3/0"
+    enabled = true
   }
 }
 ```
@@ -46,13 +52,6 @@ resource "astra_access_list" "example" {
 
 Required:
 
-- `request` (Block Set, Min: 1) (see [below for nested schema](#nestedblock--addresses--request))
-
-<a id="nestedblock--addresses--request"></a>
-### Nested Schema for `addresses.request`
-
-Required:
-
 - `address` (String) IP Address/CIDR group that should have access
 - `enabled` (Boolean) Enable/disable this IP Address/CIDR group's access
 
@@ -65,6 +64,6 @@ Optional:
 Import is supported using the following syntax:
 
 ```shell
-# the import id includes the database_id and the keyspace name.
-terraform import astra_access_list.example 48bfc13b-c1a5-48db-b70f-b6ef9709872b/keyspace/example
+# the import id should be the database_id.
+terraform import astra_access_list.example 48bfc13b-c1a5-48db-b70f-b6ef9709872b
 ```

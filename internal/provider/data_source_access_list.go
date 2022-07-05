@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"strconv"
 )
 
 func dataSourceAccessList() *schema.Resource {
@@ -27,38 +25,32 @@ func dataSourceAccessList() *schema.Resource {
 			},
 
 			// Computed
-			"results": {
+			"enabled": {
+				Description: "The Access list is enabled or disabled.",
+				Type:        schema.TypeBool,
+				Computed:    true,
+			},
+			"addresses": {
+				Description: "Addresses in the access list.",
 				Type:        schema.TypeList,
-				Description: "The access list details for the supplied Database.",
 				Computed:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"address": {
+							Description:  "IP Address/CIDR group that should have access",
+							Type:         schema.TypeString,
+							Required:     true,
+						},
+						"description": {
+							Description:  "Description for the IP Address/CIDR group",
+							Type:         schema.TypeString,
+							Optional:     true,
+						},
 						"enabled": {
-							Description: "The Access list is enabled or disabled.",
-							Type:        schema.TypeString,
-							Computed:    true,
+							Description:  "Enable/disable this IP Address/CIDR group's access",
+							Type:         schema.TypeBool,
+							Required:     true,
 						},
-						"organization_id": {
-							Description: "Org id for the access list.",
-							Type:        schema.TypeString,
-							Computed:    true,
-						},
-
-						"datacenter_id": {
-							Description: "Dataceneter id for the access list.",
-							Type:        schema.TypeString,
-							Computed:    true,
-						},
-						"addresses": {
-							Description: "Addresses in the access list.",
-							Type:        schema.TypeList,
-							Computed:    true,
-							Elem: &schema.Schema{
-								Type: schema.TypeString,
-							},
-						},
-
-
 					},
 				},
 			},
@@ -82,9 +74,8 @@ func dataSourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta 
 		return nil
 	}
 
-	d.SetId(resource.UniqueId())
-	if err := d.Set("results", accessListToMaps(accessList)); err != nil {
-		fmt.Printf("testing")
+	d.SetId(databaseID)
+	if err := setAccessListData(d, accessList); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -117,27 +108,4 @@ func listAccessList(ctx context.Context, client *astra.ClientWithResponses, data
 
 
 	return accessListOutput, err
-}
-
-func accessListToMaps(accessList *astra.AccessListResponse) []map[string]interface{} {
-	configurations := *accessList.Configurations
-	databaseId := *accessList.DatabaseId
-	organizationId := *accessList.OrganizationId
-	addresses := *accessList.Addresses
-
-	var addressList = make([]string, len(addresses))
-	for i, n := range addresses{
-		addressList[i] = string(*n.Address)
-	}
-
-
-	results := make([]map[string]interface{}, 0, 1)
-	results = append(results, map[string]interface{}{
-		"enabled": strconv.FormatBool(configurations.AccessListEnabled),
-		"datacenter_id": databaseId,
-		"organization_id": organizationId,
-		"addresses": addressList,
-	})
-
-	return results
 }

@@ -1,3 +1,8 @@
+## 2.1.1 (July 5, 2022)
+
+BACKWARDS INCOMPATIBILITIES / NOTES:
+* For `access_list` Data sources and resources, the format has changed to be more consistent. See https://github.com/datastax/terraform-provider-astra/blob/main/RELEASE_NOTES.md for more details.
+
 ## 2.0.2 (December 23, 2021)
 
 BUG FIXES:

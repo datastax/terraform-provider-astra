@@ -39,28 +39,20 @@ func resourceAccessList() *schema.Resource {
 				ForceNew:     true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"request": {
-							Type:  schema.TypeSet,
+						"address": {
+							Description:  "IP Address/CIDR group that should have access",
+							Type:         schema.TypeString,
 							Required:     true,
-							Elem:  &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"address": {
-										Description:  "IP Address/CIDR group that should have access",
-										Type:         schema.TypeString,
-										Required:     true,
-									},
-									"description": {
-										Description:  "Description for the IP Address/CIDR group",
-										Type:         schema.TypeString,
-										Optional:     true,
-									},
-									"enabled": {
-										Description:  "Enable/disable this IP Address/CIDR group's access",
-										Type:         schema.TypeBool,
-										Required:     true,
-									},
-								},
-							},
+						},
+						"description": {
+							Description:  "Description for the IP Address/CIDR group",
+							Type:         schema.TypeString,
+							Optional:     true,
+						},
+						"enabled": {
+							Description:  "Enable/disable this IP Address/CIDR group's access",
+							Type:         schema.TypeBool,
+							Required:     true,
 						},
 					},
 				},
@@ -92,12 +84,10 @@ func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta 
 	if err != nil {
 		return diag.FromErr(err)
 	} else if addResp.StatusCode() >= 400 {
-		return diag.Errorf("error adding private link to database: %s", addResp.Body)
+		return diag.Errorf("error adding access list to database: (%d) %s", addResp.StatusCode(), addResp.Body)
 	}
 
-	if err := setAccessListData(d, databaseID); err != nil {
-		return diag.FromErr(err)
-	}
+	d.SetId(databaseID)
 
 	accessListConfig := astra.AccessListConfigurations{AccessListEnabled: restricted}
 	updResp, err := client.UpdateAccessListForDatabaseWithResponse(ctx,
@@ -165,7 +155,6 @@ func resourceAccessListDelete(ctx context.Context, d *schema.ResourceData, meta 
 func resourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-
 	id := d.Id()
 
 	databaseID, err := parseAccessListID(id)
@@ -179,7 +168,7 @@ func resourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta in
 	}
 
 	if string(*accessList.DatabaseId) == databaseID {
-		if err := setAccessListData(d, databaseID); err != nil {
+		if err := setAccessListData(d, accessList); err != nil {
 			return diag.FromErr(err)
 		}
 		return nil
@@ -191,13 +180,29 @@ func resourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta in
 	return nil
 }
 
-func setAccessListData(d *schema.ResourceData, databaseID string) error {
-	d.SetId(fmt.Sprintf("%s", databaseID))
-
-	if err := d.Set("database_id", databaseID); err != nil {
+func setAccessListData(d *schema.ResourceData, accessList *astra.AccessListResponse) error {
+	if err := d.Set("database_id", *accessList.DatabaseId); err != nil {
 		return err
 	}
+	if err := d.Set("enabled", accessList.Configurations.AccessListEnabled); err != nil {
+		return err
+	}
+	addresses := *accessList.Addresses
+	requests := make([]map[string]interface{}, 0, len(addresses))
+	for _, addr := range addresses {
+		reqMap := map[string]interface{}{
+			"address":     *addr.Address,
+			"description": *addr.Description,
+			"enabled":     *addr.Enabled,
+		}
+		requests = append(requests, reqMap)
+	}
+	fmt.Printf("Setting address request map on resource data:\n%v\n", requests)
+	// make a set out of the map of requests
 
+	if err := d.Set("addresses", requests); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -210,21 +215,14 @@ func parseAccessListID(id string) (string, error) {
 }
 
 func getAddressList(addresses []interface{}) []astra.AddressRequest {
-	var addressList []astra.AddressRequest
-	// There should only be 1 addresses object
-	v := addresses[0]
-	a := v.(map[string]interface{})["request"]
-	request := a.(*schema.Set)
-	addressList = make([]astra.AddressRequest, len(request.List()))
-	requestCount := 0
-	for _, val := range request.List() {
-		rMap := val.(map[string]interface{})
-		addressList[requestCount] = astra.AddressRequest{
-			Address:    rMap["address"].(string),
-			Enabled: rMap["enabled"].(bool),
-			Description:  rMap["description"].(string),
+	addressList := make([]astra.AddressRequest, len(addresses))
+	for index, addrRequest := range addresses {
+		address := addrRequest.(map[string]interface{})
+		addressList[index] = astra.AddressRequest {
+			Address:     address["address"].(string),
+			Enabled:     address["enabled"].(bool),
+			Description: address["description"].(string),
 		}
-		requestCount++
 	}
 	return addressList
 }
