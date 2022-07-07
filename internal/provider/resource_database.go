@@ -533,7 +533,7 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		for index, dc := range *db.Info.Datacenters {
 			regions[index] = dc.Region
 			// make a datacenter key of cloud_provider.region
-			dcKey := strings.ToLower(flatDB["cloud_provider"].(string) + "." + dc.Region)
+			dcKey := flatDB["cloud_provider"].(string) + "." + dc.Region
 			datacenters[dcKey] = *dc.Id
 		}
 		flatDB["regions"] = regions
