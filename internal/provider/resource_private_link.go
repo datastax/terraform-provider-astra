@@ -85,9 +85,10 @@ func resourcePrivateLinkCreate(ctx context.Context, d *schema.ResourceData, meta
 
 	pl := resp.JSON200
 
-	var serviceName = string(*pl.ServiceName)
+	serviceName := string(*pl.ServiceName)
+	allowedPrincipalsResp := pl.AllowedPrincipals
 
-	if err := setPrivateLinkData(d, databaseID, datacenterID, serviceName); err != nil {
+	if err := setPrivateLinkData(d, databaseID, datacenterID, serviceName, allowedPrincipalsResp); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -114,7 +115,7 @@ func resourcePrivateLinkRead(ctx context.Context, d *schema.ResourceData, meta i
 	}
 
 	if string(*privateLinks.ServiceName) == serviceName {
-		if err := setPrivateLinkData(d, databaseID, datacenterID, serviceName); err != nil {
+		if err := setPrivateLinkData(d, databaseID, datacenterID, serviceName, privateLinks.AllowedPrincipals); err != nil {
 			return diag.FromErr(err)
 		}
 		return nil
@@ -126,7 +127,7 @@ func resourcePrivateLinkRead(ctx context.Context, d *schema.ResourceData, meta i
 	return nil
 }
 
-func setPrivateLinkData(d *schema.ResourceData, databaseID string, datacenterID string, serviceName string) error {
+func setPrivateLinkData(d *schema.ResourceData, databaseID string, datacenterID string, serviceName string, allowedPrincipals *astra.AllowedPrincipals) error {
 	d.SetId(fmt.Sprintf("%s/datacenter/%s/serviceNames/%s", databaseID, datacenterID, serviceName))
 
 	if err := d.Set("database_id", databaseID); err != nil {
@@ -137,6 +138,11 @@ func setPrivateLinkData(d *schema.ResourceData, databaseID string, datacenterID 
 	}
 	if err := d.Set("service_name", serviceName); err != nil {
 		return err
+	}
+	if allowedPrincipals != nil {
+		if err := d.Set("allowed_principals", allowedPrincipals); err != nil {
+			return err
+		}
 	}
 
 	return nil
