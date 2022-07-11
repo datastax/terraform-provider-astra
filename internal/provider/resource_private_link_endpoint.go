@@ -126,7 +126,7 @@ func resourcePrivateLinkEndpointRead(ctx context.Context, d *schema.ResourceData
 	}
 
 	var astraEndpointIDStr string
-	if astraEndpointID == nil {
+	if astraEndpointID == nil || astraEndpointID == "" {
 		// set it to the endpointID
 		astraEndpointIDStr = endpointID
 	} else {
