@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"strings"
 	"sync"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
+
 // Mutex for synchronizing Keyspace creation
 var keyspaceMutex sync.Mutex
 
@@ -89,7 +90,10 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 			} else if resp.StatusCode() == 409 {
 				// DevOps API returns 409 for concurrent modifications, these need to be retried.
 				return resource.RetryableError(fmt.Errorf("error adding keyspace to database (retrying): %s", string(resp.Body)))
-			}else if resp.StatusCode() >= 400 {
+			} else if resp.StatusCode() == 401 {
+				// DevOps API returns 401 Unauthorized for requests without the keyspace create permission
+				return resource.NonRetryableError(fmt.Errorf("error adding keyspace to database (insufficient permissions, role missing 'db-keyspace-create')"))
+			} else if resp.StatusCode() >= 400 {
 				return resource.NonRetryableError(fmt.Errorf("error adding keyspace to database (not retrying): %s", string(resp.Body)))
 			}
 
@@ -139,6 +143,63 @@ func resourceKeyspaceRead(ctx context.Context, d *schema.ResourceData, meta inte
 }
 
 func resourceKeyspaceDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
+
+	databaseID := d.Get("database_id").(string)
+	keyspaceName := d.Get("name").(string)
+
+	//Wait for DB to be in Active status
+	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		keyspaceMutex.Lock()
+		res, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
+		keyspaceMutex.Unlock()
+		// Errors sending request should be retried and are assumed to be transient
+		if err != nil {
+			return resource.RetryableError(err)
+		}
+
+		// Status code >=5xx are assumed to be transient
+		if res.StatusCode() >= 500 {
+			return resource.RetryableError(fmt.Errorf("error while fetching database: %s", string(res.Body)))
+		}
+
+		// Status code > 200 NOT retried
+		if res.StatusCode() > 200 || res.JSON200 == nil {
+			return resource.NonRetryableError(fmt.Errorf("unexpected response fetching database: %s", string(res.Body)))
+		}
+
+		// Success fetching database
+		db := res.JSON200
+		switch db.Status {
+		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
+			// If the database reached a terminal state it will never become active
+			return resource.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
+		case astra.ACTIVE:
+			keyspaceMutex.Lock()
+			resp, err := client.DropKeyspaceWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.KeyspaceNameParam(keyspaceName))
+			keyspaceMutex.Unlock()
+			if err != nil {
+				return resource.NonRetryableError(fmt.Errorf("Error calling drop keyspace (not retrying) %s", err))
+			} else if resp.StatusCode() == 409 {
+				// DevOps API returns 409 for concurrent modifications, these need to be retried.
+				return resource.RetryableError(fmt.Errorf("error dropping keyspace from database (retrying): %s", string(resp.Body)))
+			} else if resp.StatusCode() == 401 {
+				// DevOps API returns 401 Unauthorized for requests without the keyspace drop permission
+				return resource.NonRetryableError(fmt.Errorf("error adding keyspace to database (insufficient permissions, role missing 'db-keyspace-drop')"))
+			} else if resp.StatusCode() >= 400 {
+				return resource.NonRetryableError(fmt.Errorf("error dropping keyspace from database (not retrying): %s", string(resp.Body)))
+			}
+
+			d.SetId("")
+			return nil
+		default:
+			return resource.RetryableError(fmt.Errorf("expected database to be active but is %s", db.Status))
+		}
+	}); err != nil {
+		return diag.FromErr(err)
+	}
+	d.SetId("")
 	return nil
 }
 
