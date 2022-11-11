@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"github.com/datastax/astra-client-go/v2/astra"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -139,7 +140,9 @@ func resourcePrivateLinkEndpointRead(ctx context.Context, d *schema.ResourceData
 	}
 
 	if privateLinks == nil {
-        return diag.Errorf("privateLinks was nil. DatabaseID: %s, DatacenterID: %s, endpointID: %s, astraEndpointID: %s", databaseID, datacenterID, endpointID, astraEndpointIDStr)
+		tflog.Warn(ctx, fmt.Sprintf("privateLinks was nil. DatabaseID: %s, DatacenterID: %s, endpointID: %s, astraEndpointID: %s", databaseID, datacenterID, endpointID, astraEndpointIDStr))
+		d.SetId("")
+		return nil
 	}
 
 	if string(*privateLinks.EndpointID) == astraEndpointIDStr {
