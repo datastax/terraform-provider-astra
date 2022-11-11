@@ -57,7 +57,9 @@ resource "astra_database" "example" {
 Optional:
 
 - `create` (String)
+- `delete` (String)
 - `read` (String)
+- `update` (String)
 
 ## Import
 
