@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -23,6 +24,8 @@ var availableCloudProviders = []string{
 
 var databaseCreateTimeout = time.Minute * 20
 var databaseReadTimeout = time.Minute * 5
+var databaseDeleteTimeout = time.Minute * 20
+var databaseUpdateTimeout = time.Minute * 20
 
 func resourceDatabase() *schema.Resource {
 	return &schema.Resource{
@@ -39,6 +42,8 @@ func resourceDatabase() *schema.Resource {
 		Timeouts: &schema.ResourceTimeout{
 			Create: &databaseCreateTimeout,
 			Read:   &databaseReadTimeout,
+			Delete: &databaseDeleteTimeout,
+			Update: &databaseUpdateTimeout,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -259,6 +264,20 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 	databaseID := resourceData.Id()
 	alreadyDeleted := false
 
+	// get the list of regions and delete any extra regions/datacenters first
+	regions := (resourceData.Get("regions")).([]interface{})
+	if len(regions) > 1 {
+		primaryRegion := []interface{}{regions[0].(string)}
+		_, regionsToDelete := getRegionUpdates(regions, primaryRegion)
+		tflog.Debug(ctx, fmt.Sprintf("Multiple regions found. Must delete all additional regions first: %v, regions to delete: %v", regions, regionsToDelete))
+		cloudProvider := resourceData.Get("cloud_provider").(string)
+		if err := deleteRegionsFromDatabase(ctx, resourceData, client, regionsToDelete, databaseID, cloudProvider); err != nil {
+			return err
+		}
+	} else {
+		tflog.Debug(ctx, fmt.Sprintf("Single region found %v", regions))
+	}
+
 	if err := resource.RetryContext(ctx, resourceData.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
 		resp, err := client.TerminateDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID), &astra.TerminateDatabaseParams{})
 		if err != nil {
@@ -278,7 +297,7 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 
 		// All other 4XX status codes are NOT retried
 		if resp.StatusCode() >= http.StatusBadRequest {
-			return resource.NonRetryableError(fmt.Errorf("unexpected response attempting to terminate database: %s", string(resp.Body)))
+			return resource.NonRetryableError(fmt.Errorf("unexpected response attempting to terminate database. Status code: %d, message = %s", resp.StatusCode(), string(resp.Body)))
 		}
 
 		return nil
@@ -437,8 +456,11 @@ func deleteRegionsFromDatabase(ctx context.Context, resourceData *schema.Resourc
 			if err != nil {
 				return diag.FromErr(err)
 			}
+			if termResp.StatusCode() == http.StatusUnauthorized {
+				return diag.Errorf("Error terminating datacenter for region \"%s\": Insufficient permissions.", v)
+			}
 			if termResp.StatusCode() != http.StatusAccepted {
-				return diag.FromErr(fmt.Errorf("Error terminating datacenter for region \"%s\": %s", v, string(termResp.Body)))
+				return diag.Errorf("Error terminating datacenter for region \"%s\": Response %d, mesage = %s", v, termResp.StatusCode(), string(termResp.Body))
 			}
 			// Wait for the database to be ACTIVE then set resource data
 			if err := waitForDatabaseAndUpdateResource(ctx, resourceData, client, databaseID); err != nil {
