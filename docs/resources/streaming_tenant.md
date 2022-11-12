@@ -35,7 +35,13 @@ resource "astra_streaming_tenant" "streaming_tenant-1" {
 
 ### Read-Only
 
+- `broker_service_url` (String) The Pulsar Binary Protocol URL used for production and consumption of messages.
 - `id` (String) The ID of this resource.
+- `pulsar_token` (String, Sensitive) The JWT token used for authentication in all Astra Streaming operations.
+- `user_metrics_url` (String) URL for metrics.
+- `web_service_url` (String) URL used for administrative operations.
+- `web_socket_query_param_url` (String) URL used for web socket query parameter operations.
+- `web_socket_url` (String) URL used for web socket operations.
 
 ## Import
 

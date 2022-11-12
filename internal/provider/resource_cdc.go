@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/datastax/astra-client-go/v2/astra"
-	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/datastax/astra-client-go/v2/astra"
+	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourceCDC() *schema.Resource {
@@ -70,12 +71,12 @@ func resourceCDC() *schema.Resource {
 				ForceNew:     true,
 			},
 			"connector_status": {
-				Description:  "Streaming tenant name",
+				Description:  "Connector Status",
 				Type:         schema.TypeString,
 				Computed:     true,
 			},
 			"data_topic": {
-				Description:  "Streaming tenant name",
+				Description:  "Data topic name",
 				Type:         schema.TypeString,
 				Computed:     true,
 			},
