@@ -45,8 +45,8 @@ resource "astra_cdc" "cdc-1" {
 
 ### Read-Only
 
-- `connector_status` (String) Streaming tenant name
-- `data_topic` (String) Streaming tenant name
+- `connector_status` (String) Connector Status
+- `data_topic` (String) Data topic name
 - `id` (String) The ID of this resource.
 
 ## Import

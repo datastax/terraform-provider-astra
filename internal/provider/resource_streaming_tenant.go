@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/datastax/astra-client-go/v2/astra"
-	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/datastax/astra-client-go/v2/astra"
+	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourceStreamingTenant() *schema.Resource {
@@ -64,6 +66,38 @@ func resourceStreamingTenant() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
+			// Computed
+			"broker_service_url": {
+				Description:  "The Pulsar Binary Protocol URL used for production and consumption of messages.",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+			"web_service_url": {
+				Description:  "URL used for administrative operations.",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+			"web_socket_url": {
+				Description:  "URL used for web socket operations.",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+			"web_socket_query_param_url": {
+				Description:  "URL used for web socket query parameter operations.",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+			"pulsar_token": {
+				Description:  "The JWT token used for authentication in all Astra Streaming operations.",
+				Type:         schema.TypeString,
+				Sensitive:    true,
+				Computed:     true,
+			},
+			"user_metrics_url": {
+				Description:  "URL for metrics.",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
 		},
 	}
 }
@@ -76,30 +110,6 @@ type OrgId struct {
 }
 
 type StreamingClusters []struct {
-	ID                     string `json:"id"`
-	TenantName             string `json:"tenantName"`
-	ClusterName            string `json:"clusterName"`
-	WebServiceURL          string `json:"webServiceUrl"`
-	BrokerServiceURL       string `json:"brokerServiceUrl"`
-	WebsocketURL           string `json:"websocketUrl"`
-	WebsocketQueryParamURL string `json:"websocketQueryParamUrl"`
-	PulsarToken            string `json:"pulsarToken"`
-	Plan                   string `json:"plan"`
-	PlanCode               string `json:"planCode"`
-	AstraOrgGUID           string `json:"astraOrgGUID"`
-	CloudProvider          string `json:"cloudProvider"`
-	CloudProviderCode      string `json:"cloudProviderCode"`
-	CloudRegion            string `json:"cloudRegion"`
-	Status                 string `json:"status"`
-	JvmVersion             string `json:"jvmVersion"`
-	PulsarVersion          string `json:"pulsarVersion"`
-	Email                  string `json:"Email"`
-}
-
-
-type StreamingTenant struct {
-	Namespace              string `json:"namespace"`
-	Topic                  string `json:"topic"`
 	ID                     string `json:"id"`
 	TenantName             string `json:"tenantName"`
 	ClusterName            string `json:"clusterName"`
@@ -193,17 +203,15 @@ func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.Resou
 		diag.FromErr(err)
 	}
 	if !strings.HasPrefix(getTenantResponse.HTTPResponse.Status, "2") {
-		return diag.Errorf("Error creating tenant %s", getTenantResponse.Body)
+		tflog.Info(ctx, fmt.Sprintf("Tenant not found with ID: %s", tenantID))
+		resourceData.SetId("")
+		return nil
 	}
 
-	var streamingTenant StreamingTenant
-	err = json.Unmarshal(getTenantResponse.Body, &streamingTenant)
-	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
-	}
+	streamingTenant := *getTenantResponse.JSON200
 
-	if streamingTenant.TenantName == tenantID {
-		if err := setStreamingTenantData(resourceData, tenantID); err != nil {
+	if *streamingTenant.TenantName == tenantID {
+		if err := setStreamingTenantData(ctx, resourceData, streamingTenant); err != nil {
 			return diag.FromErr(err)
 		}
 		return nil
@@ -281,27 +289,43 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 		return diag.Errorf("Error creating tenant. Status Code: %d, Message: %s", tenantCreationResponse.StatusCode(), string(tenantCreationResponse.Body))
 	}
 
-	streamingTenant := * tenantCreationResponse.JSON200
-
-	setStreamingTenantData(resourceData, *streamingTenant.TenantName)
+	streamingTenant := *tenantCreationResponse.JSON200
+	setStreamingTenantData(ctx, resourceData, streamingTenant)
 
     return nil
 }
 
-func setStreamingTenantData(d *schema.ResourceData, tenantName string) error {
-	d.SetId(fmt.Sprintf("%s", tenantName))
+func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantResponse astrastreaming.TenantClusterPlanResponse) error {
+	d.SetId(*tenantResponse.TenantName)
 
-	if err := d.Set("tenant_name", tenantName); err != nil {
+	if err := d.Set("tenant_name", *tenantResponse.TenantName); err != nil {
 		return err
 	}
-
+	if err := d.Set("broker_service_url", *tenantResponse.PulsarURL); err != nil {
+		return err
+	}
+	if err := d.Set("web_service_url", *tenantResponse.AdminURL); err != nil {
+		return err
+	}
+	if err := d.Set("pulsar_token", *tenantResponse.TenantPulsarToken); err != nil {
+		return err
+	}
+	if err := d.Set("web_socket_url", *tenantResponse.WebsocketURL); err != nil {
+		return err
+	}
+	if err := d.Set("web_socket_query_param_url", *tenantResponse.WebsocketQueryParamURL); err != nil {
+		return err
+	}
+	if err:= d.Set("user_metrics_url", *&tenantResponse.UserMetricsURL); err != nil {
+		return err
+	}
 	return nil
 }
 
 func parseStreamingTenantID(id string) (string, error) {
 	idParts := strings.Split(strings.ToLower(id), "/")
 	if len(idParts) != 1 {
-		return "",  errors.New("invalid role id format: expected tenantID/")
+		return "",  errors.New("invalid tenant id format: expected tenantID/")
 	}
 	return idParts[0],  nil
 }
