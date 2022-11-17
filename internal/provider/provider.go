@@ -3,9 +3,10 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net/http"
+
 	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
-	"net/http"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/go-retryablehttp"
@@ -45,6 +46,7 @@ func New(version string) func() *schema.Provider {
 				"astra_role":                      dataSourceRole(),
 				"astra_roles":                     dataSourceRoles(),
 				"astra_users":                     dataSourceUsers(),
+				"astra_streaming_tenant_tokens":   dataSourceStreamingTenantTokens(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
 				"astra_database":              resourceDatabase(),

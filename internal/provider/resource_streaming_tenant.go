@@ -87,14 +87,19 @@ func resourceStreamingTenant() *schema.Resource {
 				Type:         schema.TypeString,
 				Computed:     true,
 			},
-			"pulsar_token": {
-				Description:  "The JWT token used for authentication in all Astra Streaming operations.",
+			"cluster_name": {
+				Description:  "Pulsar cluster name.",
 				Type:         schema.TypeString,
-				Sensitive:    true,
 				Computed:     true,
 			},
+			// The fields below are only filled in after creating the tenant and then retrieving the tenant info from the DevOps API
 			"user_metrics_url": {
 				Description:  "URL for metrics.",
+				Type:         schema.TypeString,
+				Computed:     true,
+			},
+			"tenant_id": {
+				Description:  "UUID for the tenant.",
 				Type:         schema.TypeString,
 				Computed:     true,
 			},
@@ -203,7 +208,7 @@ func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.Resou
 		diag.FromErr(err)
 	}
 	if !strings.HasPrefix(getTenantResponse.HTTPResponse.Status, "2") {
-		tflog.Info(ctx, fmt.Sprintf("Tenant not found with ID: %s", tenantID))
+		tflog.Info(ctx, fmt.Sprintf("Tenant not found with Name: %s", tenantID))
 		resourceData.SetId("")
 		return nil
 	}
@@ -289,8 +294,16 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 		return diag.Errorf("Error creating tenant. Status Code: %d, Message: %s", tenantCreationResponse.StatusCode(), string(tenantCreationResponse.Body))
 	}
 
-	streamingTenant := *tenantCreationResponse.JSON200
-	setStreamingTenantData(ctx, resourceData, streamingTenant)
+	// Now let's fetch the tenant again so that it fills in the missing fields (like userMetricsUrl and tenant ID)
+	streamingTenantResponse, err := streamingClient.GetStreamingTenantWithResponse(ctx, org.ID, tenantName)
+	if err != nil{
+		diag.FromErr(err)
+	}
+	if streamingTenantResponse.StatusCode() != http.StatusOK {
+		return diag.Errorf("Unexpected response fetching tenant: %s. Response code: %d, message = %s", tenantName, streamingTenantResponse.StatusCode(), string(streamingTenantResponse.Body))
+	}
+
+	setStreamingTenantData(ctx, resourceData, *streamingTenantResponse.JSON200)
 
     return nil
 }
@@ -307,7 +320,7 @@ func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantR
 	if err := d.Set("web_service_url", *tenantResponse.AdminURL); err != nil {
 		return err
 	}
-	if err := d.Set("pulsar_token", *tenantResponse.TenantPulsarToken); err != nil {
+	if err := d.Set("cluster_name", *tenantResponse.ClusterName); err != nil {
 		return err
 	}
 	if err := d.Set("web_socket_url", *tenantResponse.WebsocketURL); err != nil {
@@ -316,8 +329,18 @@ func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantR
 	if err := d.Set("web_socket_query_param_url", *tenantResponse.WebsocketQueryParamURL); err != nil {
 		return err
 	}
-	if err:= d.Set("user_metrics_url", *&tenantResponse.UserMetricsURL); err != nil {
-		return err
+	// only set these if they aren't nil or empty
+	metricsUrl := *tenantResponse.UserMetricsURL
+	if len(metricsUrl) > 0 {
+		if err := d.Set("user_metrics_url", metricsUrl); err != nil {
+			return err
+		}
+    }
+	tennantId := *&tenantResponse.Id
+	if len(*tennantId) > 0 {
+		if err := d.Set("tenant_id", tennantId); err != nil {
+			return err
+		}
 	}
 	return nil
 }
