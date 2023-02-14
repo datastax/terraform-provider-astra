@@ -96,7 +96,38 @@ func resourcePrivateLinkCreate(ctx context.Context, d *schema.ResourceData, meta
 }
 
 func resourcePrivateLinkDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	//TODO when endpoint exists
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
+	id := d.Id()
+
+	databaseID, datacenterID, serviceName, err := parsePrivateLinkID(id)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	privateLinks, err := listPrivateLinks(ctx, client, databaseID, datacenterID)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	if string(*privateLinks.ServiceName) == serviceName {
+		for _, allowedPrincipal := range *privateLinks.AllowedPrincipals {
+			resp, err := client.RemoveAllowedPrincipalFromServiceWithResponse(ctx, databaseID, datacenterID, astra.PrivateLinkDeleteConfigInput{
+				AllowedPrincipal: &allowedPrincipal,
+			})
+			if err != nil {
+				return diag.FromErr(err)
+			} else if resp.StatusCode() >= 400 {
+				return diag.Errorf("error removing allowed principal \"%s\" from private link: %s", allowedPrincipal, string(resp.Body))
+			}
+			// update the allowed principal list
+			diagErr := resourcePrivateLinkRead(ctx, d, meta)
+			if diagErr != nil {
+				return diagErr
+			}
+		}
+		d.SetId("")
+	}
 	return nil
 }
 func resourcePrivateLinkRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
