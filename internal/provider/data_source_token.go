@@ -3,10 +3,11 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"strings"
 )
 
 func dataSourceToken() *schema.Resource {
@@ -79,6 +80,8 @@ func listToken(ctx context.Context, client *astra.ClientWithResponses, clientID 
 	resp, err := client.GetClientsForOrgWithResponse(ctx)
 	if err != nil {
 		return nil, err
+	} else if resp.StatusCode() >= 400 {
+		return nil, fmt.Errorf("Error fetching client tokens, Status code: %d, msg: %s", resp.StatusCode(), string(resp.Body))
 	}
 
 	tokens := (*resp.JSON200).(map[string]interface{})["clients"].([]interface{})
