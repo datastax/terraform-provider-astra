@@ -67,6 +67,10 @@ resource "astra_streaming_sink" "streaming_sink-1" {
 - `tenant_name` (String) Streaming tenant name.
 - `topic` (String) Streaming tenant topic.
 
+### Optional
+
+- `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy this streaming sink. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
+
 ### Read-Only
 
 - `id` (String) The ID of this resource.

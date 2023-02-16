@@ -19,3 +19,7 @@ func keyFromStrings(s []string) string {
 	sort.Strings(ss)
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(ss, "|"))))
 }
+
+func protectedFromDelete(resourceData *schema.ResourceData) bool {
+	return resourceData.Get("deletion_protection").(bool)
+}

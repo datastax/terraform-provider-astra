@@ -24,6 +24,7 @@ func resourceStreamingTenant() *schema.Resource {
 		CreateContext: resourceStreamingTenantCreate,
 		ReadContext:   resourceStreamingTenantRead,
 		DeleteContext: resourceStreamingTenantDelete,
+		UpdateContext: resourceStreamingTenantUpdate,
 
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -66,6 +67,13 @@ func resourceStreamingTenant() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
+			// Optional
+			"deletion_protection": {
+				Description: "Whether or not to allow Terraform to destroy this tenant. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     true,
+			},
 			// Computed
 			"broker_service_url": {
 				Description:  "The Pulsar Binary Protocol URL used for production and consumption of messages.",
@@ -107,9 +115,6 @@ func resourceStreamingTenant() *schema.Resource {
 	}
 }
 
-
-
-
 type OrgId struct {
 	ID string `json:"id"`
 }
@@ -135,7 +140,15 @@ type StreamingClusters []struct {
 	Email                  string `json:"Email"`
 }
 
+func resourceStreamingTenantUpdate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	// In-place update not supported. This is only here to support deletion_protection
+	return nil
+}
+
 func resourceStreamingTenantDelete(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if protectedFromDelete(resourceData) {
+		return diag.Errorf("\"deletion_protection\" must be explicitly set to \"false\" in order to destroy astra_streaming_tenant")
+	}
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 

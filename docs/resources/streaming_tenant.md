@@ -33,6 +33,10 @@ resource "astra_streaming_tenant" "streaming_tenant-1" {
 - `topic` (String) Streaming tenant topic.
 - `user_email` (String) User email for tenant.
 
+### Optional
+
+- `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy this tenant. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
+
 ### Read-Only
 
 - `broker_service_url` (String) The Pulsar Binary Protocol URL used for production and consumption of messages.
