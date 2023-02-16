@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"regexp"
+	"strings"
+
 	"github.com/datastax/astra-client-go/v2/astra"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	"io/ioutil"
-	"regexp"
-	"strings"
 )
 
 func resourceStreamingTopic() *schema.Resource {
@@ -21,6 +22,7 @@ func resourceStreamingTopic() *schema.Resource {
 		CreateContext: resourceStreamingTopicCreate,
 		ReadContext:   resourceStreamingTopicRead,
 		DeleteContext: resourceStreamingTopicDelete,
+		UpdateContext: resourceStreamingTopicUpdate,
 
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -62,13 +64,26 @@ func resourceStreamingTopic() *schema.Resource {
 				Required:     true,
 				ForceNew:     true,
 			},
+			// Optional
+			"deletion_protection": {
+				Description: "Whether or not to allow Terraform to destroy this streaming topic. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     true,
+			},
 		},
 	}
 }
 
-
+func resourceStreamingTopicUpdate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	// In-place update not supported. This is only here to support deletion_protection
+	return nil
+}
 
 func resourceStreamingTopicDelete(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if protectedFromDelete(resourceData) {
+		return diag.Errorf("\"deletion_protection\" must be explicitly set to \"false\" in order to destroy astra_streaming_topic")
+	}
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 	streamingClientv3 := meta.(astraClients).astraStreamingClientv3

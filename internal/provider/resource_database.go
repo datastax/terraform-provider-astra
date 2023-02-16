@@ -79,7 +79,13 @@ func resourceDatabase() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
-
+			// Optional
+			"deletion_protection": {
+				Description: "Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.",
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     true,
+			},
 			// Computed
 			"owner_id": {
 				Description: "The owner id.",
@@ -258,6 +264,9 @@ func resourceDatabaseRead(ctx context.Context, resourceData *schema.ResourceData
 }
 
 func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	if protectedFromDelete(resourceData) {
+		return diag.Errorf("\"deletion_protection\" must be explicitly set to \"false\" in order to destroy astra_database")
+	}
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 
@@ -355,11 +364,6 @@ func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceDa
 
 	databaseID := resourceData.Id()
 	cloudProvider := resourceData.Get("cloud_provider").(string)
-
-	if resourceData.HasChangeExcept("regions") {
-		// only region changes supported at the moment
-		return diag.Errorf("Update of Database resource only supported for fields: %s", "regions")
-	}
 
 	if resourceData.HasChange("regions") {
 		// get regions to add and delete
