@@ -76,40 +76,40 @@ func resourceStreamingTenant() *schema.Resource {
 			},
 			// Computed
 			"broker_service_url": {
-				Description:  "The Pulsar Binary Protocol URL used for production and consumption of messages.",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "The Pulsar Binary Protocol URL used for production and consumption of messages.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"web_service_url": {
-				Description:  "URL used for administrative operations.",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "URL used for administrative operations.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"web_socket_url": {
-				Description:  "URL used for web socket operations.",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "URL used for web socket operations.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"web_socket_query_param_url": {
-				Description:  "URL used for web socket query parameter operations.",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "URL used for web socket query parameter operations.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"cluster_name": {
-				Description:  "Pulsar cluster name.",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "Pulsar cluster name.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			// The fields below are only filled in after creating the tenant and then retrieving the tenant info from the DevOps API
 			"user_metrics_url": {
-				Description:  "URL for metrics.",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "URL for metrics.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"tenant_id": {
-				Description:  "UUID for the tenant.",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "UUID for the tenant.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 		},
 	}
@@ -152,7 +152,7 @@ func resourceStreamingTenantDelete(ctx context.Context, resourceData *schema.Res
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-	rawRegion:= resourceData.Get("region").(string)
+	rawRegion := resourceData.Get("region").(string)
 	region := strings.ReplaceAll(rawRegion, "-", "")
 
 	cloudProvider := resourceData.Get("cloud_provider").(string)
@@ -179,7 +179,7 @@ func resourceStreamingTenantDelete(ctx context.Context, resourceData *schema.Res
 	params := astrastreaming.DeleteStreamingTenantParams{}
 	cluster := fmt.Sprintf("pulsar-%s-%s", cloudProvider, region)
 	deleteResponse, err := streamingClient.DeleteStreamingTenantWithResponse(ctx, tenantID, cluster, &params)
-	if err != nil{
+	if err != nil {
 		return diag.FromErr(err)
 	}
 	if !strings.HasPrefix(deleteResponse.HTTPResponse.Status, "2") {
@@ -195,7 +195,6 @@ func resourceStreamingTenantDelete(ctx context.Context, resourceData *schema.Res
 func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
 
 	id := resourceData.Id()
 
@@ -217,7 +216,7 @@ func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.Resou
 	}
 
 	getTenantResponse, err := streamingClient.GetStreamingTenantWithResponse(ctx, org.ID, tenantID)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 	if !strings.HasPrefix(getTenantResponse.HTTPResponse.Status, "2") {
@@ -247,12 +246,13 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 
 	//name := resourceData.Get("name").(string)
 	topic := resourceData.Get("topic").(string)
-	rawRegion:= resourceData.Get("region").(string)
+	rawRegion := resourceData.Get("region").(string)
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
-	tenantName:= resourceData.Get("tenant_name").(string)
-	userEmail:= resourceData.Get("user_email").(string)
-
+	tenantName := resourceData.Get("tenant_name").(string)
+	userEmail := resourceData.Get("user_email").(string)
+	// this can be used for dedicated plan that must specify a cluster name
+	clusterName := resourceData.Get("cluster_name").(string)
 
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
@@ -275,32 +275,36 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 		fmt.Println("Can't deserislize", orgBody)
 	}
 
-	for i :=0 ; i < len(streamingClusters) ; i++{
+	for i := 0; i < len(streamingClusters); i++ {
 		fmt.Printf("body %s", streamingClusters[i].ClusterName)
-		if streamingClusters[i].CloudProvider == cloudProvider{
-			if streamingClusters[i].CloudRegion == region{
+		if streamingClusters[i].CloudProvider == cloudProvider {
+			if streamingClusters[i].CloudRegion == region {
 				// TODO - validation
 				//fmt.Printf("body %s", streamingClusters[i].ClusterName)
 			}
 		}
 	}
 
-
 	params := astrastreaming.IdOfCreateTenantEndpointParams{
 		Topic: &topic,
 	}
 
 	tenantRequest := astrastreaming.IdOfCreateTenantEndpointJSONRequestBody{
-		CloudProvider: &cloudProvider,
-		CloudRegion:   &region,
-		OrgID:         &org.ID,
-		OrgName:       &org.ID,
-		TenantName:    &tenantName,
-		UserEmail:     &userEmail,
+		OrgID:      &org.ID,
+		OrgName:    &org.ID,
+		TenantName: &tenantName,
+		UserEmail:  &userEmail,
+	}
+
+	if clusterName != "" {
+		tenantRequest.ClusterName = &clusterName
+	} else {
+		tenantRequest.CloudProvider = &cloudProvider
+		tenantRequest.CloudRegion = &region
 	}
 
 	tenantCreationResponse, err := streamingClient.IdOfCreateTenantEndpointWithResponse(ctx, &params, tenantRequest)
-	if err != nil{
+	if err != nil {
 		return diag.FromErr(err)
 	}
 	if tenantCreationResponse.StatusCode() != http.StatusOK {
@@ -309,7 +313,7 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 
 	// Now let's fetch the tenant again so that it fills in the missing fields (like userMetricsUrl and tenant ID)
 	streamingTenantResponse, err := streamingClient.GetStreamingTenantWithResponse(ctx, org.ID, tenantName)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 	if streamingTenantResponse.StatusCode() != http.StatusOK {
@@ -318,7 +322,7 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 
 	setStreamingTenantData(ctx, resourceData, *streamingTenantResponse.JSON200)
 
-    return nil
+	return nil
 }
 
 func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantResponse astrastreaming.TenantClusterPlanResponse) error {
@@ -348,7 +352,7 @@ func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantR
 		if err := d.Set("user_metrics_url", metricsUrl); err != nil {
 			return err
 		}
-    }
+	}
 	tennantId := *&tenantResponse.Id
 	if len(*tennantId) > 0 {
 		if err := d.Set("tenant_id", tennantId); err != nil {
@@ -361,9 +365,7 @@ func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantR
 func parseStreamingTenantID(id string) (string, error) {
 	idParts := strings.Split(strings.ToLower(id), "/")
 	if len(idParts) != 1 {
-		return "",  errors.New("invalid tenant id format: expected tenantID/")
+		return "", errors.New("invalid tenant id format: expected tenantID/")
 	}
-	return idParts[0],  nil
+	return idParts[0], nil
 }
-
-
