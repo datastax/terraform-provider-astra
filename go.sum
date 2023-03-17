@@ -93,8 +93,8 @@ github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDk
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/cyberdelia/templates v0.0.0-20141128023046-ca7fffd4298c/go.mod h1:GyV+0YP4qX0UQ7r2MoYZ+AvYDp12OF5yg4q8rGnyNh4=
-github.com/datastax/astra-client-go/v2 v2.2.47-0.20230317185532-27bd49c13174 h1:98fNfKlK+ZXBE5KzxDaL6PdjTPpp9ojWOAlx5SnhalE=
-github.com/datastax/astra-client-go/v2 v2.2.47-0.20230317185532-27bd49c13174/go.mod h1:8Hr8xmbXG0EsaUgC8yrKFjLNzGpz4SGGMEvTUX8FTHA=
+github.com/datastax/astra-client-go/v2 v2.2.47 h1:9VgtG7UosViuuM3E2uZoSSuoepwJibumZdCu/uUihFI=
+github.com/datastax/astra-client-go/v2 v2.2.47/go.mod h1:8Hr8xmbXG0EsaUgC8yrKFjLNzGpz4SGGMEvTUX8FTHA=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

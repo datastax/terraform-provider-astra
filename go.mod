@@ -3,7 +3,7 @@ module github.com/datastax/terraform-provider-astra/v2
 go 1.18
 
 require (
-	github.com/datastax/astra-client-go/v2 v2.2.47-0.20230317185532-27bd49c13174
+	github.com/datastax/astra-client-go/v2 v2.2.47
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320
 	github.com/hashicorp/go-retryablehttp v0.7.2
