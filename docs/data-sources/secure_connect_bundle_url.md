@@ -75,11 +75,34 @@ data "astra_secure_connect_bundle_url" "scb3" {
 
 ### Optional
 
-- `datacenter_id` (String) The ID of the Astra datacenter. If omitted, only the primary datacenter will be used.
+- `datacenter_id` (String) The ID of the Astra datacenter. If omitted, all bundles will be fetched.
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-- `url` (String) The temporary download url to the secure connect bundle zip file.
+- `secure_bundles` (List of Object) A list of Secure Connect Bundle info (see [below for nested schema](#nestedatt--secure_bundles))
+
+<a id="nestedatt--secure_bundles"></a>
+### Nested Schema for `secure_bundles`
+
+Read-Only:
+
+- `custom_domain_bundles` (List of Object) (see [below for nested schema](#nestedobjatt--secure_bundles--custom_domain_bundles))
+- `datacenter_id` (String)
+- `internal_migration_proxy_url` (String)
+- `internal_url` (String)
+- `migration_proxy_url` (String)
+- `url` (String)
+
+<a id="nestedobjatt--secure_bundles--custom_domain_bundles"></a>
+### Nested Schema for `secure_bundles.custom_domain_bundles`
+
+Read-Only:
+
+- `api_fqdn` (String)
+- `cql_fqdn` (String)
+- `dashboard_fqdn` (String)
+- `domain` (String)
+- `url` (String)
 
 
