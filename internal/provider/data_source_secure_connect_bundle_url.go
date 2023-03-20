@@ -28,15 +28,79 @@ func dataSourceSecureConnectBundleURL() *schema.Resource {
 			},
 			// Optional inputs
 			"datacenter_id": {
-				Description:  "The ID of the Astra datacenter. If omitted, only the primary datacenter will be used.",
+				Description:  "The ID of the Astra datacenter. If omitted, all bundles will be fetched.",
 				Type:         schema.TypeString,
 				Optional:     true,
 			},
 			// Computed
-			"url": {
-				Description: "The temporary download url to the secure connect bundle zip file.",
-				Type:        schema.TypeString,
+			"secure_bundles": {
+				Description: "A list of Secure Connect Bundle info",
+				Type:        schema.TypeList,
 				Computed:    true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"datacenter_id": {
+							Description:  "The ID of the Astra datacenter.",
+							Type:         schema.TypeString,
+							Computed:     true,
+						},
+						"url": {
+							Description: "The temporary download url to the secure connect bundle zip file.",
+							Type:        schema.TypeString,
+							Computed:    true,
+						},
+						"internal_url": {
+							Description: "The temporary internal download url to the secure connect bundle zip file.",
+							Type:        schema.TypeString,
+							Computed:    true,
+						},
+						"migration_proxy_url": {
+							Description: "The temporary migration proxy url.",
+							Type:        schema.TypeString,
+							Computed:    true,
+						},
+						"internal_migration_proxy_url": {
+							Description: "The temporary internal migration proxy url.",
+							Type:        schema.TypeString,
+							Computed:    true,
+						},
+						"custom_domain_bundles" : {
+							Description: "Bundles for custom domain.",
+							Type:        schema.TypeList,
+							Computed:    true,
+							Optional:    true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"domain": {
+										Description: "Custom Domain.",
+										Type:         schema.TypeString,
+										Computed:     true,
+									},
+									"url": {
+										Description: "The temporary download url to the secure connect bundle zip file. This one is for the Custom Domain",
+										Type:         schema.TypeString,
+										Computed:     true,
+									},
+									"api_fqdn": {
+										Description: "The FQDN for API requests",
+										Type:         schema.TypeString,
+										Computed:     true,
+									},
+									"cql_fqdn": {
+										Description: "The FQDN for CQL requests",
+										Type:         schema.TypeString,
+										Computed:     true,
+									},
+									"dashboard_fqdn": {
+										Description: "The FQDN for the Dashboard",
+										Type:         schema.TypeString,
+										Computed:     true,
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -48,47 +112,78 @@ func dataSourceSecureConnectBundleURLRead(ctx context.Context, d *schema.Resourc
 
 	databaseID := d.Get("database_id").(string)
 	datacenterID := d.Get("datacenter_id").(string)
+	if datacenterID != "" {
+		tflog.Debug(ctx, fmt.Sprintf("Datacenter ID %s was specified, will filter later\n", datacenterID))
+	}
 
-	credsURL, err := getSecureConnectBundleURL(ctx, client, databaseID, datacenterID)
+	creds, err := getSecureConnectBundles(ctx, client, databaseID)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	d.SetId(fmt.Sprintf("%s/secure-connect-bundle/%s", databaseID, keyFromStrings([]string{credsURL.DownloadURL})))
-	d.Set("url", credsURL.DownloadURL)
+	setSecureConnectBundleData(ctx, d, databaseID, datacenterID, creds)
 	return nil
 }
 
-func getSecureConnectBundleURL(ctx context.Context, client astra.ClientWithResponsesInterface, databaseID, datacenterID string) (*astra.CredsURL, error) {
-	var credsURL *astra.CredsURL
-
-	// fetch dataceneters for the specified DB ID
-	datacenterResp, err := client.ListDatacentersWithResponse(ctx, databaseID, &astra.ListDatacentersParams{})
+func getSecureConnectBundles(ctx context.Context, client astra.ClientWithResponsesInterface, databaseID string) ([]astra.CredsURL, error) {
+	// fetch all the download bundles
+	allBool := true
+	secureBundleParams := &astra.GenerateSecureBundleURLParams{
+		All: &allBool,
+	}
+	secureBundlesResp, err := client.GenerateSecureBundleURLWithResponse(ctx, databaseID, secureBundleParams)
 	if err != nil {
 		return nil, err
 	}
-	if datacenterResp.StatusCode() > http.StatusOK {
-		return nil, fmt.Errorf("Failed to retrieve datacenters for Database with ID: %s. Response code: %d, msg = %s", databaseID, datacenterResp.StatusCode(), string(datacenterResp.Body))
+	if secureBundlesResp.StatusCode() > http.StatusOK {
+		return nil, fmt.Errorf("Failed to generate Secure Connect Bundle for Database ID %s. Response code: %d, msg = %s", databaseID, secureBundlesResp.StatusCode(), string(secureBundlesResp.Body))
 	}
-
-	// if no datacenter ID specified, then use the primary datacenter ID, should be <dbid-1>
-	if datacenterID == "" {
-		datacenterID = databaseID+"-1"
-	}
-
-	// find the URL for the datacenter ID
-	for _, dc := range *datacenterResp.JSON200 {
-		if datacenterID == *dc.Id {
-			return &astra.CredsURL{
-				DownloadURL: *dc.SecureBundleUrl,
-				DownloadURLInternal: dc.SecureBundleInternalUrl,
-				DownloadURLMigrationProxy: dc.SecureBundleMigrationProxyUrl,
-				DownloadURLMigrationProxyInternal: dc.SecureBundleMigrationProxyInternalUrl,
-			}, nil
-		}
-	}
-
-	tflog.Error(ctx, fmt.Sprintf("Could not find Datacenter with ID: %s", databaseID))
-	return credsURL, nil
+	return *secureBundlesResp.JSON200, nil
 }
 
+func setSecureConnectBundleData(ctx context.Context, d *schema.ResourceData, databaseID, datacenterID string, bundleData []astra.CredsURL) error {
+	bundles := make([]map[string]interface{}, 0, len(bundleData))
+	downloadURLs := make([]string, len(bundleData))
+	for _, bundle := range(bundleData) {
+		// DevOps APi has a misspelling that they might fix
+		var bundleDatacenter string
+		if bundle.DatacenterID != nil {
+			bundleDatacenter = *bundle.DatacenterID
+		} else if bundle.DatcenterID != nil {
+			bundleDatacenter = *bundle.DatcenterID
+		}
+		if datacenterID != "" && bundleDatacenter != datacenterID {
+			// skip adding this one because it doesn't match
+			tflog.Debug(ctx, fmt.Sprintf("Skipping SCB info for non-matching DC: %s\n", bundleDatacenter))
+			continue
+		}
+		bundleMap := map[string]interface{}{
+			"datacenter_id":                bundleDatacenter,
+			"url":                          bundle.DownloadURL,
+			"internal_url":                 bundle.DownloadURLInternal,
+			"migration_proxy_url":          bundle.DownloadURLMigrationProxy,
+			"internal_migration_proxy_url": bundle.DownloadURLMigrationProxyInternal,
+		}
+		downloadURLs = append(downloadURLs, bundleMap["url"].(string))
+		// see if the bundle has custom domain info
+		if bundle.CustomDomainBundles != nil {
+			customDomainBundleArray := *bundle.CustomDomainBundles
+			customDomains := make([]map[string]interface{}, 0, len(customDomainBundleArray))
+			for _, customDomain := range(customDomainBundleArray) {
+				customDomainMap := map[string]interface{}{
+					"domain": customDomain.Domain,
+					"url":    customDomain.DownloadURL,
+					"api_fqdn": customDomain.ApiFQDN,
+					"cql_fqdn": customDomain.CqlFQDN,
+					"dashboard_fqdn": customDomain.DashboardFQDN,
+				}
+				customDomains = append(customDomains, customDomainMap)
+			}
+			bundleMap["custom_domain_bundles"] = customDomains
+		}
+		bundles = append(bundles, bundleMap)
+	}
+	// set the ID using the Database ID and the download URLs
+	d.SetId(fmt.Sprintf("%s/secure-connect-bundle/%s", databaseID, keyFromStrings(downloadURLs)))
+	d.Set("secure_bundles", bundles)
+	return nil
+}
