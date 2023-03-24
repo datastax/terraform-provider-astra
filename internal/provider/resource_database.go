@@ -53,7 +53,7 @@ func resourceDatabase() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be at least 2 characters"),
 			},
 			"keyspace": {
 				Description:      "Initial keyspace name. For additional keyspaces, use the astra_keyspace resource.",
@@ -70,10 +70,16 @@ func resourceDatabase() *schema.Resource {
 				ValidateFunc:     validation.StringInSlice(availableCloudProviders, true),
 				DiffSuppressFunc: ignoreCase,
 			},
-			"regions": {
-				Description: "Cloud regions to launch the database. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)",
-				Type:        schema.TypeList,
+			"region": {
+				Description: "Primary Cloud region to launch the database. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)",
+				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
+			},
+			"additional_regions": {
+				Description: "Additional Cloud regions for multi-region Database deployment. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)",
+				Type:        schema.TypeSet,
+				Optional:    true,
 				ForceNew:    false,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -163,25 +169,12 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 	name := resourceData.Get("name").(string)
 	keyspace := resourceData.Get("keyspace").(string)
 	cloudProvider := resourceData.Get("cloud_provider").(string)
-	regions := resourceData.Get("regions").([]interface{})
-
-	if len(regions) < 1 {
-		return diag.Errorf("\"region\" array must have at least 1 region specified")
-	}
+	region := resourceData.Get("region").(string)
+	additionalRegions := resourceData.Get("additional_regions").([]interface{})
 
 	// Make sure all regions are valid
 	if err := ensureValidRegions(ctx, client, resourceData); err != nil {
 		return err
-	}
-	// get the first region in the list to use as the region in which to create the database
-	region := regions[0].(string)
-
-	// make an array of additonal regions to add if more than one specified
-	additionalRegions := make([]string, len(regions) -1)
-	if len(additionalRegions) > 0 {
-		for i:=0; i<len(additionalRegions); i++ {
-			additionalRegions[i] = regions[i+1].(string)
-		}
 	}
 
 	resp, err := client.CreateDatabaseWithResponse(ctx, astra.CreateDatabaseJSONRequestBody{
@@ -274,7 +267,7 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 	alreadyDeleted := false
 
 	// get the list of regions and delete any extra regions/datacenters first
-	regions := (resourceData.Get("regions")).([]interface{})
+	regions := (resourceData.Get("additional_regions")).([]interface{})
 	if len(regions) > 1 {
 		primaryRegion := []interface{}{regions[0].(string)}
 		_, regionsToDelete := getRegionUpdates(regions, primaryRegion)
@@ -365,9 +358,9 @@ func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceDa
 	databaseID := resourceData.Id()
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	if resourceData.HasChange("regions") {
+	if resourceData.HasChange("additional_regions") {
 		// get regions to add and delete
-		regionsToAdd, regionsToDelete := getRegionUpdates(resourceData.GetChange("regions"))
+		regionsToAdd, regionsToDelete := getRegionUpdates(resourceData.GetChange("additional_regions"))
 		if len(regionsToAdd) > 0 {
 			// add any regions to add first
 			if err := addRegionsToDatabase(ctx, resourceData, client, regionsToAdd, databaseID, cloudProvider); err != nil {
@@ -384,11 +377,11 @@ func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceDa
 	return nil
 }
 
-func getRegionUpdates(oldRegions interface{}, newRegions interface{}) ([]string, []string){
+func getRegionUpdates(oldRegions interface{}, newRegions interface{}) ([]interface{}, []interface{}){
 	mOld := map[string]bool{}
 	mNew := map[string]bool{}
-	var regionsToAdd []string
-	var regionsToDelete []string
+	var regionsToAdd []interface{}
+	var regionsToDelete []interface{}
 	// find any regions to add
 	for _, v := range oldRegions.([]interface{}) {
 		mOld[v.(string)] = true
@@ -398,19 +391,19 @@ func getRegionUpdates(oldRegions interface{}, newRegions interface{}) ([]string,
 	}
 	for _, v := range oldRegions.([]interface{}) {
 		if !mNew[v.(string)] {
-			regionsToDelete = append(regionsToDelete, v.(string))
+			regionsToDelete = append(regionsToDelete, v)
 		}
 	}
 	for _, v := range newRegions.([]interface{}) {
 		if !mOld[v.(string)] {
-			regionsToAdd = append(regionsToAdd, v.(string))
+			regionsToAdd = append(regionsToAdd, v)
 		}
 	}
 
 	return regionsToAdd, regionsToDelete
 }
 
-func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, regions []string, databaseID string, cloudProvider string) diag.Diagnostics {
+func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, regions []interface{}, databaseID, cloudProvider string) diag.Diagnostics {
 	// make sure the regions are valid
 	if err := ensureValidRegions(ctx, client, resourceData); err != nil {
 		return err
@@ -420,7 +413,7 @@ func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData
 		datacenters := make([]astra.Datacenter, 1)
 		datacenters[0] = astra.Datacenter {
 			CloudProvider: astra.CloudProvider(cloudProvider),
-			Region:        region,
+			Region:        region.(string),
 			Tier:          "serverless",
 		}
 		resp, err := client.AddDatacentersWithResponse(ctx, astra.DatabaseIdParam(databaseID), datacenters)
@@ -428,7 +421,7 @@ func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData
 			return diag.FromErr(err)
 		}
 		if resp.StatusCode() != http.StatusCreated {
-			return diag.FromErr(fmt.Errorf("Unexpected response addinng Regions: %s", string(resp.Body)))
+			return diag.FromErr(fmt.Errorf("Unexpected response adding Regions: %s", string(resp.Body)))
 		}
 		// Wait for the database to be ACTIVE then set resource data
 		if err := waitForDatabaseAndUpdateResource(ctx, resourceData, client, databaseID); err != nil {
@@ -438,8 +431,8 @@ func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData
 	return nil
 }
 
-func deleteRegionsFromDatabase(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, regions []string, databaseID string, cloudProvider string) diag.Diagnostics {
-	// get all the datacenetrs for the Datbase ID
+func deleteRegionsFromDatabase(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, regions []interface{}, databaseID, cloudProvider string) diag.Diagnostics {
+	// get all the datacenters for the Database ID
 	dcListResp, err := client.ListDatacentersWithResponse(ctx, astra.DatabaseIdParam(databaseID), &astra.ListDatacentersParams{})
 	if err != nil {
 		return diag.FromErr(err)
@@ -455,7 +448,7 @@ func deleteRegionsFromDatabase(ctx context.Context, resourceData *schema.Resourc
 	}
 	// delete each region that exists
 	for _, v := range regions {
-		if dc := regionDcMap[v]; dc.Id != nil {
+		if dc := regionDcMap[v.(string)]; dc.Id != nil {
 			termResp, err := client.TerminateDatacenterWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.DatacenterIdParam(*dc.Id))
 			if err != nil {
 				return diag.FromErr(err)
@@ -464,7 +457,7 @@ func deleteRegionsFromDatabase(ctx context.Context, resourceData *schema.Resourc
 				return diag.Errorf("Error terminating datacenter for region \"%s\": Insufficient permissions.", v)
 			}
 			if termResp.StatusCode() != http.StatusAccepted {
-				return diag.Errorf("Error terminating datacenter for region \"%s\": Response %d, mesage = %s", v, termResp.StatusCode(), string(termResp.Body))
+				return diag.Errorf("Error terminating datacenter for region \"%s\": Response %d, message = %s", v, termResp.StatusCode(), string(termResp.Body))
 			}
 			// Wait for the database to be ACTIVE then set resource data
 			if err := waitForDatabaseAndUpdateResource(ctx, resourceData, client, databaseID); err != nil {
@@ -539,7 +532,8 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		"data_endpoint_url":    astra.StringValue(db.DataEndpointUrl),
 		"cqlsh_url":            astra.StringValue(db.CqlshUrl),
 		"cloud_provider":       "",
-		"regions":              []string{astra.StringValue(db.Info.Region)},
+		"region":               astra.StringValue(db.Info.Region),
+		"additional_regions":   []string{},
 		"keyspace":             astra.StringValue(db.Info.Keyspace),
 		"additional_keyspaces": astra.StringSlice(db.Info.AdditionalKeyspaces),
 		"node_count":           db.Storage.NodeCount,
@@ -553,23 +547,27 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		flatDB["cloud_provider"] = string(cloudProvider)
 	}
 
-	if db.Info.Datacenters != nil {
-		regions := make([]string, len(*db.Info.Datacenters))
+	if db.Info.Datacenters != nil && len(*db.Info.Datacenters) > 1 {
+		regions := make([]string, len(*db.Info.Datacenters) - 1)
 		datacenters := make(map[string]interface{}, len(*db.Info.Datacenters))
-		for index, dc := range *db.Info.Datacenters {
-			regions[index] = dc.Region
+		regionIndex := 0
+		for _, dc := range *db.Info.Datacenters {
+			if dc.Region != flatDB["region"].(string) {
+				regions[regionIndex] = dc.Region
+				regionIndex++
+			}
 			// make a datacenter key of cloud_provider.region
 			dcKey := flatDB["cloud_provider"].(string) + "." + dc.Region
 			datacenters[dcKey] = *dc.Id
 		}
-		flatDB["regions"] = regions
+		flatDB["additional_regions"] = regions
 		flatDB["datacenters"] = datacenters
 	}
 	return flatDB
 }
 
 func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, resourceData *schema.ResourceData) diag.Diagnostics {
-	// get the list of serveless regions
+	// get the list of serverless regions
 	regionsResp, err := client.ListServerlessRegionsWithResponse(ctx)
 	if err != nil {
 		return diag.FromErr(err)
@@ -578,7 +576,11 @@ func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, 
 	}
 	// make sure all of the regions are valid
 	cloudProvider := resourceData.Get("cloud_provider").(string)
-	regions := resourceData.Get("regions").([] interface{})
+	primaryRegion := resourceData.Get("region").(string)
+	if findMatchingRegion(cloudProvider, primaryRegion, "serverless", *regionsResp.JSON200) == nil {
+		return diag.Errorf("cloud provider and Primary region combination not available: %s/%s", cloudProvider, primaryRegion)
+	}
+	regions := resourceData.Get("additional_regions").([] interface{})
 	for _, r := range regions {
 		region := r.(string)
 		dbRegion := findMatchingRegion(cloudProvider, region, "serverless", *regionsResp.JSON200)

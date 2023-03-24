@@ -28,6 +28,7 @@ data "astra_database" "db" {
 ### Read-Only
 
 - `additional_keyspaces` (List of String) Additional keyspaces
+- `additional_regions` (Set of String) Additional Datacenter Cloud regions for multi-region Database deployments.
 - `cloud_provider` (String) Cloud provider (AWS, GCP, AZURE)
 - `cqlsh_url` (String) URL for cqlsh web
 - `data_endpoint_url` (String) REST API URL
@@ -38,11 +39,11 @@ data "astra_database" "db" {
 - `keyspace` (String) Initial keyspace
 - `name` (String) Database name (user provided)
 - `node_count` (Number) Node count (not relevant for serverless databases)
-- `organization_id` (String) Ordg id (system generated)
+- `organization_id` (String) Org id (system generated)
 - `owner_id` (String) Owner id (system generated)
-- `regions` (List of String) Cloud provider region. Get list of supported regions from regions data-source
+- `region` (String) Primary Datacenter Cloud region
 - `replication_factor` (Number) Replication Factor (not relevant for serverless databases)
 - `status` (String) Database status
-- `total_storage` (Number) Storage Capacity (not relevant for serverelss databases)
+- `total_storage` (Number) Storage Capacity (not relevant for serverless databases)
 
 
