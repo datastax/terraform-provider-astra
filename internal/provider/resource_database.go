@@ -170,7 +170,7 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 	keyspace := resourceData.Get("keyspace").(string)
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 	region := resourceData.Get("region").(string)
-	additionalRegions := resourceData.Get("additional_regions").([]interface{})
+	additionalRegions := (resourceData.Get("additional_regions").(*schema.Set)).List()
 
 	// Make sure all regions are valid
 	if err := ensureValidRegions(ctx, client, resourceData); err != nil {
@@ -267,17 +267,16 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 	alreadyDeleted := false
 
 	// get the list of regions and delete any extra regions/datacenters first
-	regions := (resourceData.Get("additional_regions")).([]interface{})
-	if len(regions) > 1 {
-		primaryRegion := []interface{}{regions[0].(string)}
-		_, regionsToDelete := getRegionUpdates(regions, primaryRegion)
-		tflog.Debug(ctx, fmt.Sprintf("Multiple regions found. Must delete all additional regions first: %v, regions to delete: %v", regions, regionsToDelete))
+	regionsToDelete := (resourceData.Get("additional_regions").(*schema.Set)).List()
+
+	if len(regionsToDelete) > 1 {
+		tflog.Debug(ctx, fmt.Sprintf("Multiple regions found. Must delete all additional regions first: %v", regionsToDelete))
 		cloudProvider := resourceData.Get("cloud_provider").(string)
 		if err := deleteRegionsFromDatabase(ctx, resourceData, client, regionsToDelete, databaseID, cloudProvider); err != nil {
 			return err
 		}
 	} else {
-		tflog.Debug(ctx, fmt.Sprintf("Single region found %v", regions))
+		tflog.Debug(ctx, fmt.Sprintf("Single region found %v", resourceData.Get("region")))
 	}
 
 	if err := resource.RetryContext(ctx, resourceData.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
@@ -382,19 +381,21 @@ func getRegionUpdates(oldRegions interface{}, newRegions interface{}) ([]interfa
 	mNew := map[string]bool{}
 	var regionsToAdd []interface{}
 	var regionsToDelete []interface{}
+	oldRegionsList := (oldRegions.(*schema.Set)).List()
+	newRegionsList := (newRegions.(*schema.Set)).List()
 	// find any regions to add
-	for _, v := range oldRegions.([]interface{}) {
+	for _, v := range oldRegionsList {
 		mOld[v.(string)] = true
 	}
-	for _, v := range newRegions.([]interface{}) {
+	for _, v := range newRegionsList {
 		mNew[v.(string)] = true
 	}
-	for _, v := range oldRegions.([]interface{}) {
+	for _, v := range oldRegionsList {
 		if !mNew[v.(string)] {
 			regionsToDelete = append(regionsToDelete, v)
 		}
 	}
-	for _, v := range newRegions.([]interface{}) {
+	for _, v := range newRegionsList {
 		if !mOld[v.(string)] {
 			regionsToAdd = append(regionsToAdd, v)
 		}
@@ -580,7 +581,7 @@ func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, 
 	if findMatchingRegion(cloudProvider, primaryRegion, "serverless", *regionsResp.JSON200) == nil {
 		return diag.Errorf("cloud provider and Primary region combination not available: %s/%s", cloudProvider, primaryRegion)
 	}
-	regions := resourceData.Get("additional_regions").([] interface{})
+	regions := (resourceData.Get("additional_regions").(*schema.Set)).List()
 	for _, r := range regions {
 		region := r.(string)
 		dbRegion := findMatchingRegion(cloudProvider, region, "serverless", *regionsResp.JSON200)
