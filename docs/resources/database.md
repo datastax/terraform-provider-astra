@@ -17,7 +17,8 @@ resource "astra_database" "example" {
   name           = "name"
   keyspace       = "keyspace"
   cloud_provider = "gcp"
-  regions        = ["us-east1"]
+  region        = "us-east1"
+  additional_regions = ["us-east4", "us-central1"]
 }
 ```
 
@@ -29,10 +30,11 @@ resource "astra_database" "example" {
 - `cloud_provider` (String) The cloud provider to launch the database. (Currently supported: aws, azure, gcp)
 - `keyspace` (String) Initial keyspace name. For additional keyspaces, use the astra_keyspace resource.
 - `name` (String) Astra database name.
-- `regions` (List of String) Cloud regions to launch the database. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)
+- `region` (String) Primary Cloud region to launch the database. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)
 
 ### Optional
 
+- `additional_regions` (Set of String) Additional Cloud regions for multi-region Database deployment. (see https://docs.datastax.com/en/astra/docs/database-regions.html for supported regions)
 - `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 

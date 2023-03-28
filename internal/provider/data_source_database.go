@@ -36,7 +36,7 @@ func dataSourceDatabase() *schema.Resource {
 				Computed:    true,
 			},
 			"organization_id": {
-				Description: "Ordg id (system generated)",
+				Description: "Org id (system generated)",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
@@ -45,9 +45,14 @@ func dataSourceDatabase() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			"regions": {
-				Description: "Cloud provider region. Get list of supported regions from regions data-source",
-				Type:        schema.TypeList,
+			"region": {
+				Description: "Primary Datacenter Cloud region",
+				Type:        schema.TypeString,
+				Computed:    true,
+			},
+			"additional_regions": {
+				Description: "Additional Datacenter Cloud regions for multi-region Database deployments.",
+				Type:        schema.TypeSet,
 				Computed:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -94,7 +99,7 @@ func dataSourceDatabase() *schema.Resource {
 				Computed:    true,
 			},
 			"total_storage": {
-				Description: "Storage Capacity (not relevant for serverelss databases)",
+				Description: "Storage Capacity (not relevant for serverless databases)",
 				Type:        schema.TypeInt,
 				Computed:    true,
 			},

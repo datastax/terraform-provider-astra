@@ -2,8 +2,10 @@ package provider
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func TestDatabase(t *testing.T){
@@ -25,7 +27,7 @@ resource "astra_database" "dev" {
   name           = "puppies"
   keyspace       = "puppies"
   cloud_provider = "gcp"
-  regions        = ["us-east1"]
+  region        = "us-east1"
 }
 
 data "astra_secure_connect_bundle_url" "dev" {
@@ -37,8 +39,9 @@ data "astra_secure_connect_bundle_url" "dev" {
 func TestGetRegionUpdatesOnlyDeletes(t *testing.T) {
 	oldData := []interface{} {"region1", "region2", "region3", "region4", "region5"}
 	newData := []interface{} {"region1", "region2", "region3"}
-
-	regionsToAdd, regionsToDelete := getRegionUpdates(oldData, newData)
+	oldDataSet := schema.NewSet(schema.HashString, oldData)
+	newDataSet := schema.NewSet(schema.HashString, newData)
+	regionsToAdd, regionsToDelete := getRegionUpdates(oldDataSet, newDataSet)
 
 	testFailed := false
 	// verify no adds and 2 deletes
@@ -55,7 +58,7 @@ func TestGetRegionUpdatesOnlyDeletes(t *testing.T) {
 		expectedMap["region4"] = true
 		expectedMap["region5"] = true
 		for _, v := range regionsToDelete {
-			if !expectedMap[v] {
+			if !expectedMap[v.(string)] {
 				testFailed = true
 				t.Logf("Unexpected region to delete: %s", v)
 			}
@@ -70,8 +73,9 @@ func TestGetRegionUpdatesOnlyDeletes(t *testing.T) {
 func TestGetRegionUpdatesOnlyAdds(t *testing.T) {
 	oldData := []interface{} {"region1", "region2", "region3"}
 	newData := []interface{} {"region1", "region2", "region3", "region4", "region5"}
-
-	regionsToAdd, regionsToDelete := getRegionUpdates(oldData, newData)
+	oldDataSet := schema.NewSet(schema.HashString, oldData)
+	newDataSet := schema.NewSet(schema.HashString, newData)
+	regionsToAdd, regionsToDelete := getRegionUpdates(oldDataSet, newDataSet)
 
 	testFailed := false
 	// verify no deletes and 2 adds
@@ -84,7 +88,7 @@ func TestGetRegionUpdatesOnlyAdds(t *testing.T) {
 		expectedMap["region4"] = true
 		expectedMap["region5"] = true
 		for _, v := range regionsToAdd {
-			if !expectedMap[v] {
+			if !expectedMap[v.(string)] {
 				testFailed = true
 				t.Logf("Unexpected region to add: %s", v)
 			}
@@ -103,8 +107,9 @@ func TestGetRegionUpdatesOnlyAdds(t *testing.T) {
 func TestGetRegionUpdatesAddsAndDeletes(t *testing.T) {
 	oldData := []interface{} {"region1", "region3", "region5"}
 	newData := []interface{} {"region1", "region2", "region4"}
-
-	regionsToAdd, regionsToDelete := getRegionUpdates(oldData, newData)
+	oldDataSet := schema.NewSet(schema.HashString, oldData)
+	newDataSet := schema.NewSet(schema.HashString, newData)
+	regionsToAdd, regionsToDelete := getRegionUpdates(oldDataSet, newDataSet)
 
 	testFailed := false
 	// verify 2 adds and 2 deletes
@@ -117,7 +122,7 @@ func TestGetRegionUpdatesAddsAndDeletes(t *testing.T) {
 		expectedMap["region2"] = true
 		expectedMap["region4"] = true
 		for _, v := range regionsToAdd {
-			if !expectedMap[v] {
+			if !expectedMap[v.(string)] {
 				testFailed = true
 				t.Logf("Unexpected region to add: %s", v)
 			}
@@ -132,7 +137,7 @@ func TestGetRegionUpdatesAddsAndDeletes(t *testing.T) {
 		expectedMap["region3"] = true
 		expectedMap["region5"] = true
 		for _, v := range regionsToDelete {
-			if !expectedMap[v] {
+			if !expectedMap[v.(string)] {
 				testFailed = true
 				t.Logf("Unexpected region to delete: %s", v)
 			}
