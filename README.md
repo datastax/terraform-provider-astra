@@ -89,6 +89,8 @@ public servers.
          dev_overrides {
            "datastax/astra" = "$HOME/go/src/github.com/datastax/terraform-provider-astra/bin"
          }
+         direct {
+         }
        }
 
 2. Build the provider binary

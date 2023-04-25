@@ -1,1 +1,1 @@
-terraform import astra_streaming_tenant.example tenant_name
+terraform import astra_streaming_tenant.example_tenant terraformtest1

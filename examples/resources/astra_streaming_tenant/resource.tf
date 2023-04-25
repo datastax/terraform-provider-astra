@@ -1,7 +1,6 @@
-resource "astra_streaming_tenant" "streaming_tenant-1" {
-  tenant_name    = "terraformtest"
-  topic          = "terraformtest"
-  region         = "useast-4"
+resource "astra_streaming_tenant" "example_tenant" {
+  tenant_name    = "terraformtest1"
   cloud_provider = "gcp"
-  user_email     = "seb@datastax.com"
+  region         = "useast-4"
+  user_email     = "someuser@example.com"
 }
