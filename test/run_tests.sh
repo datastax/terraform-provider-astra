@@ -6,9 +6,11 @@ DEFAULT_TEST_ENV_FILE="test.env"
 DEFAULT_TEST_ASTRA_API_URL="https://api.test.cloud.datastax.com"
 DEFAULT_TEST_ASTRA_STREAMING_API_URL="https://api.staging.streaming.datastax.com"
 
+SCRIPT_PATH=$(dirname -- "$0")
+
 setup_env() {
   if [ -z "$TEST_ENV_FILE" ]; then
-    TEST_ENV_FILE="$DEFAULT_TEST_ENV_FILE"
+    TEST_ENV_FILE="${SCRIPT_PATH}/${DEFAULT_TEST_ENV_FILE}"
   fi
   if [ -f "$TEST_ENV_FILE" ]; then
     source "$TEST_ENV_FILE"
