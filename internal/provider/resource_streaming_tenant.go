@@ -40,11 +40,12 @@ func resourceStreamingTenant() *schema.Resource {
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^[a-z]([-a-z0-9]*[a-z0-9])$"), "name must be atleast 2 characters and contain only alphanumeric characters"),
 			},
 			"topic": {
-				Description:  "Streaming tenant topic.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+				Description:      "Streaming tenant topic. Please use the `astra_streaming_topic` resource instead.",
+				Type:             schema.TypeString,
+				Optional:         true,
+				Deprecated:       "This field is deprecated and will be removed in a future release. Please use the `astra_streaming_topic` resource instead.",
+				ValidateFunc:     validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+				DiffSuppressFunc: alwaysSuppressDiff,
 			},
 			"region": {
 				Description:  "cloud region",
@@ -61,18 +62,19 @@ func resourceStreamingTenant() *schema.Resource {
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
 			"user_email": {
-				Description:  "User email for tenant.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+				Description:      "User email for tenant.",
+				Type:             schema.TypeString,
+				Required:         true,
+				ValidateFunc:     validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+				DiffSuppressFunc: alwaysSuppressDiff,
 			},
 			// Optional
 			"deletion_protection": {
-				Description: "Whether or not to allow Terraform to destroy this tenant. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.",
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     true,
+				Description:      "Whether or not to allow Terraform to destroy this tenant. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.",
+				Type:             schema.TypeBool,
+				Optional:         true,
+				Default:          true,
+				DiffSuppressFunc: alwaysSuppressDiff,
 			},
 			// Computed
 			"broker_service_url": {
@@ -140,6 +142,11 @@ type StreamingClusters []struct {
 	Email                  string `json:"Email"`
 }
 
+// alwaysSuppressDiff will suppress the diff for a field in the schema.
+func alwaysSuppressDiff(k, oldValue, newValue string, d *schema.ResourceData) bool {
+	return true
+}
+
 func resourceStreamingTenantUpdate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	// In-place update not supported. This is only here to support deletion_protection
 	return nil
@@ -163,6 +170,9 @@ func resourceStreamingTenantDelete(ctx context.Context, resourceData *schema.Res
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	err = json.Unmarshal(bodyBuffer, &org)
 	if err != nil {
@@ -196,12 +206,13 @@ func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.Resou
 		return diag.FromErr(err)
 	}
 
-	//tenantName:= resourceData.Get("tenant_name").(string)
-
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	err = json.Unmarshal(bodyBuffer, &org)
 	if err != nil {
@@ -237,12 +248,10 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-	//name := resourceData.Get("name").(string)
-	topic := resourceData.Get("topic").(string)
-	rawRegion := resourceData.Get("region").(string)
-	region := strings.ReplaceAll(rawRegion, "-", "")
-	cloudProvider := resourceData.Get("cloud_provider").(string)
 	tenantName := resourceData.Get("tenant_name").(string)
+	topic := resourceData.Get("topic").(string)
+	region := formatStreamingRegion(resourceData.Get("region").(string))
+	cloudProvider := resourceData.Get("cloud_provider").(string)
 	userEmail := resourceData.Get("user_email").(string)
 	// this can be used for dedicated plan that must specify a cluster name
 	clusterName := resourceData.Get("cluster_name").(string)
@@ -251,14 +260,19 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	err = json.Unmarshal(bodyBuffer, &org)
 	if err != nil {
 		fmt.Println("Can't deserislize", orgBody)
 	}
 
-	// Step 0
-	streamingClustersResponse, _ := streamingClient.GetPulsarClustersWithResponse(ctx, org.ID)
+	streamingClustersResponse, err := streamingClient.GetPulsarClustersWithResponse(ctx, org.ID)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	var streamingClusters StreamingClusters
 	//bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
@@ -321,6 +335,15 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantResponse astrastreaming.TenantClusterPlanResponse) error {
 	d.SetId(*tenantResponse.TenantName)
 
+	if err := d.Set("cloud_provider", *tenantResponse.CloudProvider); err != nil {
+		return err
+	}
+	if tenantResponse.CloudProviderRegion != nil {
+		region := formatStreamingRegion(*tenantResponse.CloudProviderRegion)
+		if err := d.Set("region", region); err != nil {
+			return err
+		}
+	}
 	if err := d.Set("tenant_name", *tenantResponse.TenantName); err != nil {
 		return err
 	}
@@ -339,6 +362,7 @@ func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantR
 	if err := d.Set("web_socket_query_param_url", *tenantResponse.WebsocketQueryParamURL); err != nil {
 		return err
 	}
+
 	// only set these if they aren't nil or empty
 	metricsUrl := *tenantResponse.UserMetricsURL
 	if len(metricsUrl) > 0 {
@@ -361,4 +385,8 @@ func parseStreamingTenantID(id string) (string, error) {
 		return "", errors.New("invalid tenant id format: expected tenantID/")
 	}
 	return idParts[0], nil
+}
+
+func formatStreamingRegion(region string) string {
+	return strings.ReplaceAll(region, "-", "")
 }
