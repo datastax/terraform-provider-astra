@@ -2,14 +2,17 @@ package provider
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestPrivateLinkEndpoint(t *testing.T){
+func TestPrivateLinkEndpoint(t *testing.T) {
+	checkRequiredTestVars(t, "ASTRA_TEST_AWS_ACCESS_KEY_ID", "ASTRA_TEST_AWS_SECRET_ACCESS_KEY")
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t); checkAwsEnv(t) },
-		Providers:    testAccProviders,
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccPrivateLinkEndpointConfiguration(),
@@ -18,7 +21,7 @@ func TestPrivateLinkEndpoint(t *testing.T){
 	})
 }
 
-//https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
+// https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
 func testAccPrivateLinkEndpointConfiguration() string {
 	return fmt.Sprintf(`
 provider "aws" {
@@ -45,7 +48,7 @@ resource "astra_private_link_endpoint" "example" {
 `)
 }
 
-func TestParsePrivateLinkEndpointId(t *testing.T){
+func TestParsePrivateLinkEndpointId(t *testing.T) {
 	id := "b504911d-4982-4e45-84c2-607524cb533b/datacenter/b504911d-4982-4e45-84c2-607524cb533b-1/endpoint//subscriptions/123456/resourceGroups/123456/providers/Microsoft.Network/privateEndpoints/123456"
 	databaseID, datacenterID, endpointID, err := parsePrivateLinkEndpointID(id)
 	if err != nil {
@@ -61,7 +64,7 @@ func TestParsePrivateLinkEndpointId(t *testing.T){
 		t.Logf("Datacenter ID parsed from private link ID: \"%s\", expected \"%s\"", datacenterID, "b504911d-4982-4e45-84c2-607524cb533b-1")
 		t.Fail()
 	}
-	if (endpointID != "/subscriptions/123456/resourceGroups/123456/providers/Microsoft.Network/privateEndpoints/123456") {
+	if endpointID != "/subscriptions/123456/resourceGroups/123456/providers/Microsoft.Network/privateEndpoints/123456" {
 		t.Logf("endpoint ID parsed from private link ID: \"%s\", expected \"%s\"", endpointID, "/subscriptions/123456/resourceGroups/123456/providers/Microsoft.Network/privateEndpoints/123456")
 		t.Fail()
 	}

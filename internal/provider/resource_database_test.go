@@ -2,28 +2,34 @@ package provider
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"os"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestDatabase(t *testing.T){
+func TestDatabase(t *testing.T) {
+	checkRequiredTestVars(t, "ASTRA_TEST_DATABASE_NAME")
+	databaseName := os.Getenv("ASTRA_TEST_DATABASE_NAME")
+	t.Parallel()
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDatabaseConfiguration(),
+				Config: testAccDatabaseConfiguration(databaseName),
 			},
 		},
 	})
 }
 
-//https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
-func testAccDatabaseConfiguration() string {
+// https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
+func testAccDatabaseConfiguration(databaseName string) string {
 	return fmt.Sprintf(`
 resource "astra_database" "dev" {
-  name           = "puppies"
-  keyspace       = "puppies"
+  name           = "%s"
+  keyspace       = "ks1"
   cloud_provider = "gcp"
   regions        = ["us-east1"]
 }
@@ -31,12 +37,12 @@ resource "astra_database" "dev" {
 data "astra_secure_connect_bundle_url" "dev" {
   database_id = astra_database.dev.id
 }
-`)
+`, databaseName)
 }
 
 func TestGetRegionUpdatesOnlyDeletes(t *testing.T) {
-	oldData := []interface{} {"region1", "region2", "region3", "region4", "region5"}
-	newData := []interface{} {"region1", "region2", "region3"}
+	oldData := []interface{}{"region1", "region2", "region3", "region4", "region5"}
+	newData := []interface{}{"region1", "region2", "region3"}
 
 	regionsToAdd, regionsToDelete := getRegionUpdates(oldData, newData)
 
@@ -68,8 +74,8 @@ func TestGetRegionUpdatesOnlyDeletes(t *testing.T) {
 }
 
 func TestGetRegionUpdatesOnlyAdds(t *testing.T) {
-	oldData := []interface{} {"region1", "region2", "region3"}
-	newData := []interface{} {"region1", "region2", "region3", "region4", "region5"}
+	oldData := []interface{}{"region1", "region2", "region3"}
+	newData := []interface{}{"region1", "region2", "region3", "region4", "region5"}
 
 	regionsToAdd, regionsToDelete := getRegionUpdates(oldData, newData)
 
@@ -101,8 +107,8 @@ func TestGetRegionUpdatesOnlyAdds(t *testing.T) {
 }
 
 func TestGetRegionUpdatesAddsAndDeletes(t *testing.T) {
-	oldData := []interface{} {"region1", "region3", "region5"}
-	newData := []interface{} {"region1", "region2", "region4"}
+	oldData := []interface{}{"region1", "region3", "region5"}
+	newData := []interface{}{"region1", "region2", "region4"}
 
 	regionsToAdd, regionsToDelete := getRegionUpdates(oldData, newData)
 

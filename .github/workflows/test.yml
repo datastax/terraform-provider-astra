@@ -1,26 +1,22 @@
-name: Tests
+name: CI
 on:
   pull_request:
     paths-ignore:
       - 'README.md'
   push:
-    paths-ignore:
-      - 'README.md'
+    branches:
+      - 'main'
 jobs:
   build:
-    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
+    - uses: actions/setup-go@v3
       with:
         go-version: '1.18'
-      id: go
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
 
     - name: Get dependencies
       run: |
@@ -47,38 +43,29 @@ jobs:
         go build -v .
 
   # run acceptance tests in a matrix with Terraform core versions
-  test:
-    name: Matrix Test
+  terraform-acceptance-test:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
-      fail-fast: false
+      max-parallel: 1
       matrix:
         # list whatever Terraform versions here you would like to support
         terraform:
-          - '0.12.29'
-          - '0.13.4'
-          - '0.14.0-beta2'
-          - '0.15.0-dev'
+          # - '0.15.5'
+          - '1.4.6'
     steps:
-    - name: Set up Go
-      uses: actions/setup-go@v3
+    - uses: actions/setup-go@v3
       with:
         go-version: '1.18'
-      id: go
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
 
-    - name: Get dependencies
-      run: |
-        go mod download
-        
-    - name: TF acceptance tests
-      timeout-minutes: 10
+    - name: Run tests
+      timeout-minutes: 15
       env:
+        ASTRA_API_TOKEN: ${{ secrets.TEST_ASTRA_API_TOKEN }}
         TF_ACC: "1"
         TF_ACC_TERRAFORM_VERSION: ${{ matrix.terraform }}
       run: |
-        go test -v -cover ./internal/provider/
+        make testacc

@@ -3,27 +3,32 @@ package provider
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"testing"
 )
 
-func TestAccessList(t *testing.T){
+func TestAccessList(t *testing.T) {
+	checkRequiredTestVars(t, "ASTRA_TEST_DATABASE_ID")
+	databaseID := os.Getenv("ASTRA_TEST_DATABASE_ID")
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccessListConfiguration(),
+				Config: testAccAccessListConfiguration(databaseID),
 			},
 		},
 	})
 }
 
-func testAccAccessListConfiguration() string {
+func testAccAccessListConfiguration(databaseID string) string {
 	return fmt.Sprintf(`
 resource "astra_access_list" "example" {
-  database_id = "eab58043-d360-4797-bc0d-3cdde4884022"
+  database_id = "%s"
   addresses {
       address= "0.0.0.1/0"
       enabled= true
@@ -38,19 +43,19 @@ resource "astra_access_list" "example" {
   }
   enabled = true
 }
-`)
+`, databaseID)
 }
 
 func TestTimeUnmarshal(t *testing.T) {
 	msg := `{"lastUpdateDateTime":"2021-08-03 15:20:29.008 +0000 UTC"}`
 	//msg := `{"lastUpdateDateTime":"2021-08-03T15:20:29Z"}`
 	bodyBytes := []byte(msg)
-	type TestStruct struct{
+	type TestStruct struct {
 		LastUpdateDateTime *string
 	}
 	var dest TestStruct
 	if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-		fmt.Printf("fail with error: %s",err)
+		fmt.Printf("fail with error: %s", err)
 		return
 	}
 	fmt.Printf("succeed")
@@ -62,7 +67,7 @@ func TestMsgUnmarshal(t *testing.T) {
 
 	var dest astra.AccessListResponse
 	if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-		fmt.Printf("fail with error: %s",err)
+		fmt.Printf("fail with error: %s", err)
 		return
 	}
 
@@ -70,7 +75,7 @@ func TestMsgUnmarshal(t *testing.T) {
 
 }
 
-func TestMsgNewStructMarshal(t *testing.T){
+func TestMsgNewStructMarshal(t *testing.T) {
 	type AddressResponse struct {
 
 		// The address (ip address and subnet mask in CIDR notation) of the address to allow
@@ -104,17 +109,15 @@ func TestMsgNewStructMarshal(t *testing.T){
 		OrganizationId *string `json:"organizationId,omitempty"`
 	}
 
-
 	msg := `{"organizationId":"f9f4b1e0-4c05-451e-9bba-d631295a7f73","databaseId":"aba3cf20-d579-4091-a36d-9c9f75096031","addresses":[{"address":"0.0.0.0/0","description":"","enabled":true,"lastUpdateDateTime":"2021-08-03 15:20:29.008 +0000 UTC"}],"configurations":{"accessListEnabled":false}}`
 	bodyBytes := []byte(msg)
 
 	var dest MyAccessListResponse
 	if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-		fmt.Printf("fail with error: %s",err)
+		fmt.Printf("fail with error: %s", err)
 		return
 	}
 
 	fmt.Printf("succeed")
-
 
 }

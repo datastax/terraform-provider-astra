@@ -2,35 +2,34 @@ package provider
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"os"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestTable(t *testing.T){
+func TestTable(t *testing.T) {
+	checkRequiredTestVars(t, "ASTRA_TEST_DATABASE_ID")
+	databaseID := os.Getenv("ASTRA_TEST_DATABASE_ID")
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTableConfiguration(),
+				Config: testAccTableConfiguration(databaseID),
 			},
 		},
 	})
 }
 
-//https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
-func testAccTableConfiguration() string {
+// https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
+func testAccTableConfiguration(databaseID string) string {
 	return fmt.Sprintf(`
-resource "astra_database" "dev" {
-  name           = "puppies"
-  keyspace       = "puppies"
-  cloud_provider = "gcp"
-  regions        = ["us-east1"]
-}
 resource "astra_table" "table-1" {
   table       = "mytable"
   keyspace = "puppies"
-  database_id = astra_database.dev.id
+  database_id = "%s"
   region = "us-east1"
   clustering_columns = "a:b"
   partition_keys = "c:d"
@@ -67,5 +66,5 @@ resource "astra_table" "table-1" {
     }
   ]
 }
-`)
+`, databaseID)
 }

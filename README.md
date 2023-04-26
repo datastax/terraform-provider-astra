@@ -94,7 +94,7 @@ public servers.
 2. Build the provider binary
 
        cd $HOME/go/src/github.com/datastax/terraform-provider-astra
-       make build
+       make
 
 3. Create a new Terraform config file or run an existing one and the locally built
    provider will be used.  You may see a warning about using an unverified binary.
@@ -104,11 +104,31 @@ public servers.
    Note: `terraform init` should be skipped when developing locally.
 
 
-### Running the test suite
+### Running the tests
+
+The tests require several environment variables to be set in order to successfully
+run.  By default any tests which are missing the required environment variables
+will be skipped.
+
+    ```sh
+    export ASTRA_TEST_DATABASE_ID="<Astra database UUID>"
+    export ASTRA_TEST_DATACENTER_ID="<Astra datacenter id>"
+    export ASTRA_TEST_ENDPOINT_ID="<Astra endpoint ID>"
+    ```
+
+An example of these variables can be found in the file `test/example-test.env`.  If a
+file called `test/test.env` is created it will be automatically loaded by the test script.
 
 The tests can be run via Make.
 
-    make testacc
+    make test
+
+A single test can be run using golang test args.
+
+    ```sh
+    export TESTARGS="-run TestStreamingTenant"
+    make test
+    ```
 
 ## Documentation Updates
 

@@ -2,14 +2,18 @@ package provider
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestRole(t *testing.T){
+func TestRole(t *testing.T) {
+	// Disable this test by default until it is configurable per user
+	checkRequiredTestVars(t, "ASTRA_TEST_ROLE_TEST_ENABLED")
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccRoleConfiguration(),
@@ -32,7 +36,6 @@ resource "astra_role" "example" {
 }
 `)
 }
-
 
 func testAccBiggerRoleConfiguration() string {
 	return fmt.Sprintf(`

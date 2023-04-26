@@ -152,19 +152,12 @@ func resourceStreamingTenantDelete(ctx context.Context, resourceData *schema.Res
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-	rawRegion := resourceData.Get("region").(string)
-	region := strings.ReplaceAll(rawRegion, "-", "")
-
-	cloudProvider := resourceData.Get("cloud_provider").(string)
-
 	id := resourceData.Id()
 
 	tenantID, err := parseStreamingTenantID(id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	//tenantName:= resourceData.Get("tenant_name").(string)
 
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
@@ -177,7 +170,7 @@ func resourceStreamingTenantDelete(ctx context.Context, resourceData *schema.Res
 	}
 
 	params := astrastreaming.DeleteStreamingTenantParams{}
-	cluster := fmt.Sprintf("pulsar-%s-%s", cloudProvider, region)
+	cluster := resourceData.Get("cluster_name").(string)
 	deleteResponse, err := streamingClient.DeleteStreamingTenantWithResponse(ctx, tenantID, cluster, &params)
 	if err != nil {
 		return diag.FromErr(err)
