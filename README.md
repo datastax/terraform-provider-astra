@@ -6,15 +6,17 @@
 
 ### Astra
 
-Before using this provider, you will need an existing or new [Astra account](https://astra.datastax.com/register).
-You will also need an Astra token which is used for authentication.  You can generate a new token
-using the [Astra Dashboard](https://astra.datastax.com).
+Before using this provider, you will need an existing or new [Astra](https://astra.datastax.com/) account.
+You will also need an Astra token which is used for authentication.  You can generate a new token using
+the `Settings` tab on the [Astra Dashboard](https://astra.datastax.com).
 
 ### Terraform
 
-You will need [Terraform](https://www.terraform.io/) version 0.13.x or higher.
+You will need [Terraform](https://www.terraform.io/) version 1.0 or higher.
 
 ## Getting Started
+
+Reference documentation can be found in the [terraform registry](https://registry.terraform.io/providers/datastax/astra/latest/docs)
 
 ### Create a new Astra database using terraform
 
@@ -66,15 +68,49 @@ You will need [Terraform](https://www.terraform.io/) version 0.13.x or higher.
 
 The [examples diretory](./examples) contains example configuration for the various resources.
 
-## Building from Source
+## Local Development
+
+### Build the provider from source
 
 The build requires [Go](https://golang.org/doc/install) >= 1.15
 
-The provider code can be built using `make`.
+In order to develop and test this provider, you'll need to configure your local environment
+with a custom Terraform [config file](https://developer.hashicorp.com/terraform/cli/config/config-file).
+This allows provider plugins to be retrieved from the local file system instead of from the
+public servers.
 
-    make
+1. Edit or create a .terraformrc file in your `$HOME` directory which includes custom
+   `provider_installation` settings.  Note that you will need to manually
+   expand `$HOME` to your actual home directory.
 
-### Documentation Updates
+       provider_installation {
+         # This disables the version and checksum verifications for locally installed astra providers.
+         # See: https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers
+         dev_overrides {
+           "datastax/astra" = "$HOME/go/src/github.com/datastax/terraform-provider-astra/bin"
+         }
+       }
+
+2. Build the provider binary
+
+       cd $HOME/go/src/github.com/datastax/terraform-provider-astra
+       make build
+
+3. Create a new Terraform config file or run an existing one and the locally built
+   provider will be used.  You may see a warning about using an unverified binary.
+
+       │ Warning: Provider development overrides are in effect
+
+   Note: `terraform init` should be skipped when developing locally.
+
+
+### Running the test suite
+
+The tests can be run via Make.
+
+    make testacc
+
+## Documentation Updates
 
 When modifying plugin services, updates to documentation may be required. Once you have changed a service description,
 or added or deleted a service, you need to regenerate the docs and commit them with your changes.
