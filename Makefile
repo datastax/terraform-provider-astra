@@ -1,22 +1,31 @@
 GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 PROVIDER=astra
-INSTALL_PATH=~/.local/share/terraform/plugins/localhost/providers/$(PROVIDER)/0.0.1/linux_$(GOARCH)
+DEV_VERSION=0.0.1
+PLUGIN_PATH=registry.terraform.io/datastax/$(PROVIDER)/$(DEV_VERSION)/$(GOOS)_$(GOARCH)
 
-ifeq ($(GOOS), darwin)
-	INSTALL_PATH=~/Library/Application\ Support/io.terraform/plugins/localhost/providers/$(PROVIDER)/0.0.1/darwin_$(GOARCH)
-endif
 ifeq ($(GOOS), "windows")
-	INSTALL_PATH=%APPDATA%/HashiCorp/Terraform/plugins/localhost/providers/$(PROVIDER)/0.0.1/windows_$(GOARCH)
+        INSTALL_PATH=%APPDATA%/terraform.d/plugins/$(PLUGIN_PATH)
+else
+        INSTALL_PATH=~/.terraform.d/plugins/$(PLUGIN_PATH)
 endif
 
-default: dev
+default: install
 
-dev:
+install: build
 	mkdir -p $(INSTALL_PATH)
-	go build -o $(INSTALL_PATH)/terraform-provider-$(PROVIDER) main.go
+	cp bin/terraform-provider-$(PROVIDER) $(INSTALL_PATH)
+
+build:
+	mkdir -p bin
+	go build -o bin/terraform-provider-$(PROVIDER)
+
+dev: install
 
 testacc:
 	TF_ACC=1 go test ./... -v $(TESTARGS) -timeout 120m
 
-.PHONY: dev testacc
+clean:
+	rm bin/terraform-provider-$(PROVIDER)
+
+.PHONY: install build clean dev testacc
