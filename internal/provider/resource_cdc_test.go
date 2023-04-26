@@ -2,14 +2,18 @@ package provider
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestCDC(t *testing.T){
+func TestCDC(t *testing.T) {
+	// Disable this test by default until test works with non-prod clusters
+	checkRequiredTestVars(t, "ASTRA_TEST_CDC_TEST_ENABLED")
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccCDCConfiguration(),
@@ -18,7 +22,7 @@ func TestCDC(t *testing.T){
 	})
 }
 
-//https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
+// https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
 func testAccCDCConfiguration() string {
 	return fmt.Sprintf(`
 resource "astra_streaming_tenant" "streaming_tenant-1" {

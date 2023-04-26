@@ -2,29 +2,35 @@ package provider
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"testing"
 )
 
-func TestStreamingSink(t *testing.T){
+func TestStreamingSink(t *testing.T) {
+	// Disable this test by default until test works with non-prod clusters
+	checkRequiredTestVars(t, "ASTRA_TEST_STREAMING_SINK_TEST_ENABLED")
+
+	//tenantName := fmt.Sprintf("terraform-test-%s", uuid.New().String())[0:20]
+	snowflakeTenantName := fmt.Sprintf("terraform-test-%s", uuid.New().String())[0:20]
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
 		Steps: []resource.TestStep{
-//			{
-//				Config: testAccStreamingSinkConfiguration(),
-//			},
+			//			{
+			//				Config: testAccStreamingSinkConfiguration(),
+			//			},
 			{
-				Config: testAccStreamingSnowflakeSinkConfiguration(),
+				Config: testAccStreamingSnowflakeSinkConfiguration(snowflakeTenantName),
 			},
 		},
 	})
 }
 
-//https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
-func testAccStreamingSinkConfiguration() string {
-	tenantName := fmt.Sprintf("terraformtest-%s", uuid.New().String())[0:20]
+// https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
+func testAccStreamingSinkConfiguration(tenantName string) string {
 	return fmt.Sprintf(`
 resource "astra_streaming_tenant" "streaming_tenant-1" {
   tenant_name        = "%s"
@@ -64,8 +70,7 @@ resource "astra_streaming_sink" "streaming_sink-1" {
 }
 `, tenantName)
 }
-func testAccStreamingSnowflakeSinkConfiguration() string {
-	tenantName := fmt.Sprintf("snowflake-%s", uuid.New().String())[0:20]
+func testAccStreamingSnowflakeSinkConfiguration(tenantName string) string {
 	return fmt.Sprintf(`
 resource "astra_streaming_tenant" "streaming_tenant-1" {
   tenant_name        = "%s"
@@ -126,5 +131,5 @@ resource "astra_streaming_sink" "streaming_sink-1" {
     }
  })
 }
-`,tenantName, "%s", "%s", "%s")
+`, tenantName, "%s", "%s", "%s")
 }

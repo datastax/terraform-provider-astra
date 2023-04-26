@@ -2,14 +2,15 @@ package provider
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestToken(t *testing.T){
+func TestToken(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccTokenConfiguration(),
@@ -20,8 +21,15 @@ func TestToken(t *testing.T){
 
 func testAccTokenConfiguration() string {
 	return fmt.Sprintf(`
+resource "astra_role" "example" {
+  role_name = "example-role"
+  description = "test role"
+  effect = "allow"
+  resources = []
+  policy = ["org-db-view"]
+}
 resource "astra_token" "example" {
-  roles = ["a8cd363d-5069-4a2b-86d8-0578139812ac"]
+  roles = [astra_role.example.role_id]
 }
 `)
 }
