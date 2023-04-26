@@ -8,7 +8,7 @@
 
 Before using this provider, you will need an existing or new [Astra](https://astra.datastax.com/) account.
 You will also need an Astra token which is used for authentication.  You can generate a new token using
-the `Settings` tab on the [Astra Dashboard](https://astra.datastax.com).
+the [`Token Management` section](https://docs.datastax.com/en/astra-serverless/docs/getting-started/gs-grant-user-access.html#_generate_an_application_token) on the [Astra Dashboard](https://astra.datastax.com).
 
 ### Terraform
 
