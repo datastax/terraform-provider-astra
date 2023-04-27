@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
@@ -12,6 +13,11 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+)
+
+const (
+	DefaultAstraAPIURL     = astra.ServerURL
+	DefaultStreamingAPIURL = "https://api.streaming.datastax.com/"
 )
 
 func init() {
@@ -69,6 +75,18 @@ func New(version string) func() *schema.Provider {
 					DefaultFunc: schema.EnvDefaultFunc("ASTRA_API_TOKEN", nil),
 					Description: "Authentication token for Astra API.",
 				},
+				"astra_api_url": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("ASTRA_API_URL", DefaultAstraAPIURL),
+					Description: "URL for Astra API.",
+				},
+				"streaming_api_url": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("ASTRA_STREAMING_API_URL", DefaultStreamingAPIURL),
+					Description: "URL for Astra Streaming API.",
+				},
 			},
 		}
 
@@ -81,6 +99,14 @@ func New(version string) func() *schema.Provider {
 func configure(providerVersion string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	return func(_ context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		userAgent := p.UserAgent("terraform-provider-astra", providerVersion)
+		astraAPIServerURL := d.Get("astra_api_url").(string)
+		if _, err := url.Parse(astraAPIServerURL); err != nil {
+			return nil, diag.FromErr(fmt.Errorf("invalid Astra server API URL: %w", err))
+		}
+		streamingAPIServerURL := d.Get("streaming_api_url").(string)
+		if _, err := url.Parse(astraAPIServerURL); err != nil {
+			return nil, diag.FromErr(fmt.Errorf("invalid Astra Streaming server API URL: %w", err))
+		}
 		token := d.Get("token").(string)
 		authorization := fmt.Sprintf("Bearer %s", token)
 		clientVersion := fmt.Sprintf("go/%s", astra.Version)
@@ -97,19 +123,7 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
 		}
 
-		astraClient, err := astra.NewClientWithResponses(astra.ServerURL, func(c *astra.Client) error {
-			c.Client = retryClient.StandardClient()
-			c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
-				req.Header.Set("Authorization", authorization)
-				req.Header.Set("User-Agent", userAgent)
-				req.Header.Set("X-Astra-Provider-Version", providerVersion)
-				req.Header.Set("X-Astra-Client-Version", clientVersion)
-				return nil
-			})
-			return nil
-		})
-
-		streamingClient, err := astrastreaming.NewClientWithResponses(astra.ServerURL, func(c *astrastreaming.Client) error {
+		astraClient, err := astra.NewClientWithResponses(astraAPIServerURL, func(c *astra.Client) error {
 			c.Client = retryClient.StandardClient()
 			c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
 				req.Header.Set("Authorization", authorization)
@@ -124,9 +138,22 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return nil, diag.FromErr(err)
 		}
 
-		const v3ServerURL = "https://api.streaming.datastax.com/"
+		streamingClient, err := astrastreaming.NewClientWithResponses(astraAPIServerURL, func(c *astrastreaming.Client) error {
+			c.Client = retryClient.StandardClient()
+			c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
+				req.Header.Set("Authorization", authorization)
+				req.Header.Set("User-Agent", userAgent)
+				req.Header.Set("X-Astra-Provider-Version", providerVersion)
+				req.Header.Set("X-Astra-Client-Version", clientVersion)
+				return nil
+			})
+			return nil
+		})
+		if err != nil {
+			return nil, diag.FromErr(err)
+		}
 
-		streamingV3Client, err := astrastreaming.NewClientWithResponses(v3ServerURL, func(c *astrastreaming.Client) error {
+		streamingV3Client, err := astrastreaming.NewClientWithResponses(streamingAPIServerURL, func(c *astrastreaming.Client) error {
 			c.Client = retryClient.StandardClient()
 			c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
 				req.Header.Set("User-Agent", userAgent)
@@ -140,7 +167,7 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return nil, diag.FromErr(err)
 		}
 
-		var clientCache = make(map[string]astrarestapi.Client);
+		var clientCache = make(map[string]astrarestapi.Client)
 
 		clients := astraClients{
 			astraClient:            astraClient,
@@ -185,7 +212,6 @@ func newRestClient(dbid string, providerVersion string, userAgent string, region
 	}
 	return *restClient, nil
 }
-
 
 type astraClients struct {
 	astraClient            interface{}
