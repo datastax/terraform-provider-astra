@@ -59,16 +59,14 @@ func resourceStreamingTenant() *schema.Resource {
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
 			"region": {
-				Description:  "Cloud provider region.  Required if `cluster_name` is not set.",
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				ForceNew:     true,
-				RequiredWith: []string{"cloud_provider"},
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-				StateFunc: func(val interface{}) string {
-					return formatStreamingRegion(val.(string))
-				},
+				Description:      "Cloud provider region.  Required if `cluster_name` is not set.",
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ForceNew:         true,
+				RequiredWith:     []string{"cloud_provider"},
+				ValidateFunc:     validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+				DiffSuppressFunc: streamingRegionSuppressDiff,
 			},
 			"user_email": {
 				Description:  "User email for tenant.",
@@ -208,6 +206,7 @@ func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.Resou
 func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	clusterName := resourceData.Get("cluster_name").(string) // this can be used for dedicated plan that must specify a cluster name
 	region := resourceData.Get("region").(string)
+	normalizedRegion := removeDashes(region)
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
 	if clusterName == "" && (cloudProvider == "" || region == "") {
@@ -236,7 +235,7 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 		tenantRequest.ClusterName = &clusterName
 	} else {
 		tenantRequest.CloudProvider = &cloudProvider
-		tenantRequest.CloudRegion = &region
+		tenantRequest.CloudRegion = &normalizedRegion
 	}
 
 	params := astrastreaming.IdOfCreateTenantEndpointParams{
@@ -287,11 +286,8 @@ func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantR
 	if err := d.Set("cloud_provider", *tenantResponse.CloudProvider); err != nil {
 		return err
 	}
-	if tenantResponse.CloudProviderRegion != nil {
-		region := formatStreamingRegion(*tenantResponse.CloudProviderRegion)
-		if err := d.Set("region", region); err != nil {
-			return err
-		}
+	if err := d.Set("region", *tenantResponse.CloudProviderRegion); err != nil {
+		return err
 	}
 	if err := d.Set("tenant_name", *tenantResponse.TenantName); err != nil {
 		return err
@@ -333,6 +329,10 @@ func parseStreamingTenantID(id string) (string, error) {
 	return idParts[0], nil
 }
 
-func formatStreamingRegion(region string) string {
-	return strings.ReplaceAll(region, "-", "")
+func streamingRegionSuppressDiff(k, oldValue, newValue string, d *schema.ResourceData) bool {
+	return removeDashes(oldValue) == removeDashes(newValue)
+}
+
+func removeDashes(s string) string {
+	return strings.ReplaceAll(s, "-", "")
 }
