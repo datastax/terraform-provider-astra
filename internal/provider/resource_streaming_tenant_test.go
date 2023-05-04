@@ -28,9 +28,8 @@ func testAccStreamingTenantConfiguration(tenantName string) string {
 	return fmt.Sprintf(`
 resource "astra_streaming_tenant" "streaming_tenant_1" {
   tenant_name         = "%s"
-  topic               = "topic-1"
-  region              = "useast4"
   cloud_provider      = "gcp"
+  region              = "useast-4"
   user_email          = "terraform-test-user@datastax.com"
   deletion_protection = false
 }
@@ -51,7 +50,7 @@ func TestStreamingTenantImport(t *testing.T) {
 			{
 				ResourceName:     "astra_streaming_tenant.streaming_tenant_2",
 				ImportState:      true,
-				ImportStateCheck: checkStreamingTenantImportState("gcp", "useast4", tenantName),
+				ImportStateCheck: checkStreamingTenantImportState("azure", "uswest2", tenantName),
 				// ImportStateVerify: true,
 			},
 		},
@@ -63,8 +62,8 @@ func testAccStreamingTenantImport(tenantName string) string {
 resource "astra_streaming_tenant" "streaming_tenant_2" {
   tenant_name         = "%s"
   topic               = "default-topic-1"
-  region              = "useast4"
-  cloud_provider      = "gcp"
+  cloud_provider      = "azure"
+  region              = "us-west-2"
   user_email          = "terraform-test-user@datastax.com"
   deletion_protection = false
 }
