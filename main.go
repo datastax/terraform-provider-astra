@@ -5,8 +5,12 @@ import (
 	"flag"
 	"log"
 
+	"github.com/datastax/terraform-provider-astra/v2/internal/astra"
 	"github.com/datastax/terraform-provider-astra/v2/internal/provider"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov5"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov5/tf5server"
+	"github.com/hashicorp/terraform-plugin-mux/tf5muxserver"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website
@@ -19,6 +23,8 @@ import (
 // can be customized.
 //go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
 
+const providerName = "datastax/astra"
+
 var (
 	// these will be set by the goreleaser configuration
 	// to appropriate values for the compiled binary
@@ -29,20 +35,38 @@ var (
 )
 
 func main() {
-	var debugMode bool
-
-	flag.BoolVar(&debugMode, "debug", false, "set to true to run the provider with support for debuggers like delve")
+	debugFlag := flag.Bool("debug", false, "set to true to run the provider with support for debuggers like delve")
 	flag.Parse()
 
-	opts := &plugin.ServeOpts{ProviderFunc: provider.New(version)}
+	ctx := context.Background()
+	providers := []func() tfprotov5.ProviderServer{
+		// Legacy plugin sdk provider
+		provider.New(version)().GRPCProvider,
 
-	if debugMode {
-		err := plugin.Debug(context.Background(), "registry.terraform.io/datastax/astra", opts)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
-		return
+		// New provider using plugin framework
+		providerserver.NewProtocol5(
+			astra.New(version),
+		),
 	}
 
-	plugin.Serve(opts)
+	muxServer, err := tf5muxserver.NewMuxServer(ctx, providers...)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var serveOpts []tf5server.ServeOpt
+
+	if *debugFlag {
+		serveOpts = append(serveOpts, tf5server.WithManagedDebug())
+	}
+
+	err = tf5server.Serve(
+		"registry.terraform.io/"+providerName,
+		muxServer.ProviderServer,
+		serveOpts...,
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 }

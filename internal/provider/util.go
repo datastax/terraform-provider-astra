@@ -3,12 +3,10 @@ package provider
 import (
 	"crypto/sha256"
 	"fmt"
-	"math/rand"
 	"os"
 	"sort"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -35,15 +33,4 @@ func checkRequiredTestVars(t *testing.T, vars ...string) {
 			t.Skipf("skipping test due to missing %s environment variable", v)
 		}
 	}
-}
-
-// randomString returns a random string of length n
-func randomString(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	var chars = []rune("0123456789abcdefghijklmnopqrstuvwxyz")
-	s := make([]rune, n)
-	for i := range s {
-		s[i] = chars[rand.Intn(len(chars))]
-	}
-	return string(s)
 }
