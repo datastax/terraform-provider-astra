@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/datastax/terraform-provider-astra/v2/internal/common"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
@@ -12,7 +13,7 @@ func TestStreamingTopic(t *testing.T) {
 	checkRequiredTestVars(t, "ASTRA_TEST_STREAMING_TOPIC_TEST_ENABLED")
 
 	t.Parallel()
-	tenantName := "terraform-test-" + randomString(5)
+	tenantName := "terraform-test-" + common.RandomString(5)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },

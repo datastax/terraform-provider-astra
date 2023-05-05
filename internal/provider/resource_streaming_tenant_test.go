@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/datastax/terraform-provider-astra/v2/internal/common"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
 func TestStreamingTenant(t *testing.T) {
 	t.Parallel()
-	tenantName := "terraform-test-" + randomString(5)
+	tenantName := "terraform-test-" + common.RandomString(5)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
@@ -38,7 +39,7 @@ resource "astra_streaming_tenant" "streaming_tenant_1" {
 
 func TestStreamingTenantImport(t *testing.T) {
 	t.Parallel()
-	tenantName := "terraform-test-" + randomString(5)
+	tenantName := "terraform-test-" + common.RandomString(5)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
