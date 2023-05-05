@@ -1,12 +1,12 @@
 package provider
 
 import (
-	"net/http"
 	"context"
+	"net/http"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -94,7 +94,7 @@ func dataSourceUsersRead(ctx context.Context, d *schema.ResourceData, meta inter
 		}
 		users = append(users, user)
 	}
-	d.SetId(resource.UniqueId())
+	d.SetId(id.UniqueId())
 	d.Set("org_id", orgId)
 	d.Set("org_name", orgName)
 	if err := d.Set("users", users); err != nil {

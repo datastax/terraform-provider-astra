@@ -37,19 +37,19 @@ func dataSourceAccessList() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"address": {
-							Description:  "IP Address/CIDR group that should have access",
-							Type:         schema.TypeString,
-							Required:     true,
+							Description: "IP Address/CIDR group that should have access",
+							Type:        schema.TypeString,
+							Required:    true,
 						},
 						"description": {
-							Description:  "Description for the IP Address/CIDR group",
-							Type:         schema.TypeString,
-							Optional:     true,
+							Description: "Description for the IP Address/CIDR group",
+							Type:        schema.TypeString,
+							Optional:    true,
 						},
 						"enabled": {
-							Description:  "Enable/disable this IP Address/CIDR group's access",
-							Type:         schema.TypeBool,
-							Required:     true,
+							Description: "Enable/disable this IP Address/CIDR group's access",
+							Type:        schema.TypeBool,
+							Required:    true,
 						},
 					},
 				},
@@ -62,7 +62,6 @@ func dataSourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta 
 	fmt.Printf("testing")
 
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
 
 	databaseID := d.Get("database_id").(string)
 
@@ -105,7 +104,6 @@ func listAccessList(ctx context.Context, client *astra.ClientWithResponses, data
 	}
 
 	accessListOutput := alResponse.JSON200
-
 
 	return accessListOutput, err
 }

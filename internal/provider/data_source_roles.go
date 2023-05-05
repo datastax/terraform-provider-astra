@@ -1,12 +1,12 @@
 package provider
 
 import (
-	"net/http"
 	"context"
+	"net/http"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -85,7 +85,7 @@ func dataSourceRolesRead(ctx context.Context, d *schema.ResourceData, meta inter
 	for _, v := range roleList {
 		roles = append(roles, flattenRole(v))
 	}
-	d.SetId(resource.UniqueId())
+	d.SetId(id.UniqueId())
 	if err := d.Set("results", roles); err != nil {
 		return diag.FromErr(err)
 	}

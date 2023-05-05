@@ -3,9 +3,10 @@ package provider
 import (
 	"context"
 	"fmt"
+
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
@@ -25,16 +26,15 @@ func dataSourcePrivateLinkEndpoints() *schema.Resource {
 				ValidateFunc: validation.IsUUID,
 			},
 			"datacenter_id": {
-				Description:  "The Datacenter ID of the Astra database.",
-				Type:         schema.TypeString,
-				Required:     true,
+				Description: "The Datacenter ID of the Astra database.",
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"endpoint_id": {
-				Description:  "Endpoint ID.",
-				Type:         schema.TypeString,
-				Required:     true,
+				Description: "Endpoint ID.",
+				Type:        schema.TypeString,
+				Required:    true,
 			},
-
 
 			// Computed
 			"results": {
@@ -75,7 +75,6 @@ func dataSourcePrivateLinkEndpointsRead(ctx context.Context, d *schema.ResourceD
 
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-
 	databaseID := d.Get("database_id").(string)
 	datacenterID := d.Get("datacenter_id").(string)
 	endpointID := d.Get("endpoint_id").(string)
@@ -88,7 +87,7 @@ func dataSourcePrivateLinkEndpointsRead(ctx context.Context, d *schema.ResourceD
 		return nil
 	}
 
-	d.SetId(resource.UniqueId())
+	d.SetId(id.UniqueId())
 	if err := d.Set("results", privateLinkEndpointsToMap(privateLinks)); err != nil {
 		fmt.Printf("testing")
 		return diag.FromErr(err)
@@ -114,12 +113,11 @@ func listPrivateLinkEndpoints(ctx context.Context, client *astra.ClientWithRespo
 	}
 
 	plResponse, err := client.GetPrivateLinkEndpointWithResponse(ctx, databaseID, datacenterID, endpointID)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 
 	privateLinkEndpointOutput := plResponse.JSON200
-
 
 	return privateLinkEndpointOutput, err
 }
@@ -134,7 +132,7 @@ func privateLinkEndpointsToMap(privateLinkEndpoints *astra.PrivateLinkEndpoint) 
 	results = append(results, map[string]interface{}{
 		"endpoint_id": endpointID,
 		"description": description,
-		"status": status,
+		"status":      status,
 		"create_time": createTime,
 	})
 

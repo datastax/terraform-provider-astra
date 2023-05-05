@@ -12,7 +12,7 @@ import (
 
 func resourceRole() *schema.Resource {
 	return &schema.Resource{
-		Description: "`astra_role` resource represents custom roles for a particular Astra Org. Custom roles can be assigned to an Astra user is to grant them granular permissions when the default roles in the UI are not specific enough. Roles are composed of policies which are granted to resources.",
+		Description:   "`astra_role` resource represents custom roles for a particular Astra Org. Custom roles can be assigned to an Astra user is to grant them granular permissions when the default roles in the UI are not specific enough. Roles are composed of policies which are granted to resources.",
 		CreateContext: resourceRoleCreate,
 		ReadContext:   resourceRoleRead,
 		DeleteContext: resourceRoleDelete,
@@ -25,44 +25,44 @@ func resourceRole() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			// Required
 			"role_name": {
-				Description:  "Role name",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew: true,
+				Description: "Role name",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"description": {
-				Description:  "Role description",
-				Type:         schema.TypeString,
-				Required:     true,
+				Description: "Role description",
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"effect": {
-				Description:  "Role effect",
-				Type:         schema.TypeString,
-				Required:     true,
+				Description: "Role effect",
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"resources": {
-				Description:  "Resources for which role is applicable (format is \"drn:astra:org:<org UUID>\", followed by optional resource criteria. See example usage above).",
-				Type:         schema.TypeList,
-				Required:     true,
+				Description: "Resources for which role is applicable (format is \"drn:astra:org:<org UUID>\", followed by optional resource criteria. See example usage above).",
+				Type:        schema.TypeList,
+				Required:    true,
 				Elem: &schema.Schema{
-					Type: schema.TypeString,
+					Type:             schema.TypeString,
 					ValidateDiagFunc: validateRoleResources,
 				},
 			},
 
 			"policy": {
-				Description:  "List of policies for the role. See https://docs.datastax.com/en/astra/docs/user-permissions.html#_operational_roles_detail for supported policies.",
-				Type:         schema.TypeList,
-				Required:     true,
+				Description: "List of policies for the role. See https://docs.datastax.com/en/astra/docs/user-permissions.html#_operational_roles_detail for supported policies.",
+				Type:        schema.TypeList,
+				Required:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"role_id": {
-				Description:  "Role ID, system generated",
-				Type:         schema.TypeString,
-				Computed: true,
-				ForceNew: true,
+				Description: "Role ID, system generated",
+				Type:        schema.TypeString,
+				Computed:    true,
+				ForceNew:    true,
 			},
 		},
 	}
@@ -94,7 +94,6 @@ func resourceRoleCreate(ctx context.Context, d *schema.ResourceData, meta interf
 		Resources:   resourcesList,
 	}
 
-
 	roleJSON := astra.AddOrganizationRoleJSONRequestBody{
 		Name:   roleName,
 		Policy: policy,
@@ -121,7 +120,6 @@ func resourceRoleCreate(ctx context.Context, d *schema.ResourceData, meta interf
 func resourceRoleDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-
 	id := d.Id()
 
 	roleID, err := parseRoleID(id)
@@ -137,7 +135,6 @@ func resourceRoleDelete(ctx context.Context, d *schema.ResourceData, meta interf
 
 func resourceRoleRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
 
 	id := d.Id()
 
@@ -219,9 +216,9 @@ func resourceRoleUpdate(ctx context.Context, resourceData *schema.ResourceData, 
 func parseRoleID(id string) (string, error) {
 	idParts := strings.Split(strings.ToLower(id), "/")
 	if len(idParts) != 1 {
-		return "",  errors.New("invalid role id format: expected roleID/")
+		return "", errors.New("invalid role id format: expected roleID/")
 	}
-	return idParts[0],  nil
+	return idParts[0], nil
 }
 
 func revertRole(oldRole *astra.Role, resourceData *schema.ResourceData) {

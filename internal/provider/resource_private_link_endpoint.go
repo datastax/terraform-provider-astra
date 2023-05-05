@@ -15,7 +15,7 @@ import (
 
 func resourcePrivateLinkEndpoint() *schema.Resource {
 	return &schema.Resource{
-		Description: "`astra_private_link_endpoint` completes the creation of a private link endpoint by associating it with your endpoint.",
+		Description:   "`astra_private_link_endpoint` completes the creation of a private link endpoint by associating it with your endpoint.",
 		CreateContext: resourcePrivateLinkEndpointCreate,
 		ReadContext:   resourcePrivateLinkEndpointRead,
 		DeleteContext: resourcePrivateLinkEndpointDelete,
@@ -31,25 +31,25 @@ func resourcePrivateLinkEndpoint() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ValidateFunc: validation.IsUUID,
-				ForceNew: true,
-			},
-			"datacenter_id": {
-				Description:  "Astra datacenter in the region where the private link will be created.",
-				Type:         schema.TypeString,
-				Required:     true,
 				ForceNew:     true,
 			},
-			"endpoint_id": {
-				Description:      "Endpoint created in your cloud provider account example: \"vpce-svc-1148ea04af8675309\"",
-				Type:             schema.TypeString,
-				Required:         true,
-				ForceNew:         true,
+			"datacenter_id": {
+				Description: "Astra datacenter in the region where the private link will be created.",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
-            // Computed
+			"endpoint_id": {
+				Description: "Endpoint created in your cloud provider account example: \"vpce-svc-1148ea04af8675309\"",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+			},
+			// Computed
 			"astra_endpoint_id": {
-                Description:  "Endpoint ID for referencing within Astra. May be different than the endpoint_id of this resource.",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "Endpoint ID for referencing within Astra. May be different than the endpoint_id of this resource.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 		},
 	}
@@ -57,7 +57,6 @@ func resourcePrivateLinkEndpoint() *schema.Resource {
 
 func resourcePrivateLinkEndpointCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
 
 	databaseID := d.Get("database_id").(string)
 	datacenterID := d.Get("datacenter_id").(string)
@@ -117,7 +116,6 @@ func resourcePrivateLinkEndpointDelete(ctx context.Context, d *schema.ResourceDa
 func resourcePrivateLinkEndpointRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-
 	id := d.Id()
 	astraEndpointID := d.Get("astra_endpoint_id")
 
@@ -170,7 +168,7 @@ func setPrivateLinkEndpointData(d *schema.ResourceData, databaseID string, datac
 	if err := d.Set("endpoint_id", endpointID); err != nil {
 		return err
 	}
-    if err := d.Set("astra_endpoint_id", astraEndpointID); err != nil {
+	if err := d.Set("astra_endpoint_id", astraEndpointID); err != nil {
 		return err
 	}
 	return nil

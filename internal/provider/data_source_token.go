@@ -19,9 +19,9 @@ func dataSourceToken() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			// Required
 			"client_id": {
-				Description:  "Client ID, system generated",
-				Type:         schema.TypeString,
-				Required:     true,
+				Description: "Client ID, system generated",
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 
 			// Computed
@@ -32,21 +32,20 @@ func dataSourceToken() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"client_id": {
-							Description:  "Role name",
-							Type:         schema.TypeString,
-							Required:     true,
-							ForceNew: true,
+							Description: "Role name",
+							Type:        schema.TypeString,
+							Required:    true,
+							ForceNew:    true,
 						},
 						"roles": {
-							Description:  "Roles for this client",
-							Type:         schema.TypeList,
-							Required:     true,
-							ForceNew: true,
+							Description: "Roles for this client",
+							Type:        schema.TypeList,
+							Required:    true,
+							ForceNew:    true,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
 						},
-
 					},
 				},
 			},
@@ -72,7 +71,6 @@ func dataSourceTokenRead(ctx context.Context, d *schema.ResourceData, meta inter
 		return diag.FromErr(err)
 	}
 
-
 	return nil
 }
 
@@ -81,7 +79,7 @@ func listToken(ctx context.Context, client *astra.ClientWithResponses, clientID 
 	if err != nil {
 		return nil, err
 	} else if resp.StatusCode() >= 400 {
-		return nil, fmt.Errorf("Error fetching client tokens, Status code: %d, msg: %s", resp.StatusCode(), string(resp.Body))
+		return nil, fmt.Errorf("error fetching client tokens, Status code: %d, msg: %s", resp.StatusCode(), string(resp.Body))
 	}
 
 	tokens := (*resp.JSON200).(map[string]interface{})["clients"].([]interface{})

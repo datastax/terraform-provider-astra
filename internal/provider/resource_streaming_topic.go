@@ -59,10 +59,10 @@ func resourceStreamingTopic() *schema.Resource {
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
 			"namespace": {
-				Description:  "Pulsar Namespace",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
+				Description: "Pulsar Namespace",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			// Optional
 			"deletion_protection": {
@@ -117,7 +117,7 @@ func resourceStreamingTopicDelete(ctx context.Context, resourceData *schema.Reso
 	}
 
 	deleteTopicResponse, err := streamingClientv3.DeleteTopic(ctx, tenant, namespace, topic, &deleteTopicParams)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 
@@ -152,6 +152,9 @@ func resourceStreamingTopicRead(ctx context.Context, resourceData *schema.Resour
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	err = json.Unmarshal(bodyBuffer, &org)
 	if err != nil {
@@ -166,8 +169,8 @@ func resourceStreamingTopicRead(ctx context.Context, resourceData *schema.Resour
 	}
 
 	createTopicResponse, err := streamingClientv3.GetTopics(ctx, tenant, namespace, &getTopicsParams)
-	if err != nil{
-		diag.FromErr(err)
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
 	if !strings.HasPrefix(createTopicResponse.Status, "2") {
@@ -212,13 +215,13 @@ func resourceStreamingTopicCreate(ctx context.Context, resourceData *schema.Reso
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenant)
 
 	createTopicParams := astrastreaming.CreateTopicParams{
-		XDataStaxCurrentOrg: &org.ID,
+		XDataStaxCurrentOrg:    &org.ID,
 		XDataStaxPulsarCluster: pulsarCluster,
 		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
 
 	createTopicResponse, err := streamingClientv3.CreateTopic(ctx, tenant, namespace, topic, &createTopicParams)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 
@@ -230,7 +233,7 @@ func resourceStreamingTopicCreate(ctx context.Context, resourceData *schema.Reso
 
 	setStreamingTopicData(resourceData, tenant, topic)
 
-    return nil
+	return nil
 }
 
 func setStreamingTopicData(d *schema.ResourceData, tenantName string, topic string) error {
@@ -243,14 +246,13 @@ func setStreamingTopicData(d *schema.ResourceData, tenantName string, topic stri
 		return err
 	}
 
-
 	return nil
 }
 
 func parseStreamingTopicID(id string) (string, string, error) {
 	idParts := strings.Split(strings.ToLower(id), "/")
 	if len(idParts) != 1 {
-		return "",  "", errors.New("invalid role id format: expected tenant_name/topic")
+		return "", "", errors.New("invalid role id format: expected tenant_name/topic")
 	}
-	return idParts[0], idParts[1],  nil
+	return idParts[0], idParts[1], nil
 }

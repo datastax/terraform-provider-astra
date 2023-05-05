@@ -13,7 +13,7 @@ import (
 
 func resourceToken() *schema.Resource {
 	return &schema.Resource{
-		Description: "`astra_token` resource represents a token with a specific role assigned.",
+		Description:   "`astra_token` resource represents a token with a specific role assigned.",
 		CreateContext: resourceTokenCreate,
 		ReadContext:   resourceTokenRead,
 		DeleteContext: resourceTokenDelete,
@@ -25,40 +25,37 @@ func resourceToken() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			// Required
 			"roles": {
-				Description:  "List of Role IDs to be assigned to the generated token",
-				Type:         schema.TypeList,
-				Required:     true,
-				ForceNew: true,
+				Description: "List of Role IDs to be assigned to the generated token",
+				Type:        schema.TypeList,
+				Required:    true,
+				ForceNew:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"client_id": {
-				Description:  "Client id, use as username in cql to connect",
-				Type:         schema.TypeString,
-				Computed: true,
+				Description: "Client id, use as username in cql to connect",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"secret": {
-				Description:  "Secret, use as password in cql to connect",
-				Type:         schema.TypeString,
-				Sensitive:    true,
-				Computed: true,
+				Description: "Secret, use as password in cql to connect",
+				Type:        schema.TypeString,
+				Sensitive:   true,
+				Computed:    true,
 			},
 			"token": {
-				Description:  "Token, use as auth bearer for API calls or as password in combination with the word `token` in cql",
-				Type:         schema.TypeString,
-				Sensitive:    true,
-				Computed: true,
+				Description: "Token, use as auth bearer for API calls or as password in combination with the word `token` in cql",
+				Type:        schema.TypeString,
+				Sensitive:   true,
+				Computed:    true,
 			},
-
-
 		},
 	}
 }
 
 func resourceTokenCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
 
 	roles := d.Get("roles").([]interface{})
 
@@ -75,7 +72,7 @@ func resourceTokenCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	}
 
 	tokenJSON := astra.GenerateTokenForClientJSONRequestBody{
-		Roles:        rolesList,
+		Roles: rolesList,
 	}
 	resp, err := client.GenerateTokenForClientWithResponse(ctx,
 		tokenJSON,
@@ -91,7 +88,6 @@ func resourceTokenCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	if err := setTokenData(d, token); err != nil {
 		return diag.FromErr(err)
 	}
-
 
 	return nil
 }
@@ -114,7 +110,6 @@ func resourceTokenDelete(ctx context.Context, d *schema.ResourceData, meta inter
 func resourceTokenRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
 
 	id := d.Id()
 
@@ -139,7 +134,7 @@ func resourceTokenRead(ctx context.Context, d *schema.ResourceData, meta interfa
 
 func setTokenData(d *schema.ResourceData, tokenMap map[string]interface{}) error {
 	clientID := tokenMap["clientId"].(string)
-	secret:= tokenMap["secret"].(string)
+	secret := tokenMap["secret"].(string)
 	token := tokenMap["token"].(string)
 
 	d.SetId(fmt.Sprintf("%s", clientID))
@@ -160,7 +155,7 @@ func setTokenData(d *schema.ResourceData, tokenMap map[string]interface{}) error
 func parseTokenID(id string) (string, error) {
 	idParts := strings.Split(id, "/")
 	if len(idParts) != 1 {
-		return "",  errors.New("invalid token id format: expected clientID/")
+		return "", errors.New("invalid token id format: expected clientID/")
 	}
-	return idParts[0],  nil
+	return idParts[0], nil
 }
