@@ -12,7 +12,6 @@ func TestDataSourceAccessListEndpoints(t *testing.T) {
 	checkRequiredTestVars(t, "ASTRA_TEST_DATABASE_ID")
 	databaseID := os.Getenv("ASTRA_TEST_DATABASE_ID")
 
-	resource.UniqueId()
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
 		Providers: testAccProviders,

@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-func TestUserssDataSource(t *testing.T){
+func TestUserssDataSource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		Providers:    testAccProviders,
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccUsersDataSource(),
@@ -18,7 +18,7 @@ func TestUserssDataSource(t *testing.T){
 	})
 }
 
-//https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
+// https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
 func testAccUsersDataSource() string {
 	return fmt.Sprintf(`
 data "astra_users" "dev" {

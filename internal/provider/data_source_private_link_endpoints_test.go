@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
@@ -14,7 +15,7 @@ func TestDataSourcePrivateLinkEndpoints(t *testing.T) {
 	datacenterID := os.Getenv("ASTRA_TEST_DATACENTER_ID")
 	endpointID := os.Getenv("ASTRA_TEST_ENDPOINT_ID")
 
-	resource.UniqueId()
+	id.UniqueId()
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
 		Providers: testAccProviders,

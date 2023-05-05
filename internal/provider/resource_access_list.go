@@ -14,7 +14,7 @@ import (
 
 func resourceAccessList() *schema.Resource {
 	return &schema.Resource{
-		Description: "`astra_access_list` resource represents a database access list, used to limit the ip's / CIDR groups that have access to a database.",
+		Description:   "`astra_access_list` resource represents a database access list, used to limit the ip's / CIDR groups that have access to a database.",
 		CreateContext: resourceAccessListCreate,
 		ReadContext:   resourceAccessListRead,
 		DeleteContext: resourceAccessListDelete,
@@ -30,32 +30,32 @@ func resourceAccessList() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ValidateFunc: validation.IsUUID,
-				ForceNew: true,
+				ForceNew:     true,
 			},
 			"addresses": {
-				Description:  "List of address requests that should have access to database endpoints.",
-				Type:         schema.TypeList,
-				Required:     true,
-				ForceNew:     true,
+				Description: "List of address requests that should have access to database endpoints.",
+				Type:        schema.TypeList,
+				Required:    true,
+				ForceNew:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"address": {
-							Description:  "IP Address/CIDR group that should have access",
-							Type:         schema.TypeString,
-							Required:     true,
-							ForceNew:     true,
+							Description: "IP Address/CIDR group that should have access",
+							Type:        schema.TypeString,
+							Required:    true,
+							ForceNew:    true,
 						},
 						"description": {
-							Description:  "Description for the IP Address/CIDR group",
-							Type:         schema.TypeString,
-							Optional:     true,
-							ForceNew:     true,
+							Description: "Description for the IP Address/CIDR group",
+							Type:        schema.TypeString,
+							Optional:    true,
+							ForceNew:    true,
 						},
 						"enabled": {
-							Description:  "Enable/disable this IP Address/CIDR group's access",
-							Type:         schema.TypeBool,
-							Required:     true,
-							ForceNew:     true,
+							Description: "Enable/disable this IP Address/CIDR group's access",
+							Type:        schema.TypeBool,
+							Required:    true,
+							ForceNew:    true,
 						},
 					},
 				},
@@ -72,7 +72,6 @@ func resourceAccessList() *schema.Resource {
 
 func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
 
 	databaseID := d.Get("database_id").(string)
 	addresses := d.Get("addresses").([]interface{})
@@ -96,7 +95,7 @@ func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta 
 	updResp, err := client.UpdateAccessListForDatabaseWithResponse(ctx,
 		astra.DatabaseIdParam(databaseID),
 		astra.UpdateAccessListForDatabaseJSONRequestBody{
-			Addresses: &addressList,
+			Addresses:      &addressList,
 			Configurations: &accessListConfig,
 		},
 	)
@@ -112,7 +111,6 @@ func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta 
 
 func resourceAccessListDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
 
 	id := d.Id()
 
@@ -143,12 +141,12 @@ func resourceAccessListDelete(ctx context.Context, d *schema.ResourceData, meta 
 	aResp := *accessList.Addresses
 	if len(aResp) > 0 {
 		for _, v := range aResp {
-			addressesQP:= astra.AddressesQueryParam{*v.Address}
-			params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{Addresses: &addressesQP}
+			addressesQP := astra.AddressesQueryParam{*v.Address}
+			params := &astra.DeleteAddressesOrAccessListForDatabaseParams{Addresses: &addressesQP}
 			client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
 		}
 	} else {
-		params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{Addresses: nil}
+		params := &astra.DeleteAddressesOrAccessListForDatabaseParams{Addresses: nil}
 		client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
 	}
 
@@ -212,16 +210,16 @@ func setAccessListData(d *schema.ResourceData, accessList *astra.AccessListRespo
 func parseAccessListID(id string) (string, error) {
 	idParts := strings.Split(strings.ToLower(id), "/")
 	if len(idParts) != 1 {
-		return "",  errors.New("invalid access list id format: expected databaseId/")
+		return "", errors.New("invalid access list id format: expected databaseId/")
 	}
-	return idParts[0],  nil
+	return idParts[0], nil
 }
 
 func getAddressList(addresses []interface{}) []astra.AddressRequest {
 	addressList := make([]astra.AddressRequest, len(addresses))
 	for index, addrRequest := range addresses {
 		address := addrRequest.(map[string]interface{})
-		addressList[index] = astra.AddressRequest {
+		addressList[index] = astra.AddressRequest{
 			Address:     address["address"].(string),
 			Enabled:     address["enabled"].(bool),
 			Description: address["description"].(string),

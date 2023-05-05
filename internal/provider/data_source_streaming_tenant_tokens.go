@@ -11,7 +11,7 @@ import (
 )
 
 func dataSourceStreamingTenantTokens() *schema.Resource {
-	return &schema.Resource {
+	return &schema.Resource{
 		Description: "`astra_streaming_tenant_tokens` provides a datasource that lists streaming tenant tokens.",
 
 		ReadContext: dataSourceStreamingTenantTokensRead,
@@ -19,14 +19,14 @@ func dataSourceStreamingTenantTokens() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			// Required
 			"cluster_name": {
-				Description:  "Name of the Pulsar Cluster. Format: `pulsar-<cloud provider>-<cloud region>`. Example: `pulsar-gcp-useast1`",
-				Type:         schema.TypeString,
-				Required:     true,
+				Description: "Name of the Pulsar Cluster. Format: `pulsar-<cloud provider>-<cloud region>`. Example: `pulsar-gcp-useast1`",
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"tenant_name": {
-				Description:  "Name of the streaming tenant for which to fetch tokens.",
-				Type:         schema.TypeString,
-				Required:     true,
+				Description: "Name of the streaming tenant for which to fetch tokens.",
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			// Computed
 			"tokens": {
@@ -68,7 +68,7 @@ func dataSourceStreamingTenantTokens() *schema.Resource {
 	}
 }
 
-func dataSourceStreamingTenantTokensRead (ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func dataSourceStreamingTenantTokensRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 
 	tenantName := d.Get("tenant_name").(string)
@@ -104,11 +104,11 @@ func setTenantTokensData(ctx context.Context, d *schema.ResourceData, streamingC
 	}
 	tokens := make([]map[string]interface{}, 0, len(tokenList))
 	for _, token := range tokenList {
-		tokenMap := map[string]interface{} {
-			"token_id" : token.TokenID,
-			"iat"      : token.Iat,
-			"iss"      : token.Iss,
-			"sub"      : token.Sub,
+		tokenMap := map[string]interface{}{
+			"token_id": token.TokenID,
+			"iat":      token.Iat,
+			"iss":      token.Iss,
+			"sub":      token.Sub,
 		}
 		// now fetch the JWT token
 		tokenResponse, err := streamingClient.GetTokenByIDWithResponse(ctx, tenantName, *token.TokenID, &params)
@@ -116,7 +116,7 @@ func setTenantTokensData(ctx context.Context, d *schema.ResourceData, streamingC
 			return err
 		}
 		if tokenResponse.StatusCode() != http.StatusOK {
-			return fmt.Errorf("Failed to fetch token by ID. Token ID: %s, Tenant Name: %s, Cluster Name: %s.", *token.TokenID, tenantName, clusterName)
+			return fmt.Errorf("failed to fetch token by ID. Token ID: %s, Tenant Name: %s, Cluster Name: %s.", *token.TokenID, tenantName, clusterName)
 		}
 		tokenMap["token"] = string(tokenResponse.Body)
 		tokens = append(tokens, tokenMap)

@@ -22,7 +22,7 @@ func resourceCDC() *schema.Resource {
 	return &schema.Resource{
 		Description:   "`astra_cdc` enables cdc for an Astra Serverless table.",
 		CreateContext: resourceCDCCreate,
-		ReadContext: resourceCDCRead,
+		ReadContext:   resourceCDCRead,
 		DeleteContext: resourceCDCDelete,
 
 		Importer: &schema.ResourceImporter{
@@ -53,34 +53,33 @@ func resourceCDC() *schema.Resource {
 				ValidateFunc: validation.IsUUID,
 			},
 			"database_name": {
-				Description:  "Astra database name.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
+				Description: "Astra database name.",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"topic_partitions": {
-				Description:  "Number of partitions in cdc topic.",
-				Type:         schema.TypeInt,
-				Required:     true,
-				ForceNew:     true,
+				Description: "Number of partitions in cdc topic.",
+				Type:        schema.TypeInt,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"tenant_name": {
-				Description:  "Streaming tenant name",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
+				Description: "Streaming tenant name",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"connector_status": {
-				Description:  "Connector Status",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "Connector Status",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"data_topic": {
-				Description:  "Data topic name",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "Data topic name",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
-
 		},
 	}
 }
@@ -103,6 +102,9 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	err = json.Unmarshal(bodyBuffer, &org)
 	if err != nil {
@@ -110,7 +112,7 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 	}
 
 	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 
@@ -129,11 +131,11 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 	}
 	getDeleteCDCResponse, err := streamingClientv3.DeleteCDC(ctx, tenantName, &deleteCDCParams, deleteRequestBody)
 
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 	if !strings.HasPrefix(getDeleteCDCResponse.Status, "2") {
-		body, _ :=ioutil.ReadAll(getDeleteCDCResponse.Body)
+		body, _ := ioutil.ReadAll(getDeleteCDCResponse.Body)
 		return diag.Errorf("Error deleting cdc %s", body)
 	}
 
@@ -185,6 +187,9 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	err = json.Unmarshal(bodyBuffer, &org)
 	if err != nil {
@@ -192,7 +197,7 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 	}
 
 	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 
@@ -201,15 +206,15 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 		Authorization:          pulsarToken,
 	}
 	getCDCResponse, err := streamingClientv3.GetCDC(ctx, tenantName, &getCDCParams)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 	if !strings.HasPrefix(getCDCResponse.Status, "2") {
-		body, _ :=ioutil.ReadAll(getCDCResponse.Body)
+		body, _ := ioutil.ReadAll(getCDCResponse.Body)
 		return diag.Errorf("Error getting cdc config %s", body)
 	}
 
-	body, _ :=ioutil.ReadAll(getCDCResponse.Body)
+	body, _ := ioutil.ReadAll(getCDCResponse.Body)
 
 	var cdcResult CDCResult
 	err = json.Unmarshal(body, &cdcResult)
@@ -217,14 +222,13 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 		fmt.Println("Can't deserialize", body)
 	}
 
-	for i:=0;i<len(cdcResult);i++{
-		if cdcResult[i].Keyspace == keyspace{
-			if cdcResult[i].DatabaseTable == table{
+	for i := 0; i < len(cdcResult); i++ {
+		if cdcResult[i].Keyspace == keyspace {
+			if cdcResult[i].DatabaseTable == table {
 				return nil
 			}
 		}
 	}
-
 
 	if err := resourceData.Set("connector_status", cdcResult[0].ConnectorStatus); err != nil {
 		return diag.FromErr(err)
@@ -295,12 +299,14 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	err = json.Unmarshal(bodyBuffer, &org)
 	if err != nil {
 		fmt.Println("Can't deserialize", orgBody)
 	}
-
 
 	cdcRequestJSON := astrastreaming.EnableCDCJSONRequestBody{
 		DatabaseId:      databaseId,
@@ -321,11 +327,9 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
 
-
 	var enableClientResult *http.Response
-	retryCount:=0
-	for enableClientResult ==nil || strings.HasPrefix(enableClientResult.Status, "401") {
-
+	retryCount := 0
+	for enableClientResult == nil || strings.HasPrefix(enableClientResult.Status, "401") {
 
 		enableClientResult, err = streamingClientv3.EnableCDC(ctx, tenantName, &enableCDCParams, cdcRequestJSON)
 
@@ -337,11 +341,11 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 			bodyBuffer, err = ioutil.ReadAll(enableClientResult.Body)
 			break
 		}
-		if retryCount>0{
+		if retryCount > 0 {
 			fmt.Printf("failed to set up cdc with token %s for table %s", pulsarToken, table)
-			time.Sleep(20*time.Second)
+			time.Sleep(20 * time.Second)
 		}
-		if retryCount>6{
+		if retryCount > 6 {
 			return diag.Errorf("Could not enable CDC with token: %s", bodyBuffer)
 		}
 		retryCount = retryCount + 1
@@ -364,9 +368,9 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 	}
 
 	var cdcResult CDCResult
-	retryCount=0
-	for cdcResult == nil || len(cdcResult) <=0 {
-		getCDCResponse, err  := streamingClientv3.GetCDC(ctx, tenantName, &getCDCParams)
+	retryCount = 0
+	for cdcResult == nil || len(cdcResult) <= 0 {
+		getCDCResponse, err := streamingClientv3.GetCDC(ctx, tenantName, &getCDCParams)
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -378,15 +382,14 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		bodyBuffer, err = ioutil.ReadAll(getCDCResponse.Body)
 		json.Unmarshal(bodyBuffer, &cdcResult)
 
-		if retryCount>0{
+		if retryCount > 0 {
 			fmt.Printf("failed to set up cdc with token %s for table %s", pulsarToken, table)
-			time.Sleep(20*time.Second)
+			time.Sleep(20 * time.Second)
 		}
-		if retryCount>6{
+		if retryCount > 6 {
 			return diag.Errorf("Could not enable CDC with token: %s", bodyBuffer)
 		}
 	}
-
 
 	if err := resourceData.Set("connector_status", cdcResult[0].ConnectorStatus); err != nil {
 		return diag.FromErr(err)
@@ -465,7 +468,7 @@ func getPulsarToken(ctx context.Context, pulsarCluster string, token string, org
 }
 
 func setCDCData(d *schema.ResourceData, id string) error {
-	d.SetId(fmt.Sprintf("%s", id))
+	d.SetId(id)
 
 	return nil
 }
@@ -477,4 +480,3 @@ func parseCDCID(id string) (string, string, string, string, error) {
 	}
 	return idParts[0], idParts[1], idParts[2], idParts[3], nil
 }
-

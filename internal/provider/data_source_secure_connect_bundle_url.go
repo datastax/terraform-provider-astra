@@ -28,9 +28,9 @@ func dataSourceSecureConnectBundleURL() *schema.Resource {
 			},
 			// Optional inputs
 			"datacenter_id": {
-				Description:  "The ID of the Astra datacenter. If omitted, all bundles will be fetched.",
-				Type:         schema.TypeString,
-				Optional:     true,
+				Description: "The ID of the Astra datacenter. If omitted, all bundles will be fetched.",
+				Type:        schema.TypeString,
+				Optional:    true,
 			},
 			// Computed
 			"secure_bundles": {
@@ -40,9 +40,9 @@ func dataSourceSecureConnectBundleURL() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"datacenter_id": {
-							Description:  "The ID of the Astra datacenter.",
-							Type:         schema.TypeString,
-							Computed:     true,
+							Description: "The ID of the Astra datacenter.",
+							Type:        schema.TypeString,
+							Computed:    true,
 						},
 						"url": {
 							Description: "The temporary download url to the secure connect bundle zip file.",
@@ -64,7 +64,7 @@ func dataSourceSecureConnectBundleURL() *schema.Resource {
 							Type:        schema.TypeString,
 							Computed:    true,
 						},
-						"custom_domain_bundles" : {
+						"custom_domain_bundles": {
 							Description: "Bundles for custom domain.",
 							Type:        schema.TypeList,
 							Computed:    true,
@@ -73,28 +73,28 @@ func dataSourceSecureConnectBundleURL() *schema.Resource {
 								Schema: map[string]*schema.Schema{
 									"domain": {
 										Description: "Custom Domain.",
-										Type:         schema.TypeString,
-										Computed:     true,
+										Type:        schema.TypeString,
+										Computed:    true,
 									},
 									"url": {
 										Description: "The temporary download url to the secure connect bundle zip file. This one is for the Custom Domain",
-										Type:         schema.TypeString,
-										Computed:     true,
+										Type:        schema.TypeString,
+										Computed:    true,
 									},
 									"api_fqdn": {
 										Description: "The FQDN for API requests",
-										Type:         schema.TypeString,
-										Computed:     true,
+										Type:        schema.TypeString,
+										Computed:    true,
 									},
 									"cql_fqdn": {
 										Description: "The FQDN for CQL requests",
-										Type:         schema.TypeString,
-										Computed:     true,
+										Type:        schema.TypeString,
+										Computed:    true,
 									},
 									"dashboard_fqdn": {
 										Description: "The FQDN for the Dashboard",
-										Type:         schema.TypeString,
-										Computed:     true,
+										Type:        schema.TypeString,
+										Computed:    true,
 									},
 								},
 							},
@@ -108,7 +108,6 @@ func dataSourceSecureConnectBundleURL() *schema.Resource {
 
 func dataSourceSecureConnectBundleURLRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
 
 	databaseID := d.Get("database_id").(string)
 	datacenterID := d.Get("datacenter_id").(string)
@@ -135,7 +134,7 @@ func getSecureConnectBundles(ctx context.Context, client astra.ClientWithRespons
 		return nil, err
 	}
 	if secureBundlesResp.StatusCode() > http.StatusOK {
-		return nil, fmt.Errorf("Failed to generate Secure Connect Bundle for Database ID %s. Response code: %d, msg = %s", databaseID, secureBundlesResp.StatusCode(), string(secureBundlesResp.Body))
+		return nil, fmt.Errorf("failed to generate Secure Connect Bundle for Database ID %s. Response code: %d, msg = %s", databaseID, secureBundlesResp.StatusCode(), string(secureBundlesResp.Body))
 	}
 	return *secureBundlesResp.JSON200, nil
 }
@@ -143,7 +142,7 @@ func getSecureConnectBundles(ctx context.Context, client astra.ClientWithRespons
 func setSecureConnectBundleData(ctx context.Context, d *schema.ResourceData, databaseID, datacenterID string, bundleData []astra.CredsURL) error {
 	bundles := make([]map[string]interface{}, 0, len(bundleData))
 	downloadURLs := make([]string, len(bundleData))
-	for _, bundle := range(bundleData) {
+	for _, bundle := range bundleData {
 		// DevOps APi has a misspelling that they might fix
 		var bundleDatacenter string
 		if bundle.DatacenterID != nil {
@@ -168,12 +167,12 @@ func setSecureConnectBundleData(ctx context.Context, d *schema.ResourceData, dat
 		if bundle.CustomDomainBundles != nil {
 			customDomainBundleArray := *bundle.CustomDomainBundles
 			customDomains := make([]map[string]interface{}, 0, len(customDomainBundleArray))
-			for _, customDomain := range(customDomainBundleArray) {
+			for _, customDomain := range customDomainBundleArray {
 				customDomainMap := map[string]interface{}{
-					"domain": customDomain.Domain,
-					"url":    customDomain.DownloadURL,
-					"api_fqdn": customDomain.ApiFQDN,
-					"cql_fqdn": customDomain.CqlFQDN,
+					"domain":         customDomain.Domain,
+					"url":            customDomain.DownloadURL,
+					"api_fqdn":       customDomain.ApiFQDN,
+					"cql_fqdn":       customDomain.CqlFQDN,
 					"dashboard_fqdn": customDomain.DashboardFQDN,
 				}
 				customDomains = append(customDomains, customDomainMap)

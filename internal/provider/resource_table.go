@@ -4,20 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/datastax/astra-client-go/v2/astra"
-	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/datastax/astra-client-go/v2/astra"
+	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourceTable() *schema.Resource {
 	return &schema.Resource{
-		Description: "`astra_table` provides a table resource which represents a table in cassandra.",
+		Description:   "`astra_table` provides a table resource which represents a table in cassandra.",
 		CreateContext: resourceTableCreate,
 		ReadContext:   resourceTableRead,
 		DeleteContext: resourceTableDelete,
@@ -50,22 +51,22 @@ func resourceTable() *schema.Resource {
 				ValidateFunc: validation.IsUUID,
 			},
 			"region": {
-				Description:  "region.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
+				Description: "region.",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"clustering_columns": {
-				Description:  "Clustering column(s), separated by :",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
+				Description: "Clustering column(s), separated by :",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"partition_keys": {
-				Description:  "Partition key(s), separated by :",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
+				Description: "Partition key(s), separated by :",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"column_definitions": {
 				Description: "A list of table Definitions",
@@ -73,7 +74,7 @@ func resourceTable() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 				Elem: &schema.Schema{
-					Type:     schema.TypeMap,
+					Type: schema.TypeMap,
 					Elem: &schema.Schema{
 						Type: schema.TypeString,
 					},
@@ -95,9 +96,9 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	keyspaceName := d.Get("keyspace").(string)
 	tableName := d.Get("table").(string)
 	region := d.Get("region").(string)
-	partitionKeys:= strings.Split(d.Get("partition_keys").(string), ":")
+	partitionKeys := strings.Split(d.Get("partition_keys").(string), ":")
 	clusteringColumns := strings.Split(d.Get("clustering_columns").(string), ":")
-	columnDefsRaw:= d.Get("column_definitions").([]interface{})
+	columnDefsRaw := d.Get("column_definitions").([]interface{})
 
 	tableParams := astrarestapi.CreateTableParams{
 		XCassandraToken: token,
@@ -105,9 +106,9 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 
 	ifnotexists := true
 
-	var columnDefinitions = make([]astrarestapi.ColumnDefinition,len(columnDefsRaw))
+	var columnDefinitions = make([]astrarestapi.ColumnDefinition, len(columnDefsRaw))
 	for i := 0; i < len(columnDefsRaw); i++ {
-		defMap := columnDefsRaw[i].(map[string] interface{})
+		defMap := columnDefsRaw[i].(map[string]interface{})
 		var name string
 		var static bool
 		var typeDef astrarestapi.ColumnDefinitionTypeDefinition
@@ -144,7 +145,7 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	var restClient astrarestapi.Client
 	if val, ok := stargateCache[databaseID]; ok {
 		restClient = val
-	} else{
+	} else {
 		var err error
 		restClient, err = newRestClient(databaseID, providerVersion, userAgent, region)
 		if err != nil {
@@ -155,21 +156,21 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	fmt.Printf("%v", restClient)
 
 	//Wait for DB to be in Active status
-	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+	if err := retry.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *retry.RetryError {
 		res, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
 		// Errors sending request should be retried and are assumed to be transient
 		if err != nil {
-			return resource.RetryableError(err)
+			return retry.RetryableError(err)
 		}
 
 		// Status code >=5xx are assumed to be transient
 		if res.StatusCode() >= 500 {
-			return resource.RetryableError(fmt.Errorf("error while fetching database: %s", string(res.Body)))
+			return retry.RetryableError(fmt.Errorf("error while fetching database: %s", string(res.Body)))
 		}
 
 		// Status code > 200 NOT retried
 		if res.StatusCode() > 200 || res.JSON200 == nil {
-			return resource.NonRetryableError(fmt.Errorf("unexpected response fetching database: %s", string(res.Body)))
+			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database: %s", string(res.Body)))
 		}
 
 		// Success fetching database
@@ -177,28 +178,28 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 		switch db.Status {
 		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
 			// If the database reached a terminal state it will never become active
-			return resource.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
+			return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
 		case astra.ACTIVE:
 			resp, err := restClient.CreateTable(ctx, keyspaceName, &tableParams, createJSON)
 			if err != nil {
-				b, _:= io.ReadAll(resp.Body)
-				return resource.NonRetryableError(fmt.Errorf("Error adding table (not retrying) err: %s,  body: %s", err, b))
+				b, _ := io.ReadAll(resp.Body)
+				return retry.NonRetryableError(fmt.Errorf("Error adding table (not retrying) err: %s,  body: %s", err, b))
 			} else if resp.StatusCode == 409 {
 				// DevOps API returns 409 for concurrent modifications, these need to be retried.
 				b, _ := io.ReadAll(resp.Body)
-				return resource.RetryableError(fmt.Errorf("error adding table (retrying): %s", b))
-			}else if resp.StatusCode >= 400 {
+				return retry.RetryableError(fmt.Errorf("error adding table (retrying): %s", b))
+			} else if resp.StatusCode >= 400 {
 				b, _ := io.ReadAll(resp.Body)
-				return resource.NonRetryableError(fmt.Errorf("error adding table (not retrying): %s", b))
+				return retry.NonRetryableError(fmt.Errorf("error adding table (not retrying): %s", b))
 			}
 
 			if err := setTableResourceData(d, databaseID, keyspaceName, tableName); err != nil {
-				return resource.NonRetryableError(fmt.Errorf("Error setting keyspace data (not retrying) %s", err))
+				return retry.NonRetryableError(fmt.Errorf("Error setting keyspace data (not retrying) %s", err))
 			}
 
 			return nil
 		default:
-			return resource.RetryableError(fmt.Errorf("expected database to be active but is %s", db.Status))
+			return retry.RetryableError(fmt.Errorf("expected database to be active but is %s", db.Status))
 		}
 	}); err != nil {
 		return diag.FromErr(err)
@@ -226,7 +227,7 @@ func resourceTableRead(ctx context.Context, d *schema.ResourceData, meta interfa
 	var restClient astrarestapi.Client
 	if val, ok := stargateCache[databaseID]; ok {
 		restClient = val
-	} else{
+	} else {
 		var err error
 		restClient, err = newRestClient(databaseID, providerVersion, userAgent, region)
 		if err != nil {
@@ -242,13 +243,13 @@ func resourceTableRead(ctx context.Context, d *schema.ResourceData, meta interfa
 	}
 	resp, err := restClient.GetTable(ctx, keyspaceName, tableName, &params)
 	if err != nil {
-		b, _:= io.ReadAll(resp.Body)
+		b, _ := io.ReadAll(resp.Body)
 		return diag.FromErr(fmt.Errorf("Error getting table (not retrying) err: %s,  body: %s", err, b))
 	} else if resp.StatusCode == 409 {
 		// DevOps API returns 409 for concurrent modifications, these need to be retried.
 		b, _ := io.ReadAll(resp.Body)
 		return diag.FromErr(fmt.Errorf("error getting table (retrying): %s", b))
-	}else if resp.StatusCode >= 400 {
+	} else if resp.StatusCode >= 400 {
 		//table not found
 		d.SetId("")
 		return nil
@@ -280,7 +281,7 @@ func resourceTableDelete(ctx context.Context, d *schema.ResourceData, meta inter
 	var restClient astrarestapi.Client
 	if val, ok := stargateCache[databaseID]; ok {
 		restClient = val
-	} else{
+	} else {
 		var err error
 		restClient, err = newRestClient(databaseID, providerVersion, userAgent, region)
 		if err != nil {
@@ -295,13 +296,13 @@ func resourceTableDelete(ctx context.Context, d *schema.ResourceData, meta inter
 	}
 	resp, err := restClient.DeleteTable(ctx, keyspaceName, tableName, &params)
 	if err != nil {
-		b, _:= io.ReadAll(resp.Body)
+		b, _ := io.ReadAll(resp.Body)
 		return diag.FromErr(fmt.Errorf("Error getting table (not retrying) err: %s,  body: %s", err, b))
 	} else if resp.StatusCode == 409 {
 		// DevOps API returns 409 for concurrent modifications, these need to be retried.
 		b, _ := io.ReadAll(resp.Body)
 		return diag.FromErr(fmt.Errorf("error getting table (retrying): %s", b))
-	}else if resp.StatusCode >= 400 {
+	} else if resp.StatusCode >= 400 {
 		//table not found
 		d.SetId("")
 		return nil

@@ -122,7 +122,6 @@ func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta in
 	databaseID := d.Get("database_id").(string)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-
 	db, err := getDatabase(ctx, d, client, databaseID)
 	if err != nil {
 		diag.Errorf("error fetching database: %s", err.Error())

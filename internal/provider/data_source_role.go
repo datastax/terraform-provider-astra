@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -17,40 +18,40 @@ func dataSourceRole() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			// Required
 			"role_id": {
-				Description:  "Role ID, system generated",
-				Type:         schema.TypeString,
-				Required:     true,
+				Description: "Role ID, system generated",
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 
 			// Computed
 			"role_name": {
-				Description:  "Role name",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "Role name",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"description": {
-				Description:  "Role description",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "Role description",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"effect": {
-				Description:  "Role effect",
-				Type:         schema.TypeString,
-				Computed:     true,
+				Description: "Role effect",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"resources": {
-				Description:  "Resources for which role is applicable (format is \"drn:astra:org:<org UUID>\", followed by optional resource criteria. See example usage above).",
-				Type:         schema.TypeList,
-				Computed:     true,
+				Description: "Resources for which role is applicable (format is \"drn:astra:org:<org UUID>\", followed by optional resource criteria. See example usage above).",
+				Type:        schema.TypeList,
+				Computed:    true,
 				Elem: &schema.Schema{
-					Type: schema.TypeString,
+					Type:             schema.TypeString,
 					ValidateDiagFunc: validateRoleResources,
 				},
 			},
 			"policy": {
-				Description:  "List of policies for the role. See https://docs.datastax.com/en/astra/docs/user-permissions.html#_operational_roles_detail for supported policies.",
-				Type:         schema.TypeList,
-				Computed:     true,
+				Description: "List of policies for the role. See https://docs.datastax.com/en/astra/docs/user-permissions.html#_operational_roles_detail for supported policies.",
+				Type:        schema.TypeList,
+				Computed:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -63,7 +64,6 @@ func dataSourceRoleRead(ctx context.Context, d *schema.ResourceData, meta interf
 	fmt.Printf("role data source")
 
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
 
 	roleID := d.Get("role_id").(string)
 
@@ -87,7 +87,7 @@ func listRole(ctx context.Context, client *astra.ClientWithResponses, roleID str
 	}
 
 	if resp.StatusCode() > 200 {
-		return nil, fmt.Errorf("Fetching role \"%s\" was not successful. Message: %s", roleID, string(resp.Body))
+		return nil, fmt.Errorf("fetching role \"%s\" was not successful. Message: %s", roleID, string(resp.Body))
 	}
 
 	return resp.JSON200, err

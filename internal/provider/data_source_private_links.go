@@ -3,9 +3,10 @@ package provider
 import (
 	"context"
 	"fmt"
+
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
@@ -26,9 +27,9 @@ func dataSourcePrivateLinks() *schema.Resource {
 			},
 			// Required
 			"datacenter_id": {
-				Description:  "The datacenter where of the Astra database.",
-				Type:         schema.TypeString,
-				Required:     true,
+				Description: "The datacenter where of the Astra database.",
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 
 			// Computed
@@ -75,7 +76,6 @@ func dataSourcePrivateLinksRead(ctx context.Context, d *schema.ResourceData, met
 
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-
 	databaseID := d.Get("database_id").(string)
 	datacenterID := d.Get("datacenter_id").(string)
 
@@ -89,7 +89,7 @@ func dataSourcePrivateLinksRead(ctx context.Context, d *schema.ResourceData, met
 
 	plMap := privateLinksToMap(privateLinks)
 
-	d.SetId(resource.UniqueId())
+	d.SetId(id.UniqueId())
 	if err := d.Set("results", plMap); err != nil {
 		return diag.FromErr(err)
 	}
@@ -117,7 +117,6 @@ func listPrivateLinks(ctx context.Context, client *astra.ClientWithResponses, da
 
 	privateLinkOutput := plResponse.JSON200
 
-
 	return privateLinkOutput, err
 }
 
@@ -129,22 +128,21 @@ func privateLinksToMap(privateLinks *astra.PrivateLinkDatacenterOutput) []map[st
 	}
 
 	var apList = make([]string, len(allowedPrincipals))
-	for i, n := range allowedPrincipals{
+	for i, n := range allowedPrincipals {
 		apList[i] = string(n)
 	}
 
 	var endpointList = make([]string, len(endpoints))
-	for i, n := range endpoints{
+	for i, n := range endpoints {
 		endpointList[i] = string(*n.EndpointID)
 	}
 
-
 	results := make([]map[string]interface{}, 0, 1)
 	results = append(results, map[string]interface{}{
-		"service_name": string(*privateLinks.ServiceName),
-		"datacenter_id": string(*privateLinks.DatacenterID),
+		"service_name":       string(*privateLinks.ServiceName),
+		"datacenter_id":      string(*privateLinks.DatacenterID),
 		"allowed_principals": apList,
-		"endpoints": endpointList,
+		"endpoints":          endpointList,
 	})
 
 	return results

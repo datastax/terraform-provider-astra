@@ -66,40 +66,40 @@ func resourceStreamingSink() *schema.Resource {
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
 			"retain_ordering": {
-				Description:  "Retain ordering.",
-				Type:         schema.TypeBool,
-				Required:     true,
-				ForceNew:     true,
+				Description: "Retain ordering.",
+				Type:        schema.TypeBool,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"processing_guarantees": {
-				Description:  "\"ATLEAST_ONCE\"\"ATMOST_ONCE\"\"EFFECTIVELY_ONCE\".",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
+				Description: "\"ATLEAST_ONCE\"\"ATMOST_ONCE\"\"EFFECTIVELY_ONCE\".",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"parallelism": {
-				Description:  "Parallelism for Pulsar sink",
-				Type:         schema.TypeInt,
-				Required:     true,
-				ForceNew:     true,
+				Description: "Parallelism for Pulsar sink",
+				Type:        schema.TypeInt,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"namespace": {
-				Description:  "Pulsar Namespace",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
+				Description: "Pulsar Namespace",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"sink_configs": {
-				Description:  "Sink Configs",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
+				Description: "Sink Configs",
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"auto_ack": {
-				Description:  "auto ack",
-				Type:         schema.TypeBool,
-				Required:     true,
-				ForceNew:     true,
+				Description: "auto ack",
+				Type:        schema.TypeBool,
+				Required:    true,
+				ForceNew:    true,
 			},
 			// Optional
 			"deletion_protection": {
@@ -126,7 +126,6 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
 
-
 	tenantName := resourceData.Get("tenant_name").(string)
 	sinkName := resourceData.Get("sink_name").(string)
 	namespace := resourceData.Get("namespace").(string)
@@ -135,24 +134,25 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-
 	pulsarCluster := GetPulsarCluster(cloudProvider, region)
 
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	err = json.Unmarshal(bodyBuffer, &org)
 	if err != nil {
 		fmt.Println("Can't deserialize", orgBody)
 	}
 
-
 	token := meta.(astraClients).token
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
 	if err != nil {
-		diag.FromErr(err)
+		return diag.FromErr(err)
 	}
 
 	deleteSinkParams := astrastreaming.DeleteSinkParams{
@@ -161,7 +161,7 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 	}
 
 	deleteSinkResponse, err := streamingClientv3.DeleteSinkWithResponse(ctx, tenantName, namespace, sinkName, &deleteSinkParams)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 	if !strings.HasPrefix(deleteSinkResponse.Status(), "2") {
@@ -186,9 +186,9 @@ type SinkResponse struct {
 	TopicsPattern              interface{} `json:"topicsPattern"`
 	TopicToSchemaType          interface{} `json:"topicToSchemaType"`
 	TopicToSchemaProperties    interface{} `json:"topicToSchemaProperties"`
-	MaxMessageRetries interface{} `json:"maxMessageRetries"`
-	DeadLetterTopic   interface{} `json:"deadLetterTopic"`
-	Configs           struct {
+	MaxMessageRetries          interface{} `json:"maxMessageRetries"`
+	DeadLetterTopic            interface{} `json:"deadLetterTopic"`
+	Configs                    struct {
 		Password  string `json:"password"`
 		JdbcURL   string `json:"jdbcUrl"`
 		UserName  string `json:"userName"`
@@ -214,7 +214,6 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
 
-
 	tenantName := resourceData.Get("tenant_name").(string)
 	sinkName := resourceData.Get("sink_name").(string)
 	topic := resourceData.Get("topic").(string)
@@ -223,7 +222,6 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 	rawRegion := resourceData.Get("region").(string)
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
-
 
 	pulsarCluster := GetPulsarCluster(cloudProvider, region)
 
@@ -237,7 +235,6 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 		fmt.Println("Can't deserislize", orgBody)
 	}
 
-
 	token := meta.(astraClients).token
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
 	if err != nil {
@@ -250,7 +247,7 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 	}
 
 	getSinkResponse, err := streamingClientv3.GetSinksWithResponse(ctx, tenantName, namespace, sinkName, &getSinksParams)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 	if !strings.HasPrefix(getSinkResponse.Status(), "2") {
@@ -284,8 +281,6 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	topic := resourceData.Get("topic").(string)
 	autoAck := resourceData.Get("auto_ack").(bool)
 
-
-
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
 	var org OrgId
@@ -306,10 +301,10 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		fmt.Println("Can't deserislize", orgBody)
 	}
 
-	for i :=0 ; i < len(streamingClusters) ; i++{
+	for i := 0; i < len(streamingClusters); i++ {
 		//fmt.Printf("body %s", streamingClusters[i].ClusterName)
-		if streamingClusters[i].CloudProvider == cloudProvider{
-			if streamingClusters[i].CloudRegion == region{
+		if streamingClusters[i].CloudProvider == cloudProvider {
+			if streamingClusters[i].CloudRegion == region {
 				// TODO - validation
 				//fmt.Printf("body %s", streamingClusters[i].ClusterName)
 			}
@@ -327,8 +322,8 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	createSinkParams := astrastreaming.CreateSinkJSONParams{
 		XDataStaxPulsarCluster: pulsarCluster,
 		//XDataStaxCurrentOrg:    org.ID,
-		XDataStaxCurrentOrg:    "",
-		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
+		XDataStaxCurrentOrg: "",
+		Authorization:       fmt.Sprintf("Bearer %s", pulsarToken),
 	}
 
 	getBuiltinSinkParams := astrastreaming.GetBuiltInSinksParams{
@@ -337,10 +332,9 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	}
 
 	builtinSinksResponse, err := streamingClientv3.GetBuiltInSinks(ctx, &getBuiltinSinkParams)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
-
 
 	type SinkConfig []struct {
 		Name              string      `json:"name"`
@@ -372,12 +366,11 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	var configs map[string]interface{}
 	json.Unmarshal([]byte(rawConfigs), &configs)
 
-	if sinkConfig == nil{
+	if sinkConfig == nil {
 		return diag.Errorf("Could not find sink name %s in prebuilt sinks", sinkName)
 	}
 
 	archive := fmt.Sprintf("builtin://%s", sinkName)
-
 
 	inputs := []string{topic}
 	createSinkBody := astrastreaming.CreateSinkJSONJSONRequestBody{
@@ -412,9 +405,8 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		TopicsPattern:                nil,
 	}
 
-
 	sinkCreationResponse, err := streamingClientv3.CreateSinkJSON(ctx, tenantName, namespace, sinkName, &createSinkParams, createSinkBody)
-	if err != nil{
+	if err != nil {
 		diag.FromErr(err)
 	}
 	if !strings.HasPrefix(sinkCreationResponse.Status, "2") {
@@ -425,7 +417,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 
 	setStreamingSinkData(resourceData, tenantName, topic)
 
-    return nil
+	return nil
 }
 
 func setStreamingSinkData(d *schema.ResourceData, tenantName string, topic string) error {
@@ -438,14 +430,13 @@ func setStreamingSinkData(d *schema.ResourceData, tenantName string, topic strin
 		return err
 	}
 
-
 	return nil
 }
 
 func parseStreamingSinkID(id string) (string, string, error) {
 	idParts := strings.Split(strings.ToLower(id), "/")
 	if len(idParts) != 1 {
-		return "",  "", errors.New("invalid role id format: expected tenant_name/topic")
+		return "", "", errors.New("invalid role id format: expected tenant_name/topic")
 	}
-	return idParts[0], idParts[1],  nil
+	return idParts[0], idParts[1], nil
 }

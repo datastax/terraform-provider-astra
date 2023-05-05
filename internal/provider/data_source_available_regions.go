@@ -5,7 +5,7 @@ import (
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -52,7 +52,6 @@ func dataSourceAvailableRegions() *schema.Resource {
 func dataSourceRegionsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
-
 	regionsResp, err := client.ListServerlessRegionsWithResponse(ctx)
 	if err != nil {
 		return diag.FromErr(err)
@@ -70,7 +69,7 @@ func dataSourceRegionsRead(ctx context.Context, d *schema.ResourceData, meta int
 		flatRegions = append(flatRegions, flattenRegion(&region))
 	}
 
-	d.SetId(resource.UniqueId())
+	d.SetId(id.UniqueId())
 	if err := d.Set("results", flatRegions); err != nil {
 		return diag.FromErr(err)
 	}
@@ -81,8 +80,8 @@ func dataSourceRegionsRead(ctx context.Context, d *schema.ResourceData, meta int
 func flattenRegion(region *astra.ServerlessRegion) map[string]interface{} {
 	return map[string]interface{}{
 		"cloud_provider": region.CloudProvider,
-		"region": region.Name,
-		"zone": region.Zone,
-		"display_name": region.DisplayName,
+		"region":         region.Name,
+		"zone":           region.Zone,
+		"display_name":   region.DisplayName,
 	}
 }

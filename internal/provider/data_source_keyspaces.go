@@ -6,7 +6,7 @@ import (
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/id"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
@@ -55,7 +55,7 @@ func dataSourceKeyspacesRead(ctx context.Context, d *schema.ResourceData, meta i
 		return diag.FromErr(err)
 	}
 
-	d.SetId(resource.UniqueId())
+	d.SetId(id.UniqueId())
 	if err := d.Set("results", keyspacesToMap(keyspaces)); err != nil {
 		return diag.FromErr(err)
 	}
