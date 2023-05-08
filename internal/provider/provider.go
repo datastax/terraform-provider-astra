@@ -74,6 +74,7 @@ func New(version string) func() *schema.Provider {
 					Optional:    true,
 					DefaultFunc: schema.EnvDefaultFunc("ASTRA_API_TOKEN", nil),
 					Description: "Authentication token for Astra API.",
+					Sensitive:   true,
 				},
 				"astra_api_url": {
 					Type:        schema.TypeString,
