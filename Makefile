@@ -31,4 +31,10 @@ testacc:
 clean:
 	rm -f bin/terraform-provider-$(PROVIDER)
 
-.PHONY: install build clean dev test testacc
+tools:
+	go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@v0.14.1
+
+docs: tools
+	~/go/bin/tfplugindocs
+
+.PHONY: install build clean dev docs test testacc tools
