@@ -39,4 +39,4 @@ provider "astra" {
 
 To report bugs or feature requests for the provider [file an issue on github](https://github.com/datastax/terraform-provider-astra/issues).
 
-For help, contact [DataStax Support](https://support.datastax.com/).
+For general help contact [support](https://houston.datastax.com/).
