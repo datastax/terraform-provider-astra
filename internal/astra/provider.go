@@ -124,7 +124,7 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	// Build a retryable http astraClient to automatically
 	// handle intermittent api errors
 	retryClient := retryablehttp.NewClient()
-	retryClient.RetryMax = 10
+	retryClient.RetryMax = 3
 	retryClient.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
 		// Never retry POST requests because of side effects
 		if resp.Request.Method == "POST" {
@@ -207,7 +207,9 @@ func (p *astraProvider) DataSources(_ context.Context) []func() datasource.DataS
 
 // Resources defines the resources implemented in the provider.
 func (p *astraProvider) Resources(_ context.Context) []func() resource.Resource {
-	return nil
+	return []func() resource.Resource{
+		NewStreamingNamespaceResource,
+	}
 }
 
 const uaEnvVar = "TF_APPEND_USER_AGENT"
