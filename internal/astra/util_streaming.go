@@ -44,6 +44,31 @@ type StreamingToken struct {
 	Tokenid string `json:"tokenid"`
 }
 
+func getPulsarTokenByID(ctx context.Context, streamingClient *astrastreaming.ClientWithResponses, orgID string, pulsarCluster string, tenantName string, tokenID string) (string, error) {
+
+	if pulsarCluster == "" {
+		return "", fmt.Errorf("missing pulsar cluster")
+	}
+	if tenantName == "" {
+		return "", fmt.Errorf("missing tenant name")
+	}
+	if tokenID == "" {
+		return "", fmt.Errorf("missing token ID")
+	}
+	tokenParams := astrastreaming.GetPulsarTokenByIDParams{
+		XDataStaxCurrentOrg:    orgID,
+		XDataStaxPulsarCluster: pulsarCluster,
+	}
+
+	pulsarTokenResponse, err := streamingClient.GetPulsarTokenByIDWithResponse(ctx, tenantName, tokenID, &tokenParams)
+	if err != nil {
+		return "", fmt.Errorf("failed to get pulsar tokens: %w", err)
+	}
+
+	pulsarToken := string(pulsarTokenResponse.Body)
+	return pulsarToken, nil
+}
+
 func getPulsarToken(ctx context.Context, streamingClient *astrastreaming.ClientWithResponses, astraToken string, orgID string, pulsarCluster string, tenantName string) (string, error) {
 
 	if pulsarCluster == "" {
@@ -52,13 +77,13 @@ func getPulsarToken(ctx context.Context, streamingClient *astrastreaming.ClientW
 	if tenantName == "" {
 		return "", fmt.Errorf("missing tenant name")
 	}
-	tenantTokenParams := astrastreaming.IdListTenantTokensParams{
+	tenantTokenParams := astrastreaming.GetPulsarTokensByTenantParams{
 		Authorization:          fmt.Sprintf("Bearer %s", astraToken),
 		XDataStaxCurrentOrg:    orgID,
 		XDataStaxPulsarCluster: pulsarCluster,
 	}
 
-	pulsarTokenResponse, err := streamingClient.IdListTenantTokens(ctx, tenantName, &tenantTokenParams)
+	pulsarTokenResponse, err := streamingClient.GetPulsarTokensByTenant(ctx, tenantName, &tenantTokenParams)
 	if err != nil {
 		return "", fmt.Errorf("failed to get pulsar tokens: %w", err)
 	}
@@ -80,13 +105,13 @@ func getPulsarToken(ctx context.Context, streamingClient *astrastreaming.ClientW
 		return "", fmt.Errorf("no valid pulsar tokens found for tenant '%s'", tenantName)
 	}
 	tokenId := streamingTokens[0].Tokenid
-	getTokenByIdParams := astrastreaming.GetTokenByIDParams{
+	getTokenByIdParams := astrastreaming.GetPulsarTokenByIDParams{
 		Authorization:          fmt.Sprintf("Bearer %s", astraToken),
 		XDataStaxCurrentOrg:    orgID,
 		XDataStaxPulsarCluster: pulsarCluster,
 	}
 
-	getTokenResponse, err := streamingClient.GetTokenByIDWithResponse(ctx, tenantName, tokenId, &getTokenByIdParams)
+	getTokenResponse, err := streamingClient.GetPulsarTokenByIDWithResponse(ctx, tenantName, tokenId, &getTokenByIdParams)
 	if err != nil {
 		return "", fmt.Errorf("failed to get pulsar token: %w", err)
 	}

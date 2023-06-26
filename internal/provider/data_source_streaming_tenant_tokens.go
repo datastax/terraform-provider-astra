@@ -74,10 +74,10 @@ func dataSourceStreamingTenantTokensRead(ctx context.Context, d *schema.Resource
 	tenantName := d.Get("tenant_name").(string)
 	clusterName := d.Get("cluster_name").(string)
 
-	params := astrastreaming.IdListTenantTokensParams{
+	params := astrastreaming.GetPulsarTokensByTenantParams{
 		XDataStaxPulsarCluster: clusterName,
 	}
-	tokenResponse, err := streamingClient.IdListTenantTokensWithResponse(ctx, tenantName, &params)
+	tokenResponse, err := streamingClient.GetPulsarTokensByTenantWithResponse(ctx, tenantName, &params)
 
 	if err != nil {
 		return diag.FromErr(err)
@@ -99,7 +99,7 @@ func dataSourceStreamingTenantTokensRead(ctx context.Context, d *schema.Resource
 func setTenantTokensData(ctx context.Context, d *schema.ResourceData, streamingClient *astrastreaming.ClientWithResponses, tokenList []astrastreaming.TenantToken) error {
 	tenantName := d.Get("tenant_name").(string)
 	clusterName := d.Get("cluster_name").(string)
-	params := astrastreaming.GetTokenByIDParams{
+	params := astrastreaming.GetPulsarTokenByIDParams{
 		XDataStaxPulsarCluster: clusterName,
 	}
 	tokens := make([]map[string]interface{}, 0, len(tokenList))
@@ -111,7 +111,7 @@ func setTenantTokensData(ctx context.Context, d *schema.ResourceData, streamingC
 			"sub":      token.Sub,
 		}
 		// now fetch the JWT token
-		tokenResponse, err := streamingClient.GetTokenByIDWithResponse(ctx, tenantName, *token.TokenID, &params)
+		tokenResponse, err := streamingClient.GetPulsarTokenByIDWithResponse(ctx, tenantName, *token.TokenID, &params)
 		if err != nil {
 			return err
 		}
