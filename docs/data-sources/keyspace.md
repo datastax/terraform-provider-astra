@@ -30,5 +30,3 @@ data "astra_keyspace" "dev" {
 ### Read-Only
 
 - `id` (String) The ID of this resource.
-
-

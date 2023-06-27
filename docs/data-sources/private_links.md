@@ -41,5 +41,3 @@ Read-Only:
 - `datacenter_id` (String)
 - `endpoints` (List of String)
 - `service_name` (String)
-
-

@@ -43,5 +43,3 @@ Read-Only:
 - `description` (String)
 - `endpoint_id` (String)
 - `status` (String)
-
-

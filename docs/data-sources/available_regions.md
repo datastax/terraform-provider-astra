@@ -34,5 +34,3 @@ Read-Only:
 - `display_name` (String)
 - `region` (String)
 - `zone` (String)
-
-

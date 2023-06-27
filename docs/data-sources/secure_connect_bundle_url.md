@@ -104,5 +104,3 @@ Read-Only:
 - `dashboard_fqdn` (String)
 - `domain` (String)
 - `url` (String)
-
-

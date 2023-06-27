@@ -36,5 +36,3 @@ data "astra_keyspaces" "dev" {
 Read-Only:
 
 - `name` (String)
-
-

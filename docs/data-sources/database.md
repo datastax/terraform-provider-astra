@@ -44,5 +44,3 @@ data "astra_database" "db" {
 - `replication_factor` (Number) Replication Factor (not relevant for serverless databases)
 - `status` (String) Database status
 - `total_storage` (Number) Storage Capacity (not relevant for serverelss databases)
-
-
