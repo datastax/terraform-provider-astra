@@ -34,6 +34,9 @@ resource "astra_streaming_tenant" "streaming_tenant_1" {
 }
 
 resource "astra_streaming_namespace" "terraform_test" {
+  depends_on = [
+    astra_streaming_tenant.streaming_tenant_1
+  ]
   cluster   = "%s"
   tenant    = "%s"
   namespace = "%s"

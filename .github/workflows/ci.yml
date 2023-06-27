@@ -7,20 +7,16 @@ on:
     branches:
       - 'main'
 jobs:
-  build:
+  docs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
 
-    - uses: actions/setup-go@v3
+    - uses: actions/setup-go@v4
       with:
         go-version: '1.18'
 
     - uses: actions/checkout@v3
-
-    - name: Get dependencies
-      run: |
-        go mod download
 
     - name: Install tfplugindocs
       run: |
@@ -29,7 +25,7 @@ jobs:
     - name: Run doc generation
       id: doc_gen
       run: |
-        tfplugindocs && echo "::set-output name=local_changes::$(git status --porcelain ./docs | wc -l)"
+        make docs && echo "::set-output name=local_changes::$(git status --porcelain ./docs | wc -l)"
 
     - name: Uncommitted changes Check
       if: ${{ steps.doc_gen.outputs.local_changes != 0 }}
@@ -38,9 +34,20 @@ jobs:
         script: |
           core.setFailed('tfplugindocs generated uncommitted doc changes. Please run tfplugindocs and add doc changes to your commits.')
 
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.18'
+
+    - uses: actions/checkout@v3
+
     - name: Build
       run: |
-        go build -v .
+        make build
 
   # run acceptance tests in a matrix with Terraform core versions
   terraform-acceptance-test:
@@ -55,7 +62,7 @@ jobs:
           # - '0.15.5'
           - '1.4.6'
     steps:
-    - uses: actions/setup-go@v3
+    - uses: actions/setup-go@v4
       with:
         go-version: '1.18'
 

@@ -39,5 +39,3 @@ Read-Only:
 - `address` (String)
 - `description` (String)
 - `enabled` (Boolean)
-
-

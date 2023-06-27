@@ -57,5 +57,3 @@ Read-Only:
 - `replication_factor` (Number)
 - `status` (String)
 - `total_storage` (Number)
-
-

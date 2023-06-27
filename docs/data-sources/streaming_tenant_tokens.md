@@ -57,5 +57,3 @@ Read-Only:
 - `sub` (String)
 - `token` (String)
 - `token_id` (String)
-
-

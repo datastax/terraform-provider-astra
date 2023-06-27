@@ -33,5 +33,3 @@ data "astra_role" "dev" {
 - `policy` (List of String) List of policies for the role. See https://docs.datastax.com/en/astra/docs/user-permissions.html#_operational_roles_detail for supported policies.
 - `resources` (List of String) Resources for which role is applicable (format is "drn:astra:org:<org UUID>", followed by optional resource criteria. See example usage above).
 - `role_name` (String) Role name
-
-

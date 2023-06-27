@@ -46,5 +46,3 @@ Read-Only:
 Read-Only:
 
 - `role_id` (String)
-
-

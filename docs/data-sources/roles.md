@@ -36,5 +36,3 @@ Read-Only:
 - `resources` (List of String)
 - `role_id` (String)
 - `role_name` (String)
-
-
