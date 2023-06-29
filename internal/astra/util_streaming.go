@@ -20,16 +20,16 @@ const (
 // setPulsarClusterHeaders returns a function that can be used to set the request headers for a Pulsar admin API requests.
 // This overrides the provider Authorization header because the Pulsar admin API requires a Pulsar token instead of the AstraCS
 // token required by the Astra API.
-func setPulsarClusterHeaders(pulsarToken, clusterName, organizationID string) func(ctx context.Context, req *http.Request) error {
+func setPulsarClusterHeaders(organizationID, cluster, pulsarToken string) func(ctx context.Context, req *http.Request) error {
 	return func(ctx context.Context, req *http.Request) error {
 		if pulsarToken == "" {
 			return fmt.Errorf("missing required pulsar token")
 		}
 		req.Header.Set(authHeader, fmt.Sprintf("Bearer %s", pulsarToken))
-		if clusterName == "" {
+		if cluster == "" {
 			return fmt.Errorf("missing required pulsar cluster name")
 		}
-		req.Header.Set(pulsarClusterHeader, clusterName)
+		req.Header.Set(pulsarClusterHeader, cluster)
 		if organizationID != "" {
 			req.Header.Set(organizationHeader, organizationID)
 		}
@@ -69,7 +69,7 @@ func getPulsarTokenByID(ctx context.Context, streamingClient *astrastreaming.Cli
 	return pulsarToken, nil
 }
 
-func getPulsarToken(ctx context.Context, streamingClient *astrastreaming.ClientWithResponses, astraToken string, orgID string, pulsarCluster string, tenantName string) (string, error) {
+func getLatestPulsarToken(ctx context.Context, streamingClient *astrastreaming.ClientWithResponses, astraToken string, orgID string, pulsarCluster string, tenantName string) (string, error) {
 
 	if pulsarCluster == "" {
 		return "", fmt.Errorf("missing pulsar cluster")

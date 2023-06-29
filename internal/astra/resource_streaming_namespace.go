@@ -2,11 +2,12 @@ package astra
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
+	"github.com/datastax/pulsar-admin-client-go/src/pulsaradmin"
+	"github.com/datastax/terraform-provider-astra/v2/internal/util"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -17,42 +18,46 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource                = &streamingNamespaceResource{}
-	_ resource.ResourceWithConfigure   = &streamingNamespaceResource{}
-	_ resource.ResourceWithImportState = &streamingNamespaceResource{}
+	_ resource.Resource                = &StreamingNamespaceResource{}
+	_ resource.ResourceWithConfigure   = &StreamingNamespaceResource{}
+	_ resource.ResourceWithImportState = &StreamingNamespaceResource{}
 )
 
 // NewStreamingNamespaceResource is a helper function to simplify the provider implementation.
 func NewStreamingNamespaceResource() resource.Resource {
-	return &streamingNamespaceResource{}
+	return &StreamingNamespaceResource{}
 }
 
-// streamingNamespaceResource is the resource implementation.
-type streamingNamespaceResource struct {
+// StreamingNamespaceResource is the resource implementation.
+type StreamingNamespaceResource struct {
 	clients *astraClients
 }
 
-// streamingNamespaceResourceModel maps the resource schema data.
-type streamingNamespaceResourceModel struct {
+// StreamingNamespaceResourceModel maps the resource schema data.
+type StreamingNamespaceResourceModel struct {
 	ID        types.String `tfsdk:"id"`
 	Cluster   types.String `tfsdk:"cluster"`
 	Tenant    types.String `tfsdk:"tenant"`
 	Namespace types.String `tfsdk:"namespace"`
+	Policies  types.Object `tfsdk:"policies"`
 }
 
 // Metadata returns the data source type name.
-func (r *streamingNamespaceResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (r *StreamingNamespaceResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_streaming_namespace"
 }
 
 // Schema defines the schema for the data source.
-func (r *streamingNamespaceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *StreamingNamespaceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "A Pulsar Namespace.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Full path to the namespace",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cluster": schema.StringAttribute{
 				Description: "Cluster where the tenant is located.",
@@ -75,12 +80,13 @@ func (r *streamingNamespaceResource) Schema(_ context.Context, _ resource.Schema
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
+			"policies": pulsarNamespacePoliciesSchema,
 		},
 	}
 }
 
 // Configure adds the provider configured client to the data source.
-func (r *streamingNamespaceResource) Configure(_ context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
+func (r *StreamingNamespaceResource) Configure(_ context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
 	}
@@ -88,20 +94,18 @@ func (r *streamingNamespaceResource) Configure(_ context.Context, req resource.C
 	r.clients = req.ProviderData.(*astraClients)
 }
 
-// Create creates the resource and sets the initial Terraform state.
-func (r *streamingNamespaceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan streamingNamespaceResourceModel
+// Create the resource and sets the initial Terraform state.
+func (r *StreamingNamespaceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	plan := StreamingNamespaceResourceModel{}
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// Manually set the ID because this is not directly managed by the user or the server when creating a new namespace
+	plan.ID = types.StringValue(fmt.Sprintf("%s/%s/%s", plan.Cluster.ValueString(), plan.Tenant.ValueString(), plan.Namespace.ValueString()))
 
-	astraClient := r.clients.astraClient
-	streamingClient := r.clients.astraStreamingClient
-	streamingV3Client := r.clients.astraStreamingClientv3
-
-	orgID, err := getCurrentOrgID(ctx, astraClient)
+	orgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating namespace",
@@ -110,7 +114,7 @@ func (r *streamingNamespaceResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
-	pulsarToken, err := getPulsarToken(ctx, streamingClient, r.clients.token, orgID, plan.Cluster.ValueString(), plan.Tenant.ValueString())
+	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, orgID, plan.Cluster.ValueString(), plan.Tenant.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating namespace",
@@ -119,30 +123,38 @@ func (r *streamingNamespaceResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
-	pulsarRequestEditor := setPulsarClusterHeaders(pulsarToken, plan.Cluster.ValueString(), "")
-	streamingNamespaceResp, err := streamingV3Client.CreateNamespaceWithResponse(ctx, plan.Tenant.ValueString(), plan.Namespace.ValueString(), pulsarRequestEditor)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating namespace",
-			"Could not create Pulsar namespace: "+err.Error(),
-		)
-		return
-	} else if streamingNamespaceResp.StatusCode() >= 300 {
-		resp.Diagnostics.AddError(
-			"Error creating namespace",
-			fmt.Sprintf("Could not create Pulsar namespace, status '%s', body: %s", streamingNamespaceResp.Status(), string(streamingNamespaceResp.Body)),
-		)
+	pulsarRequestEditor := setPulsarClusterHeaders("", plan.Cluster.ValueString(), pulsarToken)
+
+	// We have to create the namespace with an empty policy because the Astra Streaming control plane will override any
+	// policy that we send.  Then later we adjust any policy fields that have been set by the user.
+	pulsarResp, err := r.clients.pulsarAdminClient.NamespacesCreateNamespace(ctx, plan.Tenant.ValueString(), plan.Namespace.ValueString(),
+		pulsaradmin.Policies{}, pulsarRequestEditor)
+	resp.Diagnostics.Append(HTTPResponseDiagErr(pulsarResp, err, fmt.Sprintf("Error creating namespace %s", plan.Tenant.ValueString()+"/"+plan.Namespace.ValueString()))...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Manually set the ID because this is computed
-	plan.ID = types.StringValue(fmt.Sprintf("%s/%s/%s", plan.Cluster, plan.Tenant, plan.Namespace))
+	resp.Diagnostics.Append(setNamespacePolicies(ctx, r.clients.pulsarAdminClient, plan, pulsarRequestEditor)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// After creating the namespace, we have to get the policies from the server because some of them are set automatically to default values
+	policiesFromServer, diags := getPulsarNamespacePolicies(ctx, r.clients.pulsarAdminClient, plan, pulsarRequestEditor)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	mergedPolicies, diags := util.MergeTerraformObjects(plan.Policies, policiesFromServer, plan.Policies.AttributeTypes(context.Background()))
+	resp.Diagnostics.Append(diags...)
+	plan.Policies = mergedPolicies
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-// Read refreshes the Terraform state with the latest data.
-func (r *streamingNamespaceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state streamingNamespaceResourceModel
+// Read the resource state from the remote resource and update the local Terraform state.
+func (r *StreamingNamespaceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	state := StreamingNamespaceResourceModel{}
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -151,64 +163,88 @@ func (r *streamingNamespaceResource) Read(ctx context.Context, req resource.Read
 
 	astraClient := r.clients.astraClient
 	streamingClient := r.clients.astraStreamingClient
-	streamingV3Client := r.clients.astraStreamingClientv3
+	pulsarClient := r.clients.pulsarAdminClient
 
 	orgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error getting namespace",
-			"Could not get current organization: "+err.Error(),
+			fmt.Sprintf("Error reading streaming namespace '%s/%s'", state.Tenant.ValueString(), state.Namespace.ValueString()),
+			"Failed to get current organization: "+err.Error(),
 		)
 		return
 	}
 
-	pulsarToken, err := getPulsarToken(ctx, streamingClient, r.clients.token, orgID, state.Cluster.ValueString(), state.Tenant.ValueString())
+	pulsarToken, err := getLatestPulsarToken(ctx, streamingClient, r.clients.token, orgID, state.Cluster.ValueString(), state.Tenant.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error getting namespace",
-			"Could not get pulsar token: "+err.Error(),
+			fmt.Sprintf("Error reading streaming namespace '%s/%s'", state.Tenant.ValueString(), state.Namespace.ValueString()),
+			"Failed to get valid Pulsar token: "+err.Error(),
 		)
 		return
 	}
 
-	pulsarRequestEditor := setPulsarClusterHeaders(pulsarToken, state.Cluster.ValueString(), orgID)
-	streamingNamespaceResp, err := streamingV3Client.GetNamespaceWithResponse(ctx, state.Tenant.ValueString(), state.Namespace.ValueString(), pulsarRequestEditor)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting namespace",
-			"Could not get Pulsar namespace: "+err.Error(),
-		)
-		return
-	} else if streamingNamespaceResp.StatusCode() >= 300 {
-		resp.Diagnostics.AddError(
-			"Error getting namespace",
-			fmt.Sprintf("Could not get Pulsar namespace status: %v", streamingNamespaceResp.Status()),
-		)
-		return
-	}
-	var pulsarNamespacePolicies map[string]interface{}
-	err = json.Unmarshal(streamingNamespaceResp.Body, &pulsarNamespacePolicies)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting namespace",
-			"Could not unmarshal Pulsar namespace: "+err.Error(),
-		)
+	pulsarRequestEditor := setPulsarClusterHeaders(orgID, state.Cluster.ValueString(), pulsarToken)
+	policiesFromServer, diags := getPulsarNamespacePolicies(ctx, pulsarClient, state, pulsarRequestEditor)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	state.Policies = policiesFromServer
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-// Update updates the resource and sets the updated Terraform state on success.
-func (r *streamingNamespaceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// Not implemented
+// Update the remote resource and sets the updated Terraform state on success.
+func (r *StreamingNamespaceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan StreamingNamespaceResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Manually set the ID because this is not directly managed by the user or the server when creating a new namespace
+	plan.ID = types.StringValue(fmt.Sprintf("%s/%s/%s", plan.Cluster.ValueString(), plan.Tenant.ValueString(), plan.Namespace.ValueString()))
 
+	orgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error reading streaming namespace '%s/%s'", plan.Tenant.ValueString(), plan.Namespace.ValueString()),
+			"Failed to get current organization: "+err.Error(),
+		)
+		return
+	}
+
+	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, orgID, plan.Cluster.ValueString(), plan.Tenant.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error reading streaming namespace '%s/%s'", plan.Tenant.ValueString(), plan.Namespace.ValueString()),
+			"Failed to get valid Pulsar token: "+err.Error(),
+		)
+		return
+	}
+
+	pulsarRequestEditor := setPulsarClusterHeaders("", plan.Cluster.ValueString(), pulsarToken)
+	resp.Diagnostics.Append(setNamespacePolicies(ctx, r.clients.pulsarAdminClient, plan, pulsarRequestEditor)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// After creating the namespace, we have to get the policies from the server because some of them are set automatically to default values
+	policiesFromServer, diags := getPulsarNamespacePolicies(ctx, r.clients.pulsarAdminClient, plan, pulsarRequestEditor)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	mergedPolicies, diags := util.MergeTerraformObjects(plan.Policies, policiesFromServer, plan.Policies.AttributeTypes(context.Background()))
+	resp.Diagnostics.Append(diags...)
+	plan.Policies = mergedPolicies
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
-func (r *streamingNamespaceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// Retrieve values from state
-	var state streamingNamespaceResourceModel
+func (r *StreamingNamespaceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state StreamingNamespaceResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -217,39 +253,39 @@ func (r *streamingNamespaceResource) Delete(ctx context.Context, req resource.De
 
 	astraClient := r.clients.astraClient
 	streamingClient := r.clients.astraStreamingClient
-	streamingV3Client := r.clients.astraStreamingClientv3
 
 	orgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error deleting namespace",
-			"Could not get current organization: "+err.Error(),
+			fmt.Sprintf("Error deleting streaming namespace '%s/%s'", state.Tenant.ValueString(), state.Namespace.ValueString()),
+			"Failed to get current organization: "+err.Error(),
 		)
 		return
 	}
 
-	pulsarToken, err := getPulsarToken(ctx, streamingClient, r.clients.token, orgID, state.Cluster.ValueString(), state.Tenant.ValueString())
+	pulsarToken, err := getLatestPulsarToken(ctx, streamingClient, r.clients.token, orgID, state.Cluster.ValueString(), state.Tenant.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error deleting namespace",
-			"Could not get pulsar token: "+err.Error(),
+			fmt.Sprintf("Error deleting streaming namespace '%s/%s'", state.Tenant.ValueString(), state.Namespace.ValueString()),
+			"Failed to get valid Pulsar token: "+err.Error(),
 		)
 		return
 	}
 
-	pulsarRequestEditor := setPulsarClusterHeaders(pulsarToken, state.Cluster.ValueString(), "")
+	pulsarRequestEditor := setPulsarClusterHeaders("", state.Cluster.ValueString(), pulsarToken)
 	params := astrastreaming.DeleteNamespaceParams{}
-	_, err = streamingV3Client.DeleteNamespace(ctx, state.Tenant.ValueString(), state.Namespace.ValueString(), &params, pulsarRequestEditor)
+	_, err = streamingClient.DeleteNamespace(ctx, state.Tenant.ValueString(), state.Namespace.ValueString(), &params, pulsarRequestEditor)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error deleting namespace",
-			"Could not create Pulsar namespace: "+err.Error(),
+			fmt.Sprintf("Error deleting streaming namespace '%s/%s'", state.Tenant.ValueString(), state.Namespace.ValueString()),
+			"Failed to delete streaming namespace: "+err.Error(),
 		)
 		return
 	}
 }
 
-func (r *streamingNamespaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+// ImportState just reads the ID from the CLI and then calls Read() to get the state of the object
+func (r *StreamingNamespaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	namespaceID := strings.Split(req.ID, "/")
 	if len(namespaceID) != 3 {
 		resp.Diagnostics.AddError(

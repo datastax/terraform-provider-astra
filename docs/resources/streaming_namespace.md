@@ -21,9 +21,56 @@ A Pulsar Namespace.
 - `namespace` (String) Name of the Pulsar namespace.
 - `tenant` (String) Name of the tenant.
 
+### Optional
+
+- `policies` (Attributes) Policies to be applied to the Pulsar namespace. For more details related to valid policy configuration, refer to the Pulsar namespace policies documentation (https://pulsar.apache.org/docs/3.0.x/admin-api-namespaces/). (see [below for nested schema](#nestedatt--policies))
+
 ### Read-Only
 
 - `id` (String) Full path to the namespace
+
+<a id="nestedatt--policies"></a>
+### Nested Schema for `policies`
+
+Optional:
+
+- `auto_topic_creation_override` (Attributes) (see [below for nested schema](#nestedatt--policies--auto_topic_creation_override))
+- `backlog_quota_map` (Attributes Map) (see [below for nested schema](#nestedatt--policies--backlog_quota_map))
+- `is_allow_auto_update_schema` (Boolean)
+- `message_ttl_in_seconds` (Number)
+- `retention_policies` (Attributes) (see [below for nested schema](#nestedatt--policies--retention_policies))
+- `schema_auto_update_compatibility_strategy` (String)
+- `schema_compatibility_strategy` (String)
+- `schema_validation_enforced` (Boolean)
+
+<a id="nestedatt--policies--auto_topic_creation_override"></a>
+### Nested Schema for `policies.auto_topic_creation_override`
+
+Optional:
+
+- `allow_auto_topic_creation` (Boolean)
+- `default_num_partitions` (Number)
+- `topic_type` (String)
+
+
+<a id="nestedatt--policies--backlog_quota_map"></a>
+### Nested Schema for `policies.backlog_quota_map`
+
+Optional:
+
+- `limit` (Number)
+- `limit_size` (Number)
+- `limit_time` (Number)
+- `policy` (String)
+
+
+<a id="nestedatt--policies--retention_policies"></a>
+### Nested Schema for `policies.retention_policies`
+
+Optional:
+
+- `retention_size_in_mb` (Number)
+- `retention_time_in_minutes` (Number)
 
 ## Import
 
