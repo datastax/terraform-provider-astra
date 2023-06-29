@@ -275,6 +275,8 @@ func getCurrentOrgID(ctx context.Context, astraClient *astra.ClientWithResponses
 	err = json.NewDecoder(orgResponse.Body).Decode(&orgID)
 	if err != nil {
 		return "", fmt.Errorf("failed to unmarshal current organization ID: %w", err)
+	} else if orgID.ID == "" {
+		return "", errors.New("streaming API returned an empty organization ID")
 	}
 	return orgID.ID, nil
 }

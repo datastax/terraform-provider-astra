@@ -173,6 +173,7 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	streamingV3Client, err := astrastreaming.NewClientWithResponses(streamingAPIServerURL, func(c *astrastreaming.Client) error {
 		c.Client = retryClient.StandardClient()
 		c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
+			req.Header.Set("Authorization", authorization)
 			req.Header.Set("User-Agent", userAgent)
 			req.Header.Set("X-Astra-Provider-Version", p.Version)
 			req.Header.Set("X-Astra-Client-Version", clientVersion)
@@ -209,6 +210,7 @@ func (p *astraProvider) DataSources(_ context.Context) []func() datasource.DataS
 func (p *astraProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewStreamingNamespaceResource,
+		NewStreamingPulsarTokenResource,
 	}
 }
 

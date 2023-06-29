@@ -429,13 +429,13 @@ func GetPulsarCluster(cloudProvider string, rawRegion string) string {
 
 func getPulsarToken(ctx context.Context, pulsarCluster string, token string, org OrgId, err error, streamingClient *astrastreaming.ClientWithResponses, tenantName string) (string, error) {
 
-	tenantTokenParams := astrastreaming.IdListTenantTokensParams{
+	tenantTokenParams := astrastreaming.GetPulsarTokensByTenantParams{
 		Authorization:          fmt.Sprintf("Bearer %s", token),
 		XDataStaxCurrentOrg:    org.ID,
 		XDataStaxPulsarCluster: pulsarCluster,
 	}
 
-	pulsarTokenResponse, err := streamingClient.IdListTenantTokensWithResponse(ctx, tenantName, &tenantTokenParams)
+	pulsarTokenResponse, err := streamingClient.GetPulsarTokensByTenantWithResponse(ctx, tenantName, &tenantTokenParams)
 	if err != nil {
 		fmt.Println("Can't generate token", err)
 		diag.Errorf("Can't get pulsar token")
@@ -450,13 +450,13 @@ func getPulsarToken(ctx context.Context, pulsarCluster string, token string, org
 	}
 
 	tokenId := streamingTokens[0].Tokenid
-	getTokenByIdParams := astrastreaming.GetTokenByIDParams{
+	getTokenByIdParams := astrastreaming.GetPulsarTokenByIDParams{
 		Authorization:          fmt.Sprintf("Bearer %s", token),
 		XDataStaxCurrentOrg:    org.ID,
 		XDataStaxPulsarCluster: pulsarCluster,
 	}
 
-	getTokenResponse, err := streamingClient.GetTokenByIDWithResponse(ctx, tenantName, tokenId, &getTokenByIdParams)
+	getTokenResponse, err := streamingClient.GetPulsarTokenByIDWithResponse(ctx, tenantName, tokenId, &getTokenByIdParams)
 
 	if err != nil {
 		fmt.Println("Can't get token", err)
