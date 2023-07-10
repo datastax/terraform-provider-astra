@@ -124,9 +124,10 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	streamingAPIServerURLPulsarAdmin, err := url.JoinPath(streamingAPIServerURL, "/admin/v2")
-	if err != nil {
-		resp.Diagnostics.AddError("failed to create pulsar admin server URL", err.Error())
+	// TODO: when we switch to go 1.19, this should use url.JoinPath
+	streamingAPIServerURLPulsarAdmin := streamingAPIServerURL + "/admin/v2"
+	if _, err := url.Parse(streamingAPIServerURLPulsarAdmin); err != nil {
+		resp.Diagnostics.AddError("invalid Pulsar admin server API URL", err.Error())
 		return
 	}
 
