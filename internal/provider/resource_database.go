@@ -22,10 +22,10 @@ var availableCloudProviders = []string{
 	"azure",
 }
 
-var databaseCreateTimeout = time.Minute * 20
+var databaseCreateTimeout = time.Minute * 40
 var databaseReadTimeout = time.Minute * 5
 var databaseDeleteTimeout = time.Minute * 20
-var databaseUpdateTimeout = time.Minute * 20
+var databaseUpdateTimeout = time.Minute * 40
 
 func resourceDatabase() *schema.Resource {
 	return &schema.Resource{
