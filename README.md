@@ -1,14 +1,14 @@
 # Terraform Provider for Astra
 
-[Astra](https://astra.datastax.com/) is DataStax's (serverless) service platform for Apache Cassandra and Apache Pulsar.
+[Astra](https://astra.datastax.com/) is the DataStax (serverless) service platform for Apache Cassandra and Apache Pulsar.
 
 ## Prerequisites
 
 ### Astra
 
-Before using this provider, you will need an existing or new [Astra](https://astra.datastax.com/) account.
-You will also need an Astra token which is used for authentication.  You can generate a new token using
-the [`Token Management` section](https://docs.datastax.com/en/astra-serverless/docs/getting-started/gs-grant-user-access.html#_generate_an_application_token) on the [Astra Dashboard](https://astra.datastax.com).
+Before using this provider, you will need an [Astra](https://astra.datastax.com/) account, and an Astra token for authentication.
+From the [Astra Dashboard](https://astra.datastax.com), you can generate a new token using the
+[`Token Management` section](https://docs.datastax.com/en/astra-serverless/docs/getting-started/gs-grant-user-access.html#_generate_an_application_token).
 
 ### Terraform
 
@@ -72,7 +72,7 @@ The [examples diretory](./examples) contains example configuration for the vario
 
 ### Build the provider from source
 
-The build requires [Go](https://golang.org/doc/install) >= 1.15
+The build requires [Go](https://golang.org/doc/install) >= 1.18
 
 In order to develop and test this provider, you'll need to configure your local environment
 with a custom Terraform [config file](https://developer.hashicorp.com/terraform/cli/config/config-file).
@@ -106,31 +106,42 @@ public servers.
    Note: `terraform init` should be skipped when developing locally.
 
 
+By default, Terraform will run against the public servers.  To run against a test server,
+set the following environment variables.
+
+```sh
+export ASTRA_API_URL="<Astra test server URL>"
+export ASTRA_STREAMING_API_URL="<Astra streaming test server URL>"
+export ASTRA_API_TOKEN="<Astra test server Token>"
+```
+
 ### Running the tests
 
 The tests require several environment variables to be set in order to successfully
 run.  By default any tests which are missing the required environment variables
 will be skipped.
 
-    ```sh
-    export ASTRA_TEST_DATABASE_ID="<Astra database UUID>"
-    export ASTRA_TEST_DATACENTER_ID="<Astra datacenter id>"
-    export ASTRA_TEST_ENDPOINT_ID="<Astra endpoint ID>"
-    ```
+```sh
+export ASTRA_TEST_DATABASE_ID="<Astra database UUID>"
+export ASTRA_TEST_DATACENTER_ID="<Astra datacenter id>"
+export ASTRA_TEST_ENDPOINT_ID="<Astra endpoint ID>"
+```
 
 An example of these variables can be found in the file `test/example-test.env`.  If a
 file called `test/test.env` is created it will be automatically loaded by the test script.
 
 The tests can be run via Make.
 
-    make test
+```sh
+make test
+```
 
 A single test can be run using golang test args.
 
-    ```sh
-    export TESTARGS="-run TestStreamingTenant"
-    make test
-    ```
+```sh
+export TESTARGS="-run TestStreamingTenant"
+make test
+```
 
 ## Documentation Updates
 
