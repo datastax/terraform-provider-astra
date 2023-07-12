@@ -115,7 +115,7 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	streamingAPIServerURL := common.FirstNonEmptyString(config.AstraStreamingServerURL.ValueString(), common.EnvVarOrDefault("ASTRA_STREAMING_API_URL", DefaultAstraAPIURL))
+	streamingAPIServerURL := common.FirstNonEmptyString(config.AstraStreamingServerURL.ValueString(), common.EnvVarOrDefault("ASTRA_STREAMING_API_URL", DefaultStreamingAPIURL))
 	if _, err := url.Parse(astraAPIServerURL); err != nil {
 		resp.Diagnostics.AddError("invalid Astra streaming server API URL", err.Error())
 		return
