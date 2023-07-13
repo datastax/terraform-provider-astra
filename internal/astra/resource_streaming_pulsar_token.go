@@ -109,7 +109,7 @@ func (r *StreamingPulsarTokenResource) Create(ctx context.Context, req resource.
 	}
 
 	astraClient := r.clients.astraClient
-	streamingClient := r.clients.astraStreamingClientv3
+	streamingClient := r.clients.astraStreamingClient
 
 	astraOrgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {
@@ -174,7 +174,7 @@ func (r *StreamingPulsarTokenResource) Read(ctx context.Context, req resource.Re
 	}
 
 	astraClient := r.clients.astraClient
-	streamingClient := r.clients.astraStreamingClientv3
+	streamingClient := r.clients.astraStreamingClient
 
 	astraOrgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {
@@ -216,7 +216,7 @@ func (r *StreamingPulsarTokenResource) Delete(ctx context.Context, req resource.
 	}
 
 	astraClient := r.clients.astraClient
-	streamingClient := r.clients.astraStreamingClientv3
+	streamingClient := r.clients.astraStreamingClient
 
 	astraOrgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {

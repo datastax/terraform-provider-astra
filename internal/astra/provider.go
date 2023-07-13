@@ -12,7 +12,8 @@ import (
 	"github.com/datastax/astra-client-go/v2/astra"
 	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
-	"github.com/datastax/terraform-provider-astra/v2/internal/common"
+	"github.com/datastax/pulsar-admin-client-go/src/pulsaradmin"
+	"github.com/datastax/terraform-provider-astra/v2/internal/util"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -35,9 +36,11 @@ var (
 )
 
 // New is a helper function to simplify provider server and testing implementation.
-func New(version string) provider.Provider {
-	return &astraProvider{
-		Version: version,
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
+		return &astraProvider{
+			Version: version,
+		}
 	}
 }
 
@@ -53,13 +56,13 @@ type astraProviderModel struct {
 }
 
 type astraClients struct {
-	token                  string
-	astraClient            *astra.ClientWithResponses
-	astraStreamingClient   *astrastreaming.ClientWithResponses
-	astraStreamingClientv3 *astrastreaming.ClientWithResponses
-	stargateClientCache    map[string]astrarestapi.Client
-	providerVersion        string
-	userAgent              string
+	token                string
+	astraClient          *astra.ClientWithResponses
+	astraStreamingClient *astrastreaming.ClientWithResponses
+	pulsarAdminClient    *pulsaradmin.ClientWithResponses
+	stargateClientCache  map[string]astrarestapi.Client
+	providerVersion      string
+	userAgent            string
 }
 
 // Metadata returns the provider type name.
@@ -102,22 +105,29 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	token := common.FirstNonEmptyString(config.Token.ValueString(), os.Getenv("ASTRA_API_TOKEN"))
+	token := util.FirstNonEmptyString(config.Token.ValueString(), os.Getenv("ASTRA_API_TOKEN"))
 	if token == "" {
 		resp.Diagnostics.AddError("missing required Astra API token",
 			"missing required Astra API token.  Please set the ASTRA_API_TOKEN environment variable or provide a token in the provider configuration")
 		return
 	}
 
-	astraAPIServerURL := common.FirstNonEmptyString(config.AstraServerURL.ValueString(), os.Getenv("ASTRA_API_URL"), DefaultAstraAPIURL)
+	astraAPIServerURL := util.FirstNonEmptyString(config.AstraServerURL.ValueString(), os.Getenv("ASTRA_API_URL"), DefaultAstraAPIURL)
 	if _, err := url.Parse(astraAPIServerURL); err != nil {
 		resp.Diagnostics.AddError("invalid Astra server API URL", err.Error())
 		return
 	}
 
-	streamingAPIServerURL := common.FirstNonEmptyString(config.AstraStreamingServerURL.ValueString(), common.EnvVarOrDefault("ASTRA_STREAMING_API_URL", DefaultStreamingAPIURL))
+	streamingAPIServerURL := util.FirstNonEmptyString(config.AstraStreamingServerURL.ValueString(), os.Getenv("ASTRA_STREAMING_API_URL"), DefaultStreamingAPIURL)
 	if _, err := url.Parse(astraAPIServerURL); err != nil {
 		resp.Diagnostics.AddError("invalid Astra streaming server API URL", err.Error())
+		return
+	}
+
+	// TODO: when we switch to go 1.19, this should use url.JoinPath
+	streamingAPIServerURLPulsarAdmin := streamingAPIServerURL + "/admin/v2"
+	if _, err := url.Parse(streamingAPIServerURLPulsarAdmin); err != nil {
+		resp.Diagnostics.AddError("invalid Pulsar admin server API URL", err.Error())
 		return
 	}
 
@@ -154,7 +164,7 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	streamingClient, err := astrastreaming.NewClientWithResponses(astraAPIServerURL, func(c *astrastreaming.Client) error {
+	streamingClient, err := astrastreaming.NewClientWithResponses(streamingAPIServerURL, func(c *astrastreaming.Client) error {
 		c.Client = retryClient.StandardClient()
 		c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
 			req.Header.Set("Authorization", authorization)
@@ -170,10 +180,9 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	streamingV3Client, err := astrastreaming.NewClientWithResponses(streamingAPIServerURL, func(c *astrastreaming.Client) error {
-		c.Client = retryClient.StandardClient()
+	// The streaming API server can handle Pulsar admin requests under the '/admin/v2' path, and these are passed through to a backend Pulsar cluster
+	pulsarAdminClient, err := pulsaradmin.NewClientWithResponses(streamingAPIServerURLPulsarAdmin, func(c *pulsaradmin.Client) error {
 		c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
-			req.Header.Set("Authorization", authorization)
 			req.Header.Set("User-Agent", userAgent)
 			req.Header.Set("X-Astra-Provider-Version", p.Version)
 			req.Header.Set("X-Astra-Client-Version", clientVersion)
@@ -182,20 +191,20 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return nil
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("failed to create Astra streaming v3 client", err.Error())
+		resp.Diagnostics.AddError("failed to create Pulsar Admin client", err.Error())
 		return
 	}
 
 	var clientCache = make(map[string]astrarestapi.Client)
 
 	clients := &astraClients{
-		astraClient:            astraClient,
-		astraStreamingClient:   streamingClient,
-		astraStreamingClientv3: streamingV3Client,
-		token:                  token,
-		stargateClientCache:    clientCache,
-		providerVersion:        p.Version,
-		userAgent:              userAgent,
+		astraClient:          astraClient,
+		astraStreamingClient: streamingClient,
+		pulsarAdminClient:    pulsarAdminClient,
+		token:                token,
+		stargateClientCache:  clientCache,
+		providerVersion:      p.Version,
+		userAgent:            userAgent,
 	}
 	resp.ResourceData = clients
 	resp.DataSourceData = clients

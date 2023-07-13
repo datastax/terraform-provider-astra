@@ -1,8 +1,7 @@
-package common
+package util
 
 import (
 	"math/rand"
-	"os"
 	"strings"
 	"time"
 )
@@ -15,14 +14,6 @@ func FirstNonEmptyString(s ...string) string {
 		}
 	}
 	return ""
-}
-
-// EnvVarOrDefault returns the value in the given environment variable or a default value
-func EnvVarOrDefault(envVar, defaultValue string) string {
-	if v := strings.TrimSpace(os.Getenv(envVar)); v != "" {
-		return v
-	}
-	return defaultValue
 }
 
 // RandomString returns a random string of length n

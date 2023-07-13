@@ -7,8 +7,9 @@ import (
 
 	"github.com/datastax/terraform-provider-astra/v2/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov5"
-	"github.com/hashicorp/terraform-plugin-mux/tf5muxserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-mux/tf5to6server"
+	"github.com/hashicorp/terraform-plugin-mux/tf6muxserver"
 )
 
 const (
@@ -26,24 +27,29 @@ provider "astra" {
 )
 
 var (
-	testAccProviders = []func() tfprotov5.ProviderServer{
-		// Legacy plugin sdk provider
+	upgradedLegacySdkProvider, _ = tf5to6server.UpgradeServer(
+		context.Background(),
 		provider.New(version)().GRPCProvider,
+	)
+
+	testAccProviders = []func() tfprotov6.ProviderServer{
+		// Legacy provider using plugin sdk
+		func() tfprotov6.ProviderServer {
+			return upgradedLegacySdkProvider
+		},
 
 		// New provider using plugin framework
-		providerserver.NewProtocol5(
-			New(version),
-		),
+		providerserver.NewProtocol6(New(version)()),
 	}
-	testAccMuxProvider = func() (tfprotov5.ProviderServer, error) {
+	testAccMuxProvider = func() (tfprotov6.ProviderServer, error) {
 		ctx := context.Background()
-		return tf5muxserver.NewMuxServer(ctx, testAccProviders...)
+		return tf6muxserver.NewMuxServer(ctx, testAccProviders...)
 	}
-	// testAccProtoV5ProviderFactories are used to instantiate a provider during
+	// testAccProtoV6ProviderFactories are used to instantiate a provider during
 	// acceptance testing. The factory function will be invoked for every Terraform
 	// CLI command executed to create a provider server to which the CLI can
 	// reattach.
-	testAccProtoV5ProviderFactories = map[string]func() (tfprotov5.ProviderServer, error){
+	testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
 		"astra": testAccMuxProvider,
 	}
 )
