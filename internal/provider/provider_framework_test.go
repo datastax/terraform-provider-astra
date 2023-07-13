@@ -1,14 +1,12 @@
-package astra
+package provider
 
 import (
 	"context"
 	"os"
 	"testing"
 
-	"github.com/datastax/terraform-provider-astra/v2/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-mux/tf5to6server"
 	"github.com/hashicorp/terraform-plugin-mux/tf6muxserver"
 )
 
@@ -27,23 +25,21 @@ provider "astra" {
 )
 
 var (
-	upgradedLegacySdkProvider, _ = tf5to6server.UpgradeServer(
-		context.Background(),
-		provider.New(version)().GRPCProvider,
-	)
+	// upgradedLegacySdkProvider, _ = tf5to6server.UpgradeServer(
+	// 	context.Background(),
+	// 	NewSDKProvider(version)().GRPCProvider,
+	// )
 
-	testAccProviders = []func() tfprotov6.ProviderServer{
+	testAccProvidersFramework = []func() tfprotov6.ProviderServer{
 		// Legacy provider using plugin sdk
-		func() tfprotov6.ProviderServer {
-			return upgradedLegacySdkProvider
-		},
+		NewSDKProviderV6(version),
 
 		// New provider using plugin framework
 		providerserver.NewProtocol6(New(version)()),
 	}
 	testAccMuxProvider = func() (tfprotov6.ProviderServer, error) {
 		ctx := context.Background()
-		return tf6muxserver.NewMuxServer(ctx, testAccProviders...)
+		return tf6muxserver.NewMuxServer(ctx, testAccProvidersFramework...)
 	}
 	// testAccProtoV6ProviderFactories are used to instantiate a provider during
 	// acceptance testing. The factory function will be invoked for every Terraform

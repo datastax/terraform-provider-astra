@@ -4,23 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 
 	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
-	"github.com/datastax/terraform-provider-astra/v2/internal/util"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-mux/tf5to6server"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-)
-
-const (
-	DefaultAstraAPIURL     = astra.ServerURL
-	DefaultStreamingAPIURL = "https://api.streaming.datastax.com/"
 )
 
 func init() {
@@ -39,7 +36,21 @@ func init() {
 	// }
 }
 
-func New(version string) func() *schema.Provider {
+// NewSDKProviderV6 returns the legacy SDK provider wrapped in a v6 protocol server
+func NewSDKProviderV6(version string) func() tfprotov6.ProviderServer {
+	providerV6, err := tf5to6server.UpgradeServer(
+		context.Background(),
+		NewSDKProvider(version)().GRPCProvider,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return func() tfprotov6.ProviderServer {
+		return providerV6
+	}
+}
+
+func NewSDKProvider(version string) func() *schema.Provider {
 	return func() *schema.Provider {
 		p := &schema.Provider{
 			DataSourcesMap: map[string]*schema.Resource{
@@ -101,17 +112,17 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 	return func(_ context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		userAgent := p.UserAgent("terraform-provider-astra", providerVersion)
 
-		token := resourceDataOrDefaultString(d, "token", os.Getenv("ASTRA_API_TOKEN"))
+		token := firstNonEmptyString(d.Get("token").(string), os.Getenv("ASTRA_API_TOKEN"))
 		if token == "" {
 			return nil, diag.FromErr(errors.New("missing required Astra API token.  Please set the ASTRA_API_TOKEN environment variable or provide a token in the provider configuration"))
 		}
 
-		astraAPIServerURL := resourceDataOrDefaultString(d, "astra_api_url", util.EnvVarOrDefault("ASTRA_API_URL", DefaultAstraAPIURL))
+		astraAPIServerURL := firstNonEmptyString(d.Get("astra_api_url").(string), os.Getenv("ASTRA_API_URL"), DefaultAstraAPIURL)
 		if _, err := url.Parse(astraAPIServerURL); err != nil {
 			return nil, diag.FromErr(fmt.Errorf("invalid Astra server API URL: %w", err))
 		}
 
-		streamingAPIServerURL := resourceDataOrDefaultString(d, "streaming_api_url", util.EnvVarOrDefault("ASTRA_STREAMING_API_URL", DefaultAstraAPIURL))
+		streamingAPIServerURL := firstNonEmptyString(d.Get("streaming_api_url").(string), os.Getenv("ASTRA_STREAMING_API_URL"), DefaultAstraAPIURL)
 		if _, err := url.Parse(astraAPIServerURL); err != nil {
 			return nil, diag.FromErr(fmt.Errorf("invalid Astra Streaming server API URL: %w", err))
 		}
@@ -229,12 +240,4 @@ type astraClients struct {
 	stargateClientCache    map[string]astrarestapi.Client
 	providerVersion        string
 	userAgent              string
-}
-
-// resourceDataOrDefaultString returns the value in the given ResourceData variable or a default value
-func resourceDataOrDefaultString(d *schema.ResourceData, resourceVar, defaultValue string) string {
-	if v := d.Get(resourceVar).(string); v != "" {
-		return v
-	}
-	return defaultValue
 }
