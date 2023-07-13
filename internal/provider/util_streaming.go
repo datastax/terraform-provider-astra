@@ -1,8 +1,9 @@
-package astra
+package provider
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -134,6 +135,8 @@ func getCurrentOrgID(ctx context.Context, astraClient *astra.ClientWithResponses
 	err = json.NewDecoder(orgResponse.Body).Decode(&orgID)
 	if err != nil {
 		return "", fmt.Errorf("failed to unmarshal current organization ID: %w", err)
+	} else if orgID.ID == "" {
+		return "", errors.New("failed to get organization ID, found empty string")
 	}
 	return orgID.ID, nil
 }

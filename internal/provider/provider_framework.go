@@ -1,4 +1,4 @@
-package astra
+package provider
 
 import (
 	"context"
@@ -13,7 +13,6 @@ import (
 	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
 	"github.com/datastax/pulsar-admin-client-go/src/pulsaradmin"
-	"github.com/datastax/terraform-provider-astra/v2/internal/util"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -55,7 +54,7 @@ type astraProviderModel struct {
 	AstraStreamingServerURL types.String `tfsdk:"streaming_api_url"`
 }
 
-type astraClients struct {
+type astraClients2 struct {
 	token                string
 	astraClient          *astra.ClientWithResponses
 	astraStreamingClient *astrastreaming.ClientWithResponses
@@ -105,20 +104,20 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	token := util.FirstNonEmptyString(config.Token.ValueString(), os.Getenv("ASTRA_API_TOKEN"))
+	token := firstNonEmptyString(config.Token.ValueString(), os.Getenv("ASTRA_API_TOKEN"))
 	if token == "" {
 		resp.Diagnostics.AddError("missing required Astra API token",
 			"missing required Astra API token.  Please set the ASTRA_API_TOKEN environment variable or provide a token in the provider configuration")
 		return
 	}
 
-	astraAPIServerURL := util.FirstNonEmptyString(config.AstraServerURL.ValueString(), os.Getenv("ASTRA_API_URL"), DefaultAstraAPIURL)
+	astraAPIServerURL := firstNonEmptyString(config.AstraServerURL.ValueString(), os.Getenv("ASTRA_API_URL"), DefaultAstraAPIURL)
 	if _, err := url.Parse(astraAPIServerURL); err != nil {
 		resp.Diagnostics.AddError("invalid Astra server API URL", err.Error())
 		return
 	}
 
-	streamingAPIServerURL := util.FirstNonEmptyString(config.AstraStreamingServerURL.ValueString(), os.Getenv("ASTRA_STREAMING_API_URL"), DefaultStreamingAPIURL)
+	streamingAPIServerURL := firstNonEmptyString(config.AstraStreamingServerURL.ValueString(), os.Getenv("ASTRA_STREAMING_API_URL"), DefaultStreamingAPIURL)
 	if _, err := url.Parse(astraAPIServerURL); err != nil {
 		resp.Diagnostics.AddError("invalid Astra streaming server API URL", err.Error())
 		return
@@ -197,7 +196,7 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 
 	var clientCache = make(map[string]astrarestapi.Client)
 
-	clients := &astraClients{
+	clients := &astraClients2{
 		astraClient:          astraClient,
 		astraStreamingClient: streamingClient,
 		pulsarAdminClient:    pulsarAdminClient,

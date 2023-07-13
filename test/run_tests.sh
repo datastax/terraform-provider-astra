@@ -38,7 +38,7 @@ setup_env() {
 run_tests() {
   echo "Running tests..."
   TF_ACC=1 # Environment variable to enable terraform acceptance tests
-  go test ./internal/provider ./internal/astra -v $TESTARGS -timeout "$ASTRA_TEST_TIMEOUT"
+  go test ./internal/provider -v $TESTARGS -timeout "$ASTRA_TEST_TIMEOUT"
 }
 
 # Main execution

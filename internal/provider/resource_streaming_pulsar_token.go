@@ -1,4 +1,4 @@
-package astra
+package provider
 
 import (
 	"context"
@@ -33,7 +33,7 @@ func NewStreamingPulsarTokenResource() resource.Resource {
 
 // StreamingPulsarTokenResource is the resource implementation.
 type StreamingPulsarTokenResource struct {
-	clients *astraClients
+	clients *astraClients2
 }
 
 // StreamingPulsarTokenResourceModel maps the resource schema data.
@@ -96,7 +96,7 @@ func (r *StreamingPulsarTokenResource) Configure(_ context.Context, req resource
 		return
 	}
 
-	r.clients = req.ProviderData.(*astraClients)
+	r.clients = req.ProviderData.(*astraClients2)
 }
 
 // Create creates the resource and sets the initial Terraform state.

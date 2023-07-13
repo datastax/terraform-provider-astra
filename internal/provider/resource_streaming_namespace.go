@@ -1,4 +1,4 @@
-package astra
+package provider
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
 	"github.com/datastax/pulsar-admin-client-go/src/pulsaradmin"
-	"github.com/datastax/terraform-provider-astra/v2/internal/util"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -30,7 +29,7 @@ func NewStreamingNamespaceResource() resource.Resource {
 
 // StreamingNamespaceResource is the resource implementation.
 type StreamingNamespaceResource struct {
-	clients *astraClients
+	clients *astraClients2
 }
 
 // StreamingNamespaceResourceModel maps the resource schema data.
@@ -91,7 +90,7 @@ func (r *StreamingNamespaceResource) Configure(_ context.Context, req resource.C
 		return
 	}
 
-	r.clients = req.ProviderData.(*astraClients)
+	r.clients = req.ProviderData.(*astraClients2)
 }
 
 // Create the resource and sets the initial Terraform state.
@@ -145,7 +144,7 @@ func (r *StreamingNamespaceResource) Create(ctx context.Context, req resource.Cr
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	mergedPolicies, diags := util.MergeTerraformObjects(plan.Policies, policiesFromServer, plan.Policies.AttributeTypes(context.Background()))
+	mergedPolicies, diags := MergeTerraformObjects(plan.Policies, policiesFromServer, plan.Policies.AttributeTypes(context.Background()))
 	resp.Diagnostics.Append(diags...)
 	plan.Policies = mergedPolicies
 
@@ -235,7 +234,7 @@ func (r *StreamingNamespaceResource) Update(ctx context.Context, req resource.Up
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	mergedPolicies, diags := util.MergeTerraformObjects(plan.Policies, policiesFromServer, plan.Policies.AttributeTypes(context.Background()))
+	mergedPolicies, diags := MergeTerraformObjects(plan.Policies, policiesFromServer, plan.Policies.AttributeTypes(context.Background()))
 	resp.Diagnostics.Append(diags...)
 	plan.Policies = mergedPolicies
 

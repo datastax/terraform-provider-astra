@@ -1,4 +1,4 @@
-package astra
+package provider
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/datastax/pulsar-admin-client-go/src/pulsaradmin"
-	"github.com/datastax/terraform-provider-astra/v2/internal/util"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -309,8 +308,8 @@ func (m AutoTopicCreationOverridePlanModifier) PlanModifyObject(ctx context.Cont
 	}
 
 	// If topic type is non-partitioned, the number of partitions must be nil
-	if topicType, ok := req.PlanValue.Attributes()[policyAutoTopicCreationType]; ok && util.CompareTerraformAttrToString(topicType, "non-partitioned") {
-		newPlan, diags := util.UpdateTerraformObjectWithAttr(ctx, req.PlanValue, policyAutoTopicCreationDefaultNumPartitions, types.Int64Null())
+	if topicType, ok := req.PlanValue.Attributes()[policyAutoTopicCreationType]; ok && CompareTerraformAttrToString(topicType, "non-partitioned") {
+		newPlan, diags := UpdateTerraformObjectWithAttr(ctx, req.PlanValue, policyAutoTopicCreationDefaultNumPartitions, types.Int64Null())
 		resp.Diagnostics.Append(diags...)
 		resp.PlanValue = newPlan
 	}

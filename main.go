@@ -5,12 +5,10 @@ import (
 	"flag"
 	"log"
 
-	"github.com/datastax/terraform-provider-astra/v2/internal/astra"
 	"github.com/datastax/terraform-provider-astra/v2/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6/tf6server"
-	"github.com/hashicorp/terraform-plugin-mux/tf5to6server"
 	"github.com/hashicorp/terraform-plugin-mux/tf6muxserver"
 )
 
@@ -31,37 +29,16 @@ func main() {
 
 	ctx := context.Background()
 
-	upgradedLegacySdkProvider, err := tf5to6server.UpgradeServer(
-		context.Background(),
-		provider.New(version)().GRPCProvider,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	providers := []func() tfprotov6.ProviderServer{
 		// Legacy Astra provider using the Terraform Plugin SDK
-		func() tfprotov6.ProviderServer {
-			return upgradedLegacySdkProvider
-		},
+		provider.NewSDKProviderV6(version),
 
 		// New Astra provider using the Terraform Plugin Framework
-		providerserver.NewProtocol6(astra.New(version)()),
+		providerserver.NewProtocol6(provider.New(version)()),
 	}
 
 	muxServer, err := tf6muxserver.NewMuxServer(ctx, providers...)
 
-	// oldProviders := []func() tfprotov5.ProviderServer{
-	// 	// Legacy plugin sdk provider
-	// 	provider.New(version)().GRPCProvider,
-
-	// 	// New provider using plugin framework
-	// 	providerserver.NewProtocol5(
-	// 		astra.New(version),
-	// 	),
-	// }
-
-	// muxServer, err := tf5muxserver.NewMuxServer(ctx, providers...)
 	if err != nil {
 		log.Fatal(err)
 	}

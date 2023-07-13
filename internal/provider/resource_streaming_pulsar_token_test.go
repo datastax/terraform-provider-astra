@@ -1,16 +1,15 @@
-package astra
+package provider
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/datastax/terraform-provider-astra/v2/internal/util"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
 func TestAccStreamingPulsarTokenResource(t *testing.T) {
-	clusterName := util.EnvVarOrDefault("ASTRA_TEST_STREAMING_CLUSTER_NAME", testDefaultStreamingClusterName)
-	tenant := util.EnvVarOrDefault("ASTRA_TEST_STREAMING_TENANT_NAME", "terraform-"+util.RandomString(4))
+	clusterName := envVarOrDefault("ASTRA_TEST_STREAMING_CLUSTER_NAME", testDefaultStreamingClusterName)
+	tenant := envVarOrDefault("ASTRA_TEST_STREAMING_TENANT_NAME", "terraform-"+randomString(4))
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
