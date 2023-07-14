@@ -34,7 +34,7 @@ var (
 	_ provider.Provider = &astraProvider{}
 )
 
-// New is a helper function to simplify provider server and testing implementation.
+// New creates an Astra terraform provider using the terraform-plugin-framework
 func New(version string) func() provider.Provider {
 	return func() provider.Provider {
 		return &astraProvider{
@@ -92,6 +92,20 @@ func (p *astraProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp
 	}
 }
 
+// DataSources defines the data sources implemented in this provider.
+func (p *astraProvider) DataSources(_ context.Context) []func() datasource.DataSource {
+	return nil
+}
+
+// Resources defines the resources implemented in this provider.
+func (p *astraProvider) Resources(_ context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		NewStreamingNamespaceResource,
+		NewStreamingPulsarTokenResource,
+		NewStreamingTopicResource,
+	}
+}
+
 // Configure prepares a HashiCups API client for data sources and resources.
 func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	tflog.Debug(ctx, "Configuring Astra client")
@@ -118,13 +132,17 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	streamingAPIServerURL := firstNonEmptyString(config.AstraStreamingServerURL.ValueString(), os.Getenv("ASTRA_STREAMING_API_URL"), DefaultStreamingAPIURL)
-	if _, err := url.Parse(astraAPIServerURL); err != nil {
+	if _, err := url.Parse(streamingAPIServerURL); err != nil {
 		resp.Diagnostics.AddError("invalid Astra streaming server API URL", err.Error())
 		return
 	}
 
+	pulsarAdminPath := "/admin/v2"
+	if strings.HasSuffix(streamingAPIServerURL, "/") {
+		pulsarAdminPath = strings.TrimPrefix(pulsarAdminPath, "/")
+	}
 	// TODO: when we switch to go 1.19, this should use url.JoinPath
-	streamingAPIServerURLPulsarAdmin := streamingAPIServerURL + "/admin/v2"
+	streamingAPIServerURLPulsarAdmin := streamingAPIServerURL + pulsarAdminPath
 	if _, err := url.Parse(streamingAPIServerURLPulsarAdmin); err != nil {
 		resp.Diagnostics.AddError("invalid Pulsar admin server API URL", err.Error())
 		return
@@ -207,19 +225,6 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 	resp.ResourceData = clients
 	resp.DataSourceData = clients
-}
-
-// DataSources defines the data sources implemented in the provider.
-func (p *astraProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return nil
-}
-
-// Resources defines the resources implemented in the provider.
-func (p *astraProvider) Resources(_ context.Context) []func() resource.Resource {
-	return []func() resource.Resource{
-		NewStreamingNamespaceResource,
-		NewStreamingPulsarTokenResource,
-	}
 }
 
 const uaEnvVar = "TF_APPEND_USER_AGENT"

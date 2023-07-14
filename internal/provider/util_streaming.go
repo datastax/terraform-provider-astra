@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
@@ -129,14 +131,41 @@ type OrgId struct {
 func getCurrentOrgID(ctx context.Context, astraClient *astra.ClientWithResponses) (string, error) {
 	orgResponse, err := astraClient.GetCurrentOrganization(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to get current organization data: %w", err)
+		return "", fmt.Errorf("failed to get organization ID: %w", err)
+	} else if orgResponse.StatusCode > 300 {
+		body, err := io.ReadAll(orgResponse.Body)
+		message := string(body)
+		if err != nil {
+			message = err.Error()
+		}
+		return "", fmt.Errorf("failed to get organization ID: %s", message)
 	}
 	var orgID OrgId
 	err = json.NewDecoder(orgResponse.Body).Decode(&orgID)
 	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal current organization ID: %w", err)
+		return "", fmt.Errorf("failed to unmarshal organization ID: %w", err)
 	} else if orgID.ID == "" {
 		return "", errors.New("failed to get organization ID, found empty string")
 	}
 	return orgID.ID, nil
+}
+
+var (
+	streamingClusterRegexStr = `pulsar-(aws|azure|gcp)-([a-z][a-z0-9-]*)`
+	streamingClusterRegex    = regexp.MustCompile(streamingClusterRegexStr)
+)
+
+func getProviderRegionFromClusterName(cluster string) (string, string, error) {
+	parts := streamingClusterRegex.FindStringSubmatch(cluster)
+	if len(parts) < 3 {
+		return "", "", fmt.Errorf("failed to parse streaming cluster")
+	}
+	return parts[1], parts[2], nil
+}
+
+// getPulsarCluster TODO: this is unreliable because not all clusters might follow this format
+func getPulsarCluster(cloudProvider string, rawRegion string) string {
+	// In most astra APIs there are dashes in region names depending on the cloud provider, this seems not to be the case for streaming
+	region := strings.ReplaceAll(rawRegion, "-", "")
+	return strings.ToLower(fmt.Sprintf("pulsar-%s-%s", cloudProvider, region))
 }
