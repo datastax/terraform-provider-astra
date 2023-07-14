@@ -50,6 +50,7 @@ func NewSDKProviderV6(version string) func() tfprotov6.ProviderServer {
 	}
 }
 
+// New creates an Astra terraform provider using the terraform-plugin-sdk
 func NewSDKProvider(version string) func() *schema.Provider {
 	return func() *schema.Provider {
 		p := &schema.Provider{
@@ -79,7 +80,6 @@ func NewSDKProvider(version string) func() *schema.Provider {
 				"astra_cdc":                   resourceCDC(),
 				"astra_streaming_tenant":      resourceStreamingTenant(),
 				"astra_streaming_sink":        resourceStreamingSink(),
-				"astra_streaming_topic":       resourceStreamingTopic(),
 				"astra_table":                 resourceTable(),
 			},
 			Schema: map[string]*schema.Schema{
@@ -157,7 +157,7 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return nil, diag.FromErr(err)
 		}
 
-		streamingClient, err := astrastreaming.NewClientWithResponses(astraAPIServerURL, func(c *astrastreaming.Client) error {
+		streamingClient, err := astrastreaming.NewClientWithResponses(streamingAPIServerURL, func(c *astrastreaming.Client) error {
 			c.Client = retryClient.StandardClient()
 			c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
 				req.Header.Set("Authorization", authorization)

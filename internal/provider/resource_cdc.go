@@ -416,15 +416,9 @@ func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId 
 	cloudProvider := string(*db.Info.CloudProvider)
 	fmt.Printf("%s", cloudProvider)
 
-	pulsarCluster := GetPulsarCluster(cloudProvider, *db.Info.Region)
+	pulsarCluster := getPulsarCluster(cloudProvider, *db.Info.Region)
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
 	return pulsarCluster, pulsarToken, err
-}
-
-func GetPulsarCluster(cloudProvider string, rawRegion string) string {
-	// In most astra APIs there are dashes in region names depending on the cloud provider, this seems not to be the case for streaming
-	region := strings.ReplaceAll(rawRegion, "-", "")
-	return strings.ToLower(fmt.Sprintf("pulsar-%s-%s", cloudProvider, region))
 }
 
 func getPulsarToken(ctx context.Context, pulsarCluster string, token string, org OrgId, err error, streamingClient *astrastreaming.ClientWithResponses, tenantName string) (string, error) {

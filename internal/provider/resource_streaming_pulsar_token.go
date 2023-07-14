@@ -53,7 +53,7 @@ func (r *StreamingPulsarTokenResource) Metadata(_ context.Context, req resource.
 // Schema defines the schema for the data source.
 func (r *StreamingPulsarTokenResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A Pulsar Namespace.",
+		Description: "A Pulsar Token.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Full path to the namespace",
@@ -179,7 +179,7 @@ func (r *StreamingPulsarTokenResource) Read(ctx context.Context, req resource.Re
 	astraOrgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error getting namespace",
+			"Error getting pulsar token",
 			"Could not get current organization: "+err.Error(),
 		)
 		return
