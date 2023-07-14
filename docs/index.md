@@ -35,6 +35,10 @@ provider "astra" {
 }
 ```
 
+## Requirements
+
+Terraform 1.0 and higher
+
 ## Additional Info
 
 To report bugs or feature requests for the provider [file an issue on github](https://github.com/datastax/terraform-provider-astra/issues).
