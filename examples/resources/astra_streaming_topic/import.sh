@@ -1,0 +1,1 @@
+terraform import astra_streaming_topic.example_tenant terraformtest1
