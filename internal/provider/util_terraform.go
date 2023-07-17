@@ -101,11 +101,12 @@ func HTTPResponseDiagErr(resp *http.Response, err error, errorSummary string) di
 }
 
 // HTTPResponseDiagWarn takes an HTTP response and error code and creates a Terraform Warn Diagnostic if there is an error
+// or if the status code is not in the 2xx range
 func HTTPResponseDiagWarn(resp *http.Response, err error, errorSummary string) diag.Diagnostics {
 	diags := diag.Diagnostics{}
 	if err != nil {
 		diags.AddWarning(errorSummary, err.Error())
-	} else if resp.StatusCode >= 300 {
+	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			diags.AddWarning(errorSummary, err.Error())

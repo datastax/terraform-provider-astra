@@ -3,12 +3,12 @@
 page_title: "astra_streaming_topic Resource - terraform-provider-astra"
 subcategory: ""
 description: |-
-  astra_streaming_topic creates an Astra Streaming topic.
+  A Pulsar Topic.
 ---
 
 # astra_streaming_topic (Resource)
 
-`astra_streaming_topic` creates an Astra Streaming topic.
+A Pulsar Topic.
 
 
 
@@ -17,16 +17,21 @@ description: |-
 
 ### Required
 
-- `cloud_provider` (String) Cloud provider
-- `namespace` (String) Pulsar Namespace
-- `region` (String) cloud region
-- `tenant_name` (String) Streaming tenant name.
-- `topic` (String) Streaming tenant topic.
+- `namespace` (String) Pulsar namespace of the topic.
 
 ### Optional
 
-- `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy this streaming topic. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
+- `cloud_provider` (String, Deprecated) **Deprecated** Cloud provider where the  Astra Streaming tenant is located.
+- `cluster` (String) Cluster where the Astra Streaming tenant is located.
+- `deletion_protection` (Boolean) Prevent this topic from being deleted via Terraform
+- `num_partitions` (Number) Number of partitions for a partitioned topic.  This field must not be set for a non-partitioned topic.
+- `partitioned` (Boolean) Partitioned or non-partitioned topic
+- `persistent` (Boolean) Persistent or non-persistent topic
+- `region` (String, Deprecated) **Deprecated** Region where the  Astra Streaming tenant is located.
+- `tenant` (String) Name of the streaming tenant.
+- `tenant_name` (String, Deprecated) **Deprecated** Name of the streaming tenant.
+- `topic` (String) Name of the topic
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Full path to the namespace

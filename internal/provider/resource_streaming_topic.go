@@ -2,257 +2,458 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"regexp"
+	"strconv"
 	"strings"
 
-	"github.com/datastax/astra-client-go/v2/astra"
-	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/datastax/pulsar-admin-client-go/src/pulsaradmin"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceStreamingTopic() *schema.Resource {
-	return &schema.Resource{
-		Description:   "`astra_streaming_topic` creates an Astra Streaming topic.",
-		CreateContext: resourceStreamingTopicCreate,
-		ReadContext:   resourceStreamingTopicRead,
-		DeleteContext: resourceStreamingTopicDelete,
-		UpdateContext: resourceStreamingTopicUpdate,
+// Ensure the implementation satisfies the expected interfaces.
+var (
+	_ resource.Resource                = &StreamingTopicResource{}
+	_ resource.ResourceWithConfigure   = &StreamingTopicResource{}
+	_ resource.ResourceWithImportState = &StreamingTopicResource{}
+)
 
-		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
-		},
+// NewStreamingTopicResource is a helper function to simplify the provider implementation.
+func NewStreamingTopicResource() resource.Resource {
+	return &StreamingTopicResource{}
+}
 
-		Schema: map[string]*schema.Schema{
-			// Required
-			"tenant_name": {
-				Description:  "Streaming tenant name.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+// StreamingTopicResource is the resource implementation.
+type StreamingTopicResource struct {
+	clients *astraClients2
+}
+
+// StreamingTopicResourceModel maps the resource schema data.
+type StreamingTopicResourceModel struct {
+	ID                 types.String `tfsdk:"id" json:"id"`
+	Cluster            types.String `tfsdk:"cluster" json:"cluster"`
+	CloudProvider      types.String `tfsdk:"cloud_provider" json:"cloud_provider"`
+	Region             types.String `tfsdk:"region" json:"region"`
+	Tenant             types.String `tfsdk:"tenant" json:"tenant"`
+	TenantName         types.String `tfsdk:"tenant_name" json:"tenant_name"`
+	Namespace          types.String `tfsdk:"namespace" json:"namespace"`
+	Topic              types.String `tfsdk:"topic" json:"topic"`
+	Persistent         types.Bool   `tfsdk:"persistent" json:"persistent"`
+	Partitioned        types.Bool   `tfsdk:"partitioned" json:"partitioned"`
+	NumPartitions      types.Int64  `tfsdk:"num_partitions" json:"num_partitions"`
+	DeletionProtection types.Bool   `tfsdk:"deletion_protection" json:"deletion_protection"`
+}
+
+// Metadata returns the data source type name.
+func (r *StreamingTopicResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_streaming_topic"
+}
+
+// Schema defines the schema for the data source.
+func (r *StreamingTopicResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "A Pulsar Topic.",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Description: "Full path to the namespace",
+				Computed:    true,
 			},
-			"topic": {
-				Description:  "Streaming tenant topic.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-			},
-			"region": {
-				Description:  "cloud region",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-			},
-			"cloud_provider": {
-				Description:  "Cloud provider",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-			},
-			"namespace": {
-				Description: "Pulsar Namespace",
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-			},
-			// Optional
-			"deletion_protection": {
-				Description: "Whether or not to allow Terraform to destroy this streaming topic. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.",
-				Type:        schema.TypeBool,
+			"cluster": schema.StringAttribute{
+				Description: "Cluster where the Astra Streaming tenant is located.",
 				Optional:    true,
-				Default:     true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"cloud_provider": schema.StringAttribute{
+				Description:        "**Deprecated** Cloud provider where the  Astra Streaming tenant is located.",
+				DeprecationMessage: "Please use `cluster` instead.",
+				Optional:           true,
+				Computed:           true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"region": schema.StringAttribute{
+				Description:        "**Deprecated** Region where the  Astra Streaming tenant is located.",
+				Optional:           true,
+				Computed:           true,
+				DeprecationMessage: "Please use `cluster` instead.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"tenant": schema.StringAttribute{
+				Description: "Name of the streaming tenant.",
+				Optional:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					// Validate only this attribute or tenant_name is configured.
+					stringvalidator.ExactlyOneOf(path.Expressions{
+						path.MatchRoot("tenant_name"),
+					}...),
+				},
+			},
+			"tenant_name": schema.StringAttribute{
+				Description:        "**Deprecated** Name of the streaming tenant.",
+				Optional:           true,
+				DeprecationMessage: "Please use `tenant` instead.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"namespace": schema.StringAttribute{
+				Description: "Pulsar namespace of the topic.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"topic": schema.StringAttribute{
+				Description: "Name of the topic",
+				Optional:    true,
+				// Default:     stringdefault.StaticString("1y"),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"persistent": schema.BoolAttribute{
+				Description: "Persistent or non-persistent topic",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
+			},
+			"partitioned": schema.BoolAttribute{
+				Description: "Partitioned or non-partitioned topic",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+			},
+			"num_partitions": schema.Int64Attribute{
+				Description: "Number of partitions for a partitioned topic.  This field must not be set for a non-partitioned topic.",
+				Optional:    true,
+			},
+			"deletion_protection": schema.BoolAttribute{
+				Description: "Prevent this topic from being deleted via Terraform",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
 			},
 		},
 	}
 }
 
-func resourceStreamingTopicUpdate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	// In-place update not supported. This is only here to support deletion_protection
-	return nil
+// Configure adds the provider configured client to the data source.
+func (r *StreamingTopicResource) Configure(_ context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+
+	r.clients = req.ProviderData.(*astraClients2)
 }
 
-func resourceStreamingTopicDelete(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	if protectedFromDelete(resourceData) {
-		return diag.Errorf("\"deletion_protection\" must be explicitly set to \"false\" in order to destroy astra_streaming_topic")
+// Create creates the resource and sets the initial Terraform state.
+func (r *StreamingTopicResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan StreamingTopicResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+	if plan.Cluster.IsNull() || plan.Cluster.IsUnknown() {
+		cluster := getPulsarCluster(plan.CloudProvider.ValueString(), plan.Region.ValueString())
+		plan.Cluster = types.StringValue(cluster)
+	} else {
+		provider, region, err := getProviderRegionFromClusterName(plan.Cluster.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				fmt.Sprintf("Invalid cluster name: %s", plan.Cluster.ValueString()),
+				err.Error(),
+			)
+			return
+		}
+		plan.CloudProvider = types.StringValue(provider)
+		plan.Region = types.StringValue(region)
+	}
+	cluster := plan.Cluster.ValueString()
 
-	namespace := resourceData.Get("namespace").(string)
-	topic := resourceData.Get("topic").(string)
-	tenant := resourceData.Get("tenant_name").(string)
+	tenant := plan.Tenant.ValueString()
+	if plan.Tenant.IsNull() || plan.Tenant.IsUnknown() {
+		tenant = plan.TenantName.ValueString()
+	}
+	namespace := plan.Namespace.ValueString()
+	topic := plan.Topic.ValueString()
 
-	cloudProvider := resourceData.Get("cloud_provider").(string)
-	rawRegion := resourceData.Get("region").(string)
+	if plan.Partitioned.ValueBool() {
+		if plan.NumPartitions.IsNull() || plan.NumPartitions.IsUnknown() || plan.NumPartitions.ValueInt64() < 1 {
+			resp.Diagnostics.AddError(
+				"Error creating topic",
+				"Field num_partitions must be > 0 for partitioned topics",
+			)
+		}
+	}
 
-	token := meta.(astraClients).token
+	pulsarClient := r.clients.pulsarAdminClient
 
-	region := strings.ReplaceAll(rawRegion, "-", "")
-	pulsarCluster := GetPulsarCluster(cloudProvider, region)
-	orgBody, _ := client.GetCurrentOrganization(ctx)
-
-	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
-
-	err = json.Unmarshal(bodyBuffer, &org)
+	astraOrgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
 	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
+		resp.Diagnostics.AddError(
+			"Error creating topic",
+			"Could not get current Astra organization: "+err.Error(),
+		)
+		return
 	}
 
-	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenant)
-
-	deleteTopicParams := astrastreaming.DeleteTopicParams{
-		XDataStaxPulsarCluster: pulsarCluster,
-		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
-	}
-
-	deleteTopicResponse, err := streamingClientv3.DeleteTopic(ctx, tenant, namespace, topic, &deleteTopicParams)
+	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, astraOrgID, cluster, tenant)
 	if err != nil {
-		diag.FromErr(err)
+		resp.Diagnostics.AddError(
+			"Error creating topic",
+			"Could not get pulsar token: "+err.Error(),
+		)
+		return
 	}
 
-	if !strings.HasPrefix(deleteTopicResponse.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(deleteTopicResponse.Body)
-		return diag.Errorf("Error deleting topic %s", bodyBuffer)
+	pulsarRequestEditor := setPulsarClusterHeaders("", plan.Cluster.ValueString(), pulsarToken)
+
+	if plan.Persistent.ValueBool() {
+		if plan.Partitioned.ValueBool() {
+			topicParams := pulsaradmin.PersistentTopicsCreatePartitionedTopicParams{}
+			topicRequestBody := strings.NewReader(strconv.FormatInt(plan.NumPartitions.ValueInt64(), 10))
+			resp, err := pulsarClient.PersistentTopicsCreatePartitionedTopicWithBody(ctx, tenant, namespace, topic, &topicParams, "application/json", topicRequestBody, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		} else {
+			topicParams := pulsaradmin.PersistentTopicsCreateNonPartitionedTopicParams{}
+			topicRequestBody := strings.NewReader("")
+			resp, err := pulsarClient.PersistentTopicsCreateNonPartitionedTopicWithBody(ctx, tenant, namespace, topic, &topicParams, "application/json", topicRequestBody, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		}
+	} else {
+		if plan.Partitioned.ValueBool() {
+			topicParams := pulsaradmin.NonPersistentTopicsCreatePartitionedTopicParams{}
+			topicRequestBody := strings.NewReader(strconv.FormatInt(plan.NumPartitions.ValueInt64(), 10))
+			resp, err := pulsarClient.NonPersistentTopicsCreatePartitionedTopicWithBody(ctx, tenant, namespace, topic, &topicParams, "application/json", topicRequestBody, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		} else {
+			topicParams := pulsaradmin.NonPersistentTopicsCreateNonPartitionedTopicParams{}
+			topicRequestBody := strings.NewReader("")
+			resp, err := pulsarClient.NonPersistentTopicsCreateNonPartitionedTopicWithBody(ctx, tenant, namespace, topic, &topicParams, "application/json", topicRequestBody, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		}
 	}
-	bodyBuffer, err = ioutil.ReadAll(deleteTopicResponse.Body)
 
-	resourceData.SetId("")
+	persistence := "non-persistent"
+	if plan.Persistent.ValueBool() {
+		persistence = "persistent"
+	}
+	partitioned := ""
+	if plan.Partitioned.ValueBool() {
+		partitioned = "-partition"
+	}
 
-	return nil
+	// Manually set the ID because this is computed
+	plan.ID = types.StringValue(fmt.Sprintf("%s:%s://%s/%s/%s%s", cluster, persistence, tenant, namespace, topic, partitioned))
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func resourceStreamingTopicRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+// Read refreshes the Terraform state with the latest data.
+func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state StreamingTopicResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	cluster := state.Cluster.ValueString()
+	tenant := state.Tenant.ValueString()
+	namespace := state.Namespace.ValueString()
+	topic := state.Topic.ValueString()
 
-	namespace := resourceData.Get("namespace").(string)
-	topic := resourceData.Get("topic").(string)
-	tenant := resourceData.Get("tenant_name").(string)
+	pulsarClient := r.clients.pulsarAdminClient
 
-	cloudProvider := resourceData.Get("cloud_provider").(string)
-	rawRegion := resourceData.Get("region").(string)
-
-	token := meta.(astraClients).token
-
-	region := strings.ReplaceAll(rawRegion, "-", "")
-	pulsarCluster := GetPulsarCluster(cloudProvider, region)
-	orgBody, _ := client.GetCurrentOrganization(ctx)
-
-	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	astraOrgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
 	if err != nil {
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError(
+			"Error creating Pulsar token",
+			"Could not get current Astra organization: "+err.Error(),
+		)
+		return
 	}
 
-	err = json.Unmarshal(bodyBuffer, &org)
+	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, astraOrgID, cluster, tenant)
 	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
+		resp.Diagnostics.AddError(
+			"Error creating namespace",
+			"Could not get pulsar token: "+err.Error(),
+		)
+		return
 	}
 
-	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenant)
+	pulsarRequestEditor := setPulsarClusterHeaders("", state.Cluster.ValueString(), pulsarToken)
 
-	getTopicsParams := astrastreaming.GetTopicsParams{
-		XDataStaxPulsarCluster: &pulsarCluster,
-		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
+	if state.Persistent.ValueBool() {
+		if state.Partitioned.ValueBool() {
+			topicParams := pulsaradmin.PersistentTopicsCreatePartitionedTopicParams{}
+			topicRequestBody := strings.NewReader(strconv.FormatInt(state.NumPartitions.ValueInt64(), 10))
+			resp, err := pulsarClient.PersistentTopicsCreatePartitionedTopicWithBody(ctx, tenant, namespace, topic, &topicParams, "application/json", topicRequestBody, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		} else {
+			topicParams := pulsaradmin.PersistentTopicsCreateNonPartitionedTopicParams{}
+			topicRequestBody := strings.NewReader("")
+			resp, err := pulsarClient.PersistentTopicsCreateNonPartitionedTopicWithBody(ctx, tenant, namespace, topic, &topicParams, "application/json", topicRequestBody, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		}
+	} else {
+		if state.Partitioned.ValueBool() {
+			topicParams := pulsaradmin.NonPersistentTopicsCreatePartitionedTopicParams{}
+			topicRequestBody := strings.NewReader(strconv.FormatInt(state.NumPartitions.ValueInt64(), 10))
+			resp, err := pulsarClient.NonPersistentTopicsCreatePartitionedTopicWithBody(ctx, tenant, namespace, topic, &topicParams, "application/json", topicRequestBody, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		} else {
+			topicParams := pulsaradmin.NonPersistentTopicsCreateNonPartitionedTopicParams{}
+			topicRequestBody := strings.NewReader("")
+			resp, err := pulsarClient.NonPersistentTopicsCreateNonPartitionedTopicWithBody(ctx, tenant, namespace, topic, &topicParams, "application/json", topicRequestBody, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		}
 	}
 
-	createTopicResponse, err := streamingClientv3.GetTopics(ctx, tenant, namespace, &getTopicsParams)
-	if err != nil {
-		return diag.FromErr(err)
+	persistence := "non-persistent"
+	if state.Persistent.ValueBool() {
+		persistence = "persistent"
+	}
+	partitioned := ""
+	if state.Partitioned.ValueBool() {
+		partitioned = "-partition"
 	}
 
-	if !strings.HasPrefix(createTopicResponse.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
-		return diag.Errorf("Error reading topic %s", bodyBuffer)
-	}
-	bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
+	// Manually set the ID because this is computed
+	state.ID = types.StringValue(fmt.Sprintf("%s:%s://%s/%s/%s%s", cluster, persistence, tenant, namespace, topic, partitioned))
 
-	//TODO: validate that our topic is there
-
-	setStreamingTopicData(resourceData, tenant, topic)
-
-	return nil
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func resourceStreamingTopicCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
-
-	namespace := resourceData.Get("namespace").(string)
-	topic := resourceData.Get("topic").(string)
-	tenant := resourceData.Get("tenant_name").(string)
-
-	cloudProvider := resourceData.Get("cloud_provider").(string)
-	rawRegion := resourceData.Get("region").(string)
-
-	token := meta.(astraClients).token
-
-	region := strings.ReplaceAll(rawRegion, "-", "")
-	pulsarCluster := GetPulsarCluster(cloudProvider, region)
-	orgBody, _ := client.GetCurrentOrganization(ctx)
-
-	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
-
-	err = json.Unmarshal(bodyBuffer, &org)
-	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
-	}
-
-	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenant)
-
-	createTopicParams := astrastreaming.CreateTopicParams{
-		XDataStaxCurrentOrg:    &org.ID,
-		XDataStaxPulsarCluster: pulsarCluster,
-		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
-	}
-
-	createTopicResponse, err := streamingClientv3.CreateTopic(ctx, tenant, namespace, topic, &createTopicParams)
-	if err != nil {
-		diag.FromErr(err)
-	}
-
-	if !strings.HasPrefix(createTopicResponse.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
-		return diag.Errorf("Error creating topic %s", bodyBuffer)
-	}
-	bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
-
-	setStreamingTopicData(resourceData, tenant, topic)
-
-	return nil
+// Update updates the resource and sets the updated Terraform state on success.
+func (r *StreamingTopicResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Not implemented
 }
 
-func setStreamingTopicData(d *schema.ResourceData, tenantName string, topic string) error {
-	d.SetId(fmt.Sprintf("%s/%s", tenantName, topic))
-
-	if err := d.Set("tenant_name", tenantName); err != nil {
-		return err
+// Delete deletes the resource and removes the Terraform state on success.
+func (r *StreamingTopicResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state StreamingTopicResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
-	if err := d.Set("topic", topic); err != nil {
-		return err
+	cluster := state.Cluster.ValueString()
+	tenant := state.Tenant.ValueString()
+	namespace := state.Namespace.ValueString()
+	topic := state.Topic.ValueString()
+
+	pulsarClient := r.clients.pulsarAdminClient
+
+	astraOrgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error creating topic",
+			"Could not get current Astra organization: "+err.Error(),
+		)
+		return
 	}
 
-	return nil
+	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, astraOrgID, cluster, tenant)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error creating topic",
+			"Could not get pulsar token: "+err.Error(),
+		)
+		return
+	}
+
+	pulsarRequestEditor := setPulsarClusterHeaders("", state.Cluster.ValueString(), pulsarToken)
+
+	if state.Persistent.ValueBool() {
+		if state.Partitioned.ValueBool() {
+			topicParams := pulsaradmin.PersistentTopicsDeletePartitionedTopicParams{}
+			resp, err := pulsarClient.PersistentTopicsDeletePartitionedTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		} else {
+			topicParams := pulsaradmin.PersistentTopicsDeleteTopicParams{}
+			resp, err := pulsarClient.PersistentTopicsDeleteTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		}
+	} else {
+		if state.Partitioned.ValueBool() {
+			topicParams := pulsaradmin.NonPersistentTopicsDeletePartitionedTopicParams{}
+			resp, err := pulsarClient.NonPersistentTopicsDeletePartitionedTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		} else {
+			topicParams := pulsaradmin.NonPersistentTopicsDeleteTopicParams{}
+			resp, err := pulsarClient.NonPersistentTopicsDeleteTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
+			diags.Append(HTTPResponseDiagErr(resp, err, "failed to create topic")...)
+		}
+	}
+
+	// Manually set the ID because this is computed
+	state.ID = types.StringNull()
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func parseStreamingTopicID(id string) (string, string, error) {
-	idParts := strings.Split(strings.ToLower(id), "/")
-	if len(idParts) != 1 {
-		return "", "", errors.New("invalid role id format: expected tenant_name/topic")
+func (r *StreamingTopicResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	tokenPath := strings.Split(req.ID, "/")
+	if len(tokenPath) != 3 {
+		resp.Diagnostics.AddError(
+			"Error importing token",
+			"ID must be in the format <cluster>/<tenant>/<tokenID>",
+		)
+		return
 	}
-	return idParts[0], idParts[1], nil
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster"), tokenPath[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("tenant"), tokenPath[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), tokenPath[2])...)
+}
+
+var (
+	streamingTopicIDRegexStr = `([a-z][a-z0-9-]*):(persistent|non-persistent)://` +
+		`([a-z][a-z0-9-]*)/([a-z][a-z0-9-]*)/([a-z][a-z0-9-]*)(-partition(ed)?)?`
+	streamingTopicIDRegex = regexp.MustCompile(streamingTopicIDRegexStr)
+)
+
+func parseStreamingTopicID(id string) (*StreamingTopicResourceModel, error) {
+	model := &StreamingTopicResourceModel{}
+	parts := streamingTopicIDRegex.FindStringSubmatch(id)
+	if len(parts) < 7 || len(parts) > 9 {
+		return nil, fmt.Errorf("failed to parse streaming topic ID")
+	}
+	model.Cluster = types.StringValue(parts[1])
+	if parts[2] == "persistent" {
+		model.Persistent = types.BoolValue(true)
+	} else {
+		model.Persistent = types.BoolValue(false)
+	}
+	model.Tenant = types.StringValue(parts[3])
+	model.Namespace = types.StringValue(parts[4])
+	model.Topic = types.StringValue(parts[5])
+	if strings.HasPrefix(parts[6], "-partition") {
+		model.Partitioned = types.BoolValue(true)
+	} else {
+		model.Partitioned = types.BoolValue(false)
+	}
+	return model, nil
 }

@@ -7,6 +7,8 @@ import (
 
 	"github.com/datastax/pulsar-admin-client-go/src/pulsaradmin"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -15,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -132,11 +135,29 @@ var (
 				},
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						policyBacklogQuotaLimit:       int64PulsarNamespacePolicyAttribute,
-						policyBacklogQuotaLimitSize:   int64PulsarNamespacePolicyAttribute,
-						policyBacklogQuotaLimitTime:   int64PulsarNamespacePolicyAttribute,
-						policyBacklogQuotaLimitPolicy: stringPulsarNamespacePolicyAttribute,
+						policyBacklogQuotaLimit:     int64PulsarNamespacePolicyAttribute,
+						policyBacklogQuotaLimitSize: int64PulsarNamespacePolicyAttribute,
+						policyBacklogQuotaLimitTime: int64PulsarNamespacePolicyAttribute,
+						policyBacklogQuotaLimitPolicy: schema.StringAttribute{
+							Optional: true,
+							Computed: true,
+							PlanModifiers: []planmodifier.String{
+								stringplanmodifier.UseStateForUnknown(),
+							},
+							Validators: []validator.String{
+								stringvalidator.OneOf([]string{
+									"producer_request_hold", "producer_exception", "consumer_backlog_eviction"}...,
+								),
+							},
+						},
 					},
+				},
+				Validators: []validator.Map{
+					mapvalidator.KeysAre(
+						stringvalidator.OneOf([]string{
+							"destination_storage", "message_age"}...,
+						),
+					),
 				},
 			},
 			policyRetentionPolicies: schema.SingleNestedAttribute{
@@ -260,7 +281,7 @@ func setNamespacePolicies(ctx context.Context, client *pulsaradmin.ClientWithRes
 		diags.Append(HTTPResponseDiagWarn(resp, err, pulsarNamespacePolicyError(policySchemaAutoUpdateCompatibilityStrategy))...)
 	}
 	if policies.SchemaCompatibilityStrategy != nil {
-		resp, err := client.NamespacesSetSchemaAutoUpdateCompatibilityStrategy(ctx, tenant, namespace, string(*policies.SchemaCompatibilityStrategy), requestEditors...)
+		resp, err := client.NamespacesSetSchemaCompatibilityStrategy(ctx, tenant, namespace, string(*policies.SchemaCompatibilityStrategy), requestEditors...)
 		diags.Append(HTTPResponseDiagWarn(resp, err, pulsarNamespacePolicyError(policySchemaCompatibilityStrategy))...)
 	}
 	if policies.SchemaValidationEnforced != nil {

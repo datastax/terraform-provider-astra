@@ -243,13 +243,15 @@ github.com/hashicorp/terraform-plugin-docs v0.16.0 h1:UmxFr3AScl6Wged84jndJIfFcc
 github.com/hashicorp/terraform-plugin-docs v0.16.0/go.mod h1:M3ZrlKBJAbPMtNOPwHicGi1c+hZUh7/g0ifT/z7TVfA=
 github.com/hashicorp/terraform-plugin-framework v1.3.2 h1:aQ6GSD0CTnvoALEWvKAkcH/d8jqSE0Qq56NYEhCexUs=
 github.com/hashicorp/terraform-plugin-framework v1.3.2/go.mod h1:oimsRAPJOYkZ4kY6xIGfR0PHjpHLDLaknzuptl6AvnY=
+github.com/hashicorp/terraform-plugin-framework-validators v0.10.0 h1:4L0tmy/8esP6OcvocVymw52lY0HyQ5OxB7VNl7k4bS0=
+github.com/hashicorp/terraform-plugin-framework-validators v0.10.0/go.mod h1:qdQJCdimB9JeX2YwOpItEu+IrfoJjWQ5PhLpAOMDQAE=
 github.com/hashicorp/terraform-plugin-go v0.3.0/go.mod h1:dFHsQMaTLpON2gWhVWT96fvtlc/MF1vSy3OdMhWBzdM=
 github.com/hashicorp/terraform-plugin-go v0.18.0 h1:IwTkOS9cOW1ehLd/rG0y+u/TGLK9y6fGoBjXVUquzpE=
 github.com/hashicorp/terraform-plugin-go v0.18.0/go.mod h1:l7VK+2u5Kf2y+A+742GX0ouLut3gttudmvMgN0PA74Y=
 github.com/hashicorp/terraform-plugin-log v0.9.0 h1:i7hOA+vdAItN1/7UrfBqBwvYPQ9TFvymaRGZED3FCV0=
 github.com/hashicorp/terraform-plugin-log v0.9.0/go.mod h1:rKL8egZQ/eXSyDqzLUuwUYLVdlYeamldAHSxjUFADow=
-github.com/hashicorp/terraform-plugin-mux v0.11.1 h1:cDCrmkrNHf/c2zC1oREIMdgCYWi1QP9U/qNXeNSYoFk=
-github.com/hashicorp/terraform-plugin-mux v0.11.1/go.mod h1:eMZPcv8b5y+alMeQmocgaphPj4zAnM3uXiMLd1emqMQ=
+github.com/hashicorp/terraform-plugin-mux v0.11.2 h1:XMkAmWQN+6F+l4jwNeqdPom/8Vly6ZNDxHoKjiRHx5c=
+github.com/hashicorp/terraform-plugin-mux v0.11.2/go.mod h1:qjoF/pI49rILSNQzKIuDtU+ZX9mpQD0B8YNE1GceLPc=
 github.com/hashicorp/terraform-plugin-sdk/v2 v2.6.1/go.mod h1:72j8cKfs9IirGhPMXJJWLTvRUK4zATtrCOvs2avDlo8=
 github.com/hashicorp/terraform-plugin-sdk/v2 v2.27.0 h1:I8efBnjuDrgPjNF1MEypHy48VgcTIUY4X6rOFunrR3Y=
 github.com/hashicorp/terraform-plugin-sdk/v2 v2.27.0/go.mod h1:cUEP4ly/nxlHy5HzD6YRrHydtlheGvGRJDhiWqqVik4=
@@ -388,7 +390,8 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.2/go.mod h1:R6va5+xMeoiuVRoj+gSkQ7d3FALtqAAGI1FQKckRals=
-github.com/stretchr/testify v1.8.3 h1:RP3t2pwF7cMEbC1dqtB6poj3niw/9gnV4Cjg5oW5gtY=
+github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
+github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/terraform-providers/terraform-provider-aws v1.60.1-0.20210625132053-af2d5c0ad54f h1:yc8QxZvmRc09wYQCx9hYHk/jXYM916IVINrMXd1Mvqc=
 github.com/terraform-providers/terraform-provider-aws v1.60.1-0.20210625132053-af2d5c0ad54f/go.mod h1:5ubu6G1APl5lfG1OONYTdL6FzHve9oPIb6+w8NjQOGA=
 github.com/ulikunitz/xz v0.5.8/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
