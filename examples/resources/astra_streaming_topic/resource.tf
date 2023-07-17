@@ -1,3 +1,16 @@
+terraform {
+  required_providers {
+    astra = {
+      source = "datastax/astra"
+      version = "2.1.17"
+    }
+  }
+}
+
+provider "astra" {
+  token = "AstraCS:vjBdlrsThRAjggEnhvsmKXap:0b6e6f027b8e15ce43ddcdad016441e4782c82aa8bb601d8653b83e2c93e9d49"
+}
+
 # Generate a random pet name to avoid naming conflicts
 resource "random_pet" "server" {}
 
@@ -12,7 +25,7 @@ resource "astra_streaming_tenant" "streaming_tenant" {
 
 # Create a new namespace
 resource "astra_streaming_namespace" "streaming_namespace" {
-  cluster               = "pulsar-gcp-uscentral1"
+  cluster               = astra_streaming_tenant.streaming_tenant.cluster_name
   tenant                = astra_streaming_tenant.streaming_tenant.tenant_name
   namespace             = "my-namespace"
 }

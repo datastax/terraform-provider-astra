@@ -13,7 +13,7 @@ resource "astra_streaming_tenant" "streaming_tenant" {
 # Create a new namespace
 resource "astra_streaming_namespace" "streaming_namespace" {
   # Required
-  cluster               = "pulsar-gcp-uscentral1"
+  cluster               = astra_streaming_tenant.streaming_tenant.cluster_name
   tenant                = astra_streaming_tenant.streaming_tenant.tenant_name
   namespace             = "my-namespace"
 
