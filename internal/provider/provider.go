@@ -122,7 +122,7 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return nil, diag.FromErr(fmt.Errorf("invalid Astra server API URL: %w", err))
 		}
 
-		streamingAPIServerURL := firstNonEmptyString(d.Get("streaming_api_url").(string), os.Getenv("ASTRA_STREAMING_API_URL"), DefaultAstraAPIURL)
+		streamingAPIServerURL := firstNonEmptyString(d.Get("streaming_api_url").(string), os.Getenv("ASTRA_STREAMING_API_URL"), DefaultStreamingAPIURL)
 		if _, err := url.Parse(astraAPIServerURL); err != nil {
 			return nil, diag.FromErr(fmt.Errorf("invalid Astra Streaming server API URL: %w", err))
 		}
@@ -240,4 +240,5 @@ type astraClients struct {
 	stargateClientCache    map[string]astrarestapi.Client
 	providerVersion        string
 	userAgent              string
+	streamingClusterSuffix string
 }

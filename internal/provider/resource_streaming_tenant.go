@@ -190,8 +190,7 @@ func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.Resou
 		return diag.Errorf("invalid status code returned for tenant: %v", getTenantResponse.HTTPResponse.StatusCode)
 	}
 
-	tenantDataFromServer := *getTenantResponse.JSON200
-	if err := setStreamingTenantData(ctx, resourceData, tenantDataFromServer); err != nil {
+	if err := setStreamingTenantData(ctx, resourceData, *getTenantResponse.JSON200); err != nil {
 		return diag.Errorf("failed to set streaming tenant data: %v", err)
 	}
 	return nil
@@ -199,9 +198,9 @@ func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.Resou
 
 func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	clusterName := resourceData.Get("cluster_name").(string) // this can be used for dedicated plan that must specify a cluster name
+	cloudProvider := resourceData.Get("cloud_provider").(string)
 	region := resourceData.Get("region").(string)
 	normalizedRegion := removeDashes(region)
-	cloudProvider := resourceData.Get("cloud_provider").(string)
 
 	if clusterName == "" && (cloudProvider == "" || region == "") {
 		return diag.Errorf("cluster_name or (cloud_provider and region) must be specified")
@@ -241,7 +240,8 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 		return diag.Errorf("failed to create tenant: %v", err)
 	}
 	if tenantCreationResponse.StatusCode() != http.StatusOK {
-		return diag.Errorf("failed to create tenant. Status Code: %d, Message: %s", tenantCreationResponse.StatusCode(), string(tenantCreationResponse.Body))
+		return diag.Errorf("failed to create tenant '%s' on cluster '%s'. Status Code: %d, Message: %s",
+			tenantName, clusterName, tenantCreationResponse.StatusCode(), string(tenantCreationResponse.Body))
 	}
 
 	// Now let's fetch the tenant again so that it fills in the missing fields (like userMetricsUrl and tenant ID)
@@ -266,8 +266,10 @@ func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantR
 	if err := d.Set("cloud_provider", *tenantResponse.CloudProvider); err != nil {
 		return err
 	}
-	if err := d.Set("region", *tenantResponse.CloudProviderRegion); err != nil {
-		return err
+	if region, ok := d.Get("region").(string); !ok || region == "" {
+		if err := d.Set("region", *tenantResponse.CloudProviderRegion); err != nil {
+			return err
+		}
 	}
 	if err := d.Set("tenant_name", *tenantResponse.TenantName); err != nil {
 		return err
@@ -311,8 +313,4 @@ func parseStreamingTenantID(id string) (string, error) {
 
 func streamingRegionSuppressDiff(k, oldValue, newValue string, d *schema.ResourceData) bool {
 	return removeDashes(oldValue) == removeDashes(newValue)
-}
-
-func removeDashes(s string) string {
-	return strings.ReplaceAll(s, "-", "")
 }

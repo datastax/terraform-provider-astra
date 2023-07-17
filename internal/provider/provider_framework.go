@@ -55,13 +55,14 @@ type astraProviderModel struct {
 }
 
 type astraClients2 struct {
-	token                string
-	astraClient          *astra.ClientWithResponses
-	astraStreamingClient *astrastreaming.ClientWithResponses
-	pulsarAdminClient    *pulsaradmin.ClientWithResponses
-	stargateClientCache  map[string]astrarestapi.Client
-	providerVersion      string
-	userAgent            string
+	token                  string
+	astraClient            *astra.ClientWithResponses
+	astraStreamingClient   *astrastreaming.ClientWithResponses
+	pulsarAdminClient      *pulsaradmin.ClientWithResponses
+	stargateClientCache    map[string]astrarestapi.Client
+	providerVersion        string
+	userAgent              string
+	streamingClusterSuffix string
 }
 
 // Metadata returns the provider type name.
@@ -222,6 +223,9 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		stargateClientCache:  clientCache,
 		providerVersion:      p.Version,
 		userAgent:            userAgent,
+	}
+	if strings.Contains(streamingAPIServerURL, "staging") {
+		clients.streamingClusterSuffix = "-staging"
 	}
 	resp.ResourceData = clients
 	resp.DataSourceData = clients

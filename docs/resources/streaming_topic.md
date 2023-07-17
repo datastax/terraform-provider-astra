@@ -28,10 +28,23 @@ A Pulsar Topic.
 - `partitioned` (Boolean) Partitioned or non-partitioned topic
 - `persistent` (Boolean) Persistent or non-persistent topic
 - `region` (String, Deprecated) **Deprecated** Region where the  Astra Streaming tenant is located.
+- `schema` (Attributes) Pulsar topic schema. (see [below for nested schema](#nestedatt--schema))
 - `tenant` (String) Name of the streaming tenant.
 - `tenant_name` (String, Deprecated) **Deprecated** Name of the streaming tenant.
 - `topic` (String) Name of the topic
 
 ### Read-Only
 
-- `id` (String) Full path to the namespace
+- `id` (String) Full path to the topic
+
+<a id="nestedatt--schema"></a>
+### Nested Schema for `schema`
+
+Required:
+
+- `schema` (String) Schema definition
+- `type` (String) Type of the schema, e.g. JSON
+
+Optional:
+
+- `properties` (Map of String) Additional properties

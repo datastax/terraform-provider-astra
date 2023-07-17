@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/datastax/astra-client-go/v2/astra"
@@ -150,22 +149,47 @@ func getCurrentOrgID(ctx context.Context, astraClient *astra.ClientWithResponses
 	return orgID.ID, nil
 }
 
-var (
-	streamingClusterRegexStr = `pulsar-(aws|azure|gcp)-([a-z][a-z0-9-]*)`
-	streamingClusterRegex    = regexp.MustCompile(streamingClusterRegexStr)
-)
-
-func getProviderRegionFromClusterName(cluster string) (string, string, error) {
-	parts := streamingClusterRegex.FindStringSubmatch(cluster)
-	if len(parts) < 3 {
-		return "", "", fmt.Errorf("failed to parse streaming cluster")
+func getProviderRegionFromClusterName(clusterName string) (string, string, error) {
+	provider := ""
+	if strings.Contains(clusterName, "-aws") {
+		provider = "aws"
+	} else if strings.Contains(clusterName, "-azure") {
+		provider = "azure"
+	} else if strings.Contains(clusterName, "-gcp") {
+		provider = "gcp"
+	} else {
+		return "", "", fmt.Errorf("failed to parse streaming cluster name '%s', unknown cloud provider", clusterName)
 	}
-	return parts[1], parts[2], nil
+	parts := strings.Split(clusterName, "-"+provider)
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("failed to parse streaming cluster name '%s'", clusterName)
+	}
+	region := parts[1]
+	region = strings.TrimSuffix(region, "-dev")
+	region = strings.TrimSuffix(region, "-staging")
+	region = strings.ReplaceAll(region, "-", "")
+
+	if region == "ue1" {
+		region = "useast1"
+	}
+
+	return provider, region, nil
 }
 
 // getPulsarCluster TODO: this is unreliable because not all clusters might follow this format
-func getPulsarCluster(cloudProvider string, rawRegion string) string {
+func getPulsarCluster(clusterName, cloudProvider, region, suffix string) string {
+	if strings.TrimSpace(clusterName) != "" {
+		return clusterName
+	}
 	// In most astra APIs there are dashes in region names depending on the cloud provider, this seems not to be the case for streaming
-	region := strings.ReplaceAll(rawRegion, "-", "")
-	return strings.ToLower(fmt.Sprintf("pulsar-%s-%s", cloudProvider, region))
+	normalizedRegion := strings.ReplaceAll(region, "-", "")
+	return strings.ToLower(fmt.Sprintf("pulsar-%s-%s%s", cloudProvider, normalizedRegion, suffix))
+}
+
+func int32ToInt64Pointer(v *int32) *int64 {
+	if v == nil {
+		return nil
+	}
+	x := int64(*v)
+	return &x
 }

@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -116,4 +119,48 @@ func HTTPResponseDiagWarn(resp *http.Response, err error, errorSummary string) d
 		}
 	}
 	return diags
+}
+
+// planModifierStringValueChanged is a terraform plan modifier function to use with 'RequiresReplaceIf' to check if a string value
+// changed from one value to another, not including null values.
+func planModifierStringValueChanged() stringplanmodifier.RequiresReplaceIfFunc {
+	return func(ctx context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+		if !req.StateValue.IsNull() && !req.ConfigValue.IsNull() && !req.StateValue.Equal(req.ConfigValue) {
+			resp.RequiresReplace = true
+		}
+	}
+}
+
+// planModifierRemoveDashes returns the configured string with all dashes removed
+func planModifierRemoveDashes() planmodifier.String {
+	return removeDashesModifier{}
+}
+
+// removeDashesModifier implements the plan modifier.
+type removeDashesModifier struct{}
+
+// Description returns a human-readable description of the plan modifier.
+func (m removeDashesModifier) Description(_ context.Context) string {
+	return "Remove dashes from a string value"
+}
+
+// MarkdownDescription returns a markdown description of the plan modifier.
+func (m removeDashesModifier) MarkdownDescription(_ context.Context) string {
+	return "Remove dashes from a string value"
+}
+
+// PlanModifyString implements the plan modification logic.
+func (m removeDashesModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+
+	// Do nothing if there is no planned value.
+	if req.PlanValue.IsNull() || req.PlanValue.IsUnknown() {
+		return
+	}
+
+	// Do nothing if there is a no configuration value, otherwise interpolation gets messed up.
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	resp.PlanValue = types.StringValue(strings.ReplaceAll(req.PlanValue.ValueString(), "-", ""))
 }

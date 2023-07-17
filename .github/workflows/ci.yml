@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
-      max-parallel: 1
+      max-parallel: 2
       matrix:
         # Test with min and max supported Terraform versions
         terraform:
