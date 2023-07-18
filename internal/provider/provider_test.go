@@ -12,7 +12,7 @@ var testAccProviders map[string]*schema.Provider
 var testAccProvider *schema.Provider
 
 func init() {
-	testAccProvider = New("1")()
+	testAccProvider = NewSDKProvider("1")()
 	testAccProviders = map[string]*schema.Provider{
 		"astra": testAccProvider,
 		"aws":   aws.Provider(),
@@ -27,7 +27,7 @@ func testAccPreCheck(t *testing.T) {
 }
 
 func TestProvider(t *testing.T) {
-	if err := New("dev")().InternalValidate(); err != nil {
+	if err := NewSDKProvider("dev")().InternalValidate(); err != nil {
 		t.Fatalf("err: %s", err)
 	}
 }

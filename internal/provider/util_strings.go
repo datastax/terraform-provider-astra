@@ -3,10 +3,12 @@ package provider
 import (
 	"crypto/sha256"
 	"fmt"
+	"math/rand"
 	"os"
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -33,4 +35,33 @@ func checkRequiredTestVars(t *testing.T, vars ...string) {
 			t.Skipf("skipping test due to missing %s environment variable", v)
 		}
 	}
+}
+
+// firstNonEmptyString returns the first non-empty string from the given list or a default value
+func firstNonEmptyString(s ...string) string {
+	for _, v := range s {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// randomString returns a random string of length n
+func randomString(n int) string {
+	rand.Seed(time.Now().UnixNano())
+	var chars = []rune("0123456789abcdefghijklmnopqrstuvwxyz")
+	s := make([]rune, n)
+	for i := range s {
+		s[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(s)
+}
+
+// envVarOrDefault returns the value in the given environment variable or a default value
+func envVarOrDefault(envVar, defaultValue string) string {
+	if v := strings.TrimSpace(os.Getenv(envVar)); v != "" {
+		return v
+	}
+	return defaultValue
 }

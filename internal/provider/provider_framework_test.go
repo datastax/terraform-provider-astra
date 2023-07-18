@@ -1,11 +1,10 @@
-package astra
+package provider
 
 import (
 	"context"
 	"os"
 	"testing"
 
-	"github.com/datastax/terraform-provider-astra/v2/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov5"
 	"github.com/hashicorp/terraform-plugin-mux/tf5muxserver"
@@ -26,9 +25,9 @@ provider "astra" {
 )
 
 var (
-	testAccProviders = []func() tfprotov5.ProviderServer{
+	testAccProvidersFramework = []func() tfprotov5.ProviderServer{
 		// Legacy plugin sdk provider
-		provider.New(version)().GRPCProvider,
+		NewSDKProvider(version)().GRPCProvider,
 
 		// New provider using plugin framework
 		providerserver.NewProtocol5(
@@ -37,7 +36,7 @@ var (
 	}
 	testAccMuxProvider = func() (tfprotov5.ProviderServer, error) {
 		ctx := context.Background()
-		return tf5muxserver.NewMuxServer(ctx, testAccProviders...)
+		return tf5muxserver.NewMuxServer(ctx, testAccProvidersFramework...)
 	}
 	// testAccProtoV5ProviderFactories are used to instantiate a provider during
 	// acceptance testing. The factory function will be invoked for every Terraform
@@ -48,7 +47,7 @@ var (
 	}
 )
 
-func testAccPreCheck(t *testing.T) {
+func testAccFrameworkPreCheck(t *testing.T) {
 	if err := os.Getenv("ASTRA_API_TOKEN"); err == "" {
 		t.Fatal("ASTRA_API_TOKEN must be set for acceptance tests")
 	}

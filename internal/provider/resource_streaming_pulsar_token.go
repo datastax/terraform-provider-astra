@@ -1,4 +1,4 @@
-package astra
+package provider
 
 import (
 	"context"
@@ -33,7 +33,7 @@ func NewStreamingPulsarTokenResource() resource.Resource {
 
 // StreamingPulsarTokenResource is the resource implementation.
 type StreamingPulsarTokenResource struct {
-	clients *astraClients
+	clients *astraClients2
 }
 
 // StreamingPulsarTokenResourceModel maps the resource schema data.
@@ -53,7 +53,7 @@ func (r *StreamingPulsarTokenResource) Metadata(_ context.Context, req resource.
 // Schema defines the schema for the data source.
 func (r *StreamingPulsarTokenResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "A Pulsar Namespace.",
+		Description: "A Pulsar Token.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Description: "Full path to the namespace",
@@ -96,7 +96,7 @@ func (r *StreamingPulsarTokenResource) Configure(_ context.Context, req resource
 		return
 	}
 
-	r.clients = req.ProviderData.(*astraClients)
+	r.clients = req.ProviderData.(*astraClients2)
 }
 
 // Create creates the resource and sets the initial Terraform state.
@@ -108,10 +108,7 @@ func (r *StreamingPulsarTokenResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	astraClient := r.clients.astraClient
-	streamingClient := r.clients.astraStreamingClientv3
-
-	astraOrgID, err := getCurrentOrgID(ctx, astraClient)
+	astraOrgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating Pulsar token",
@@ -128,7 +125,7 @@ func (r *StreamingPulsarTokenResource) Create(ctx context.Context, req resource.
 		Type: &adminPulsarTokenType,
 		Exp:  tokenPlan.TimeToLive.ValueStringPointer(),
 	}
-	tokenHTTPResp, err := streamingClient.CreateTenantTokenHandlerV3(ctx,
+	tokenHTTPResp, err := r.clients.astraStreamingClientv3.CreateTenantTokenHandlerV3(ctx,
 		tokenPlan.Tenant.ValueString(), tokenRequestParams, tokenRequestBody)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -174,12 +171,12 @@ func (r *StreamingPulsarTokenResource) Read(ctx context.Context, req resource.Re
 	}
 
 	astraClient := r.clients.astraClient
-	streamingClient := r.clients.astraStreamingClientv3
+	streamingClient := r.clients.astraStreamingClient
 
 	astraOrgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error getting namespace",
+			"Error getting pulsar token",
 			"Could not get current organization: "+err.Error(),
 		)
 		return
@@ -216,7 +213,7 @@ func (r *StreamingPulsarTokenResource) Delete(ctx context.Context, req resource.
 	}
 
 	astraClient := r.clients.astraClient
-	streamingClient := r.clients.astraStreamingClientv3
+	streamingClient := r.clients.astraStreamingClient
 
 	astraOrgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {

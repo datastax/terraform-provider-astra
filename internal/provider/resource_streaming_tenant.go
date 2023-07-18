@@ -2,9 +2,7 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -113,10 +111,6 @@ func resourceStreamingTenant() *schema.Resource {
 			},
 		},
 	}
-}
-
-type OrgId struct {
-	ID string `json:"id"`
 }
 
 type StreamingClusters []struct {
@@ -263,22 +257,6 @@ func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.Res
 	setStreamingTenantData(ctx, resourceData, *streamingTenantResponse.JSON200)
 
 	return nil
-}
-
-// getCurrentOrgID returns the organization ID from the Astra server
-func getCurrentOrgID(ctx context.Context, astraClient *astra.ClientWithResponses) (string, error) {
-	orgResponse, err := astraClient.GetCurrentOrganization(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to get current organization data: %w", err)
-	}
-	var orgID OrgId
-	err = json.NewDecoder(orgResponse.Body).Decode(&orgID)
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal current organization ID: %w", err)
-	} else if orgID.ID == "" {
-		return "", errors.New("streaming API returned an empty organization ID")
-	}
-	return orgID.ID, nil
 }
 
 func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantResponse astrastreaming.TenantClusterPlanResponse) error {

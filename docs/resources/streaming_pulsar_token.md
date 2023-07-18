@@ -3,12 +3,12 @@
 page_title: "astra_streaming_pulsar_token Resource - terraform-provider-astra"
 subcategory: ""
 description: |-
-  A Pulsar Namespace.
+  A Pulsar Token.
 ---
 
 # astra_streaming_pulsar_token (Resource)
 
-A Pulsar Namespace.
+A Pulsar Token.
 
 
 

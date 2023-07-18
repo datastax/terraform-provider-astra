@@ -143,6 +143,15 @@ export TESTARGS="-run TestStreamingTenant"
 make test
 ```
 
+## Adding a new resource
+
+This project uses both the [terraform-plugin-sdk](https://github.com/hashicorp/terraform-plugin-sdk) which is now deprecated, and the
+newer [terraform-plugin-framework](https://github.com/hashicorp/terraform-plugin-framework).  In addition,
+[terraform-plugin-mux](https://github.com/hashicorp/terraform-plugin-mux/) is used to allow the sdk and framework to work together.
+
+New resources should use the `terraform-plugin-framework` and should be added under the `internal/astra` directory.
+For an example of how to use the `terraform-plugin-framework`, see the [hashicups provider](https://github.com/hashicorp/terraform-provider-hashicups-pf).
+
 ## Documentation Updates
 
 When modifying plugin services, updates to documentation may be required. Once you have changed a service description,

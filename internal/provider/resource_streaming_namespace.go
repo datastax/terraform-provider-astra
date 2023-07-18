@@ -1,4 +1,4 @@
-package astra
+package provider
 
 import (
 	"context"
@@ -29,7 +29,7 @@ func NewStreamingNamespaceResource() resource.Resource {
 
 // streamingNamespaceResource is the resource implementation.
 type streamingNamespaceResource struct {
-	clients *astraClients
+	clients *astraClients2
 }
 
 // streamingNamespaceResourceModel maps the resource schema data.
@@ -85,7 +85,7 @@ func (r *streamingNamespaceResource) Configure(_ context.Context, req resource.C
 		return
 	}
 
-	r.clients = req.ProviderData.(*astraClients)
+	r.clients = req.ProviderData.(*astraClients2)
 }
 
 // Create creates the resource and sets the initial Terraform state.
@@ -110,7 +110,7 @@ func (r *streamingNamespaceResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
-	pulsarToken, err := getPulsarToken(ctx, streamingClient, r.clients.token, orgID, plan.Cluster.ValueString(), plan.Tenant.ValueString())
+	pulsarToken, err := getLatestPulsarToken(ctx, streamingClient, r.clients.token, orgID, plan.Cluster.ValueString(), plan.Tenant.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating namespace",
@@ -162,7 +162,7 @@ func (r *streamingNamespaceResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	pulsarToken, err := getPulsarToken(ctx, streamingClient, r.clients.token, orgID, state.Cluster.ValueString(), state.Tenant.ValueString())
+	pulsarToken, err := getLatestPulsarToken(ctx, streamingClient, r.clients.token, orgID, state.Cluster.ValueString(), state.Tenant.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting namespace",
@@ -228,7 +228,7 @@ func (r *streamingNamespaceResource) Delete(ctx context.Context, req resource.De
 		return
 	}
 
-	pulsarToken, err := getPulsarToken(ctx, streamingClient, r.clients.token, orgID, state.Cluster.ValueString(), state.Tenant.ValueString())
+	pulsarToken, err := getLatestPulsarToken(ctx, streamingClient, r.clients.token, orgID, state.Cluster.ValueString(), state.Tenant.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error deleting namespace",
