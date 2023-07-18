@@ -8,8 +8,6 @@ import (
 )
 
 func TestStreamingTopic(t *testing.T) {
-	// Disable this test by default until test works with non-prod clusters
-	checkRequiredTestVars(t, "ASTRA_TEST_STREAMING_TOPIC_TEST_ENABLED")
 
 	t.Parallel()
 	tenantName := "terraform-test-" + randomString(5)
@@ -43,6 +41,7 @@ resource "astra_streaming_topic" "streaming_topic-1" {
   region             = "useast-4"
   cloud_provider     = "gcp"
   namespace          = "default"
+  deletion_protection = false
 }
 
 `, tenantName)

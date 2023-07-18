@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
@@ -180,6 +181,9 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			providerVersion:        providerVersion,
 			userAgent:              userAgent,
 		}
+		if strings.Contains(streamingAPIServerURL, "staging") {
+			clients.streamingTestMode = true
+		}
 		return clients, nil
 	}
 }
@@ -223,6 +227,7 @@ type astraClients struct {
 	stargateClientCache    map[string]astrarestapi.Client
 	providerVersion        string
 	userAgent              string
+	streamingTestMode      bool
 }
 
 // resourceDataOrDefaultString returns the value in the given ResourceData variable or a default value

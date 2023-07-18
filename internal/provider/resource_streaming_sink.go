@@ -122,9 +122,9 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 		return diag.Errorf("\"deletion_protection\" must be explicitly set to \"false\" in order to destroy astra_streaming_sink")
 	}
 
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+	astraClients := meta.(astraClients)
+	streamingClient := astraClients.astraStreamingClient.(*astrastreaming.ClientWithResponses)
+	astraClient := astraClients.astraClient.(*astra.ClientWithResponses)
 
 	tenantName := resourceData.Get("tenant_name").(string)
 	sinkName := resourceData.Get("sink_name").(string)
@@ -134,9 +134,9 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	pulsarCluster := getPulsarCluster(cloudProvider, region)
+	pulsarCluster := getPulsarCluster(cloudProvider, region, astraClients.streamingTestMode)
 
-	orgBody, _ := client.GetCurrentOrganization(ctx)
+	orgBody, _ := astraClient.GetCurrentOrganization(ctx)
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
@@ -149,7 +149,7 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 		fmt.Println("Can't deserialize", orgBody)
 	}
 
-	token := meta.(astraClients).token
+	token := astraClients.token
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
 	if err != nil {
 		return diag.FromErr(err)
@@ -160,7 +160,7 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
 
-	deleteSinkResponse, err := streamingClientv3.DeleteSinkWithResponse(ctx, tenantName, namespace, sinkName, &deleteSinkParams)
+	deleteSinkResponse, err := astraClients.astraStreamingClientv3.DeleteSinkWithResponse(ctx, tenantName, namespace, sinkName, &deleteSinkParams)
 	if err != nil {
 		diag.FromErr(err)
 	}
@@ -210,9 +210,9 @@ type SinkResponse struct {
 }
 
 func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+	astraClients := meta.(astraClients)
+	streamingClient := astraClients.astraStreamingClient.(*astrastreaming.ClientWithResponses)
+	astraClient := astraClients.astraClient.(*astra.ClientWithResponses)
 
 	tenantName := resourceData.Get("tenant_name").(string)
 	sinkName := resourceData.Get("sink_name").(string)
@@ -223,9 +223,9 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	pulsarCluster := getPulsarCluster(cloudProvider, region)
+	pulsarCluster := getPulsarCluster(cloudProvider, region, astraClients.streamingTestMode)
 
-	orgBody, _ := client.GetCurrentOrganization(ctx)
+	orgBody, _ := astraClient.GetCurrentOrganization(ctx)
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
@@ -235,7 +235,7 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 		fmt.Println("Can't deserislize", orgBody)
 	}
 
-	token := meta.(astraClients).token
+	token := astraClients.token
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
 	if err != nil {
 		diag.FromErr(err)
@@ -246,7 +246,7 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
 
-	getSinkResponse, err := streamingClientv3.GetSinksWithResponse(ctx, tenantName, namespace, sinkName, &getSinksParams)
+	getSinkResponse, err := astraClients.astraStreamingClientv3.GetSinksWithResponse(ctx, tenantName, namespace, sinkName, &getSinksParams)
 	if err != nil {
 		diag.FromErr(err)
 	}
@@ -263,9 +263,9 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 }
 
 func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+	astraClients := meta.(astraClients)
+	streamingClient := astraClients.astraStreamingClient.(*astrastreaming.ClientWithResponses)
+	astraClient := astraClients.astraClient.(*astra.ClientWithResponses)
 
 	rawRegion := resourceData.Get("region").(string)
 	region := strings.ReplaceAll(rawRegion, "-", "")
@@ -281,7 +281,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	topic := resourceData.Get("topic").(string)
 	autoAck := resourceData.Get("auto_ack").(bool)
 
-	orgBody, _ := client.GetCurrentOrganization(ctx)
+	orgBody, _ := astraClient.GetCurrentOrganization(ctx)
 
 	var org OrgId
 	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
@@ -311,9 +311,9 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		}
 	}
 
-	pulsarCluster := getPulsarCluster(cloudProvider, region)
+	pulsarCluster := getPulsarCluster(cloudProvider, region, astraClients.streamingTestMode)
 
-	token := meta.(astraClients).token
+	token := astraClients.token
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
 	if err != nil {
 		diag.FromErr(err)
@@ -331,7 +331,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		Authorization:          pulsarToken,
 	}
 
-	builtinSinksResponse, err := streamingClientv3.GetBuiltInSinks(ctx, &getBuiltinSinkParams)
+	builtinSinksResponse, err := astraClients.astraStreamingClientv3.GetBuiltInSinks(ctx, &getBuiltinSinkParams)
 	if err != nil {
 		diag.FromErr(err)
 	}
@@ -405,7 +405,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		TopicsPattern:                nil,
 	}
 
-	sinkCreationResponse, err := streamingClientv3.CreateSinkJSON(ctx, tenantName, namespace, sinkName, &createSinkParams, createSinkBody)
+	sinkCreationResponse, err := astraClients.astraStreamingClientv3.CreateSinkJSON(ctx, tenantName, namespace, sinkName, &createSinkParams, createSinkBody)
 	if err != nil {
 		diag.FromErr(err)
 	}

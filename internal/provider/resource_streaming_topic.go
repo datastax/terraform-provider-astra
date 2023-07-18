@@ -84,9 +84,8 @@ func resourceStreamingTopicDelete(ctx context.Context, resourceData *schema.Reso
 	if protectedFromDelete(resourceData) {
 		return diag.Errorf("\"deletion_protection\" must be explicitly set to \"false\" in order to destroy astra_streaming_topic")
 	}
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+	astraClients := meta.(astraClients)
+	astraClient := astraClients.astraClient.(*astra.ClientWithResponses)
 
 	namespace := resourceData.Get("namespace").(string)
 	topic := resourceData.Get("topic").(string)
@@ -95,37 +94,37 @@ func resourceStreamingTopicDelete(ctx context.Context, resourceData *schema.Reso
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 	rawRegion := resourceData.Get("region").(string)
 
-	token := meta.(astraClients).token
+	token := astraClients.token
 
 	region := strings.ReplaceAll(rawRegion, "-", "")
-	pulsarCluster := getPulsarCluster(cloudProvider, region)
-	orgBody, _ := client.GetCurrentOrganization(ctx)
-
-	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
-
-	err = json.Unmarshal(bodyBuffer, &org)
+	pulsarCluster := getPulsarCluster(cloudProvider, region, astraClients.streamingTestMode)
+	orgResp, err := astraClient.GetCurrentOrganization(ctx)
 	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
+		return diag.Errorf("Failed to read orgnization ID: %v", err)
+	}
+	var org OrgId
+	err = json.NewDecoder(orgResp.Body).Decode(&org)
+	if err != nil {
+		return diag.Errorf("Failed to read orgnization ID: %v", err)
 	}
 
-	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenant)
+	pulsarToken, err := getLatestPulsarToken(ctx, astraClients.astraStreamingClientv3, token, org.ID, pulsarCluster, tenant)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	deleteTopicParams := astrastreaming.DeleteTopicParams{
 		XDataStaxPulsarCluster: pulsarCluster,
 		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
 
-	deleteTopicResponse, err := streamingClientv3.DeleteTopic(ctx, tenant, namespace, topic, &deleteTopicParams)
+	deleteTopicResponse, err := astraClients.astraStreamingClientv3.DeleteTopic(ctx, tenant, namespace, topic, &deleteTopicParams)
 	if err != nil {
-		diag.FromErr(err)
-	}
-
-	if !strings.HasPrefix(deleteTopicResponse.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(deleteTopicResponse.Body)
+		return diag.FromErr(err)
+	} else if deleteTopicResponse.StatusCode > 299 {
+		bodyBuffer, _ := ioutil.ReadAll(deleteTopicResponse.Body)
 		return diag.Errorf("Error deleting topic %s", bodyBuffer)
 	}
-	bodyBuffer, err = ioutil.ReadAll(deleteTopicResponse.Body)
 
 	resourceData.SetId("")
 
@@ -133,9 +132,8 @@ func resourceStreamingTopicDelete(ctx context.Context, resourceData *schema.Reso
 }
 
 func resourceStreamingTopicRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+	astraClients := meta.(astraClients)
+	astraClient := astraClients.astraClient.(*astra.ClientWithResponses)
 
 	namespace := resourceData.Get("namespace").(string)
 	topic := resourceData.Get("topic").(string)
@@ -144,41 +142,37 @@ func resourceStreamingTopicRead(ctx context.Context, resourceData *schema.Resour
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 	rawRegion := resourceData.Get("region").(string)
 
-	token := meta.(astraClients).token
+	token := astraClients.token
 
 	region := strings.ReplaceAll(rawRegion, "-", "")
-	pulsarCluster := getPulsarCluster(cloudProvider, region)
-	orgBody, _ := client.GetCurrentOrganization(ctx)
-
+	pulsarCluster := getPulsarCluster(cloudProvider, region, astraClients.streamingTestMode)
+	orgBody, err := astraClient.GetCurrentOrganization(ctx)
+	if err != nil {
+		return diag.Errorf("Failed to get organization ID: %v", err)
+	}
 	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	err = json.NewDecoder(orgBody.Body).Decode(&org)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.Errorf("Failed to read organization ID: %v", err)
 	}
 
-	err = json.Unmarshal(bodyBuffer, &org)
+	pulsarToken, err := getLatestPulsarToken(ctx, astraClients.astraStreamingClientv3, token, org.ID, pulsarCluster, tenant)
 	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
+		return diag.Errorf("Failed to get pulsar token: %v", err)
 	}
-
-	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenant)
 
 	getTopicsParams := astrastreaming.GetTopicsParams{
 		XDataStaxPulsarCluster: &pulsarCluster,
 		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
 
-	createTopicResponse, err := streamingClientv3.GetTopics(ctx, tenant, namespace, &getTopicsParams)
+	readTopicResponse, err := astraClients.astraStreamingClientv3.GetTopics(ctx, tenant, namespace, &getTopicsParams)
 	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if !strings.HasPrefix(createTopicResponse.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
+		return diag.Errorf("Failed to get topic list: %v", err)
+	} else if readTopicResponse.StatusCode > 299 {
+		bodyBuffer, _ := ioutil.ReadAll(readTopicResponse.Body)
 		return diag.Errorf("Error reading topic %s", bodyBuffer)
 	}
-	bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
-
 	//TODO: validate that our topic is there
 
 	setStreamingTopicData(resourceData, tenant, topic)
@@ -187,9 +181,8 @@ func resourceStreamingTopicRead(ctx context.Context, resourceData *schema.Resour
 }
 
 func resourceStreamingTopicCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+	astraClients := meta.(astraClients)
+	astraClient := astraClients.astraClient.(*astra.ClientWithResponses)
 
 	namespace := resourceData.Get("namespace").(string)
 	topic := resourceData.Get("topic").(string)
@@ -198,21 +191,25 @@ func resourceStreamingTopicCreate(ctx context.Context, resourceData *schema.Reso
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 	rawRegion := resourceData.Get("region").(string)
 
-	token := meta.(astraClients).token
+	token := astraClients.token
 
 	region := strings.ReplaceAll(rawRegion, "-", "")
-	pulsarCluster := getPulsarCluster(cloudProvider, region)
-	orgBody, _ := client.GetCurrentOrganization(ctx)
+	pulsarCluster := getPulsarCluster(cloudProvider, region, astraClients.streamingTestMode)
 
-	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
-
-	err = json.Unmarshal(bodyBuffer, &org)
+	orgResp, err := astraClient.GetCurrentOrganization(ctx)
 	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
+		return diag.Errorf("Failed to get current organization: %v", err)
+	}
+	org := OrgId{}
+	err = json.NewDecoder(orgResp.Body).Decode(&org)
+	if err != nil {
+		return diag.Errorf("Failed to read organization: %v", err)
 	}
 
-	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenant)
+	pulsarToken, err := getLatestPulsarToken(ctx, astraClients.astraStreamingClientv3, token, org.ID, pulsarCluster, tenant)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	createTopicParams := astrastreaming.CreateTopicParams{
 		XDataStaxCurrentOrg:    &org.ID,
@@ -220,16 +217,13 @@ func resourceStreamingTopicCreate(ctx context.Context, resourceData *schema.Reso
 		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
 
-	createTopicResponse, err := streamingClientv3.CreateTopic(ctx, tenant, namespace, topic, &createTopicParams)
+	createTopicResponse, err := astraClients.astraStreamingClientv3.CreateTopic(ctx, tenant, namespace, topic, &createTopicParams, setContentTypeHeader("application/json"))
 	if err != nil {
-		diag.FromErr(err)
-	}
-
-	if !strings.HasPrefix(createTopicResponse.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
+		return diag.Errorf("Error creating topic: %v", err)
+	} else if createTopicResponse.StatusCode > 299 {
+		bodyBuffer, _ := ioutil.ReadAll(createTopicResponse.Body)
 		return diag.Errorf("Error creating topic %s", bodyBuffer)
 	}
-	bodyBuffer, err = ioutil.ReadAll(createTopicResponse.Body)
 
 	setStreamingTopicData(resourceData, tenant, topic)
 
