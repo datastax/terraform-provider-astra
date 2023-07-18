@@ -14,7 +14,7 @@ resource "astra_streaming_tenant" "streaming_tenant" {
 # Create a new pulsar token for the tenant
 resource "astra_streaming_pulsar_token" "streaming_token" {
   # Required
-  cluster               = "pulsar-gcp-uscentral1"
+  cluster               = astra_streaming_tenant.streaming_tenant.cluster_name
   tenant                = astra_streaming_tenant.streaming_tenant.tenant_name
 
   # Optional
@@ -23,8 +23,7 @@ resource "astra_streaming_pulsar_token" "streaming_token" {
 
 output "streaming_token" {
   description = "The streaming token"
-  sensitive   = true
-  value = astra_streaming_pulsar_token.streaming_token.token
+  value = nonsensitive(astra_streaming_pulsar_token.streaming_token.token)
 }
 
 # --Formatted Outputs--
