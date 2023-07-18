@@ -1,16 +1,3 @@
-terraform {
-  required_providers {
-    astra = {
-      source = "datastax/astra"
-      version = "2.1.17"
-    }
-  }
-}
-
-provider "astra" {
-  token = "AstraCS:vjBdlrsThRAjggEnhvsmKXap:0b6e6f027b8e15ce43ddcdad016441e4782c82aa8bb601d8653b83e2c93e9d49"
-}
-
 # Generate a random pet name to avoid naming conflicts
 resource "random_pet" "server" {}
 
@@ -33,14 +20,16 @@ resource "astra_streaming_namespace" "streaming_namespace" {
 # Create a new topic
 resource "astra_streaming_topic" "streaming_topic" {
   # Required
-  cloud_provider  = astra_streaming_tenant.streaming_tenant.cloud_provider
-  region          = astra_streaming_tenant.streaming_tenant.region
-  tenant_name     = astra_streaming_tenant.streaming_tenant.tenant_name
-  namespace       = astra_streaming_namespace.streaming_namespace.namespace
-  topic           = "my-topic"
+  cluster               = astra_streaming_tenant.streaming_tenant.cluster_name
+  tenant                = astra_streaming_tenant.streaming_tenant.tenant_name
+  namespace             = astra_streaming_namespace.streaming_namespace.namespace
+  topic                 = "my-topic"
 
   # Optional
   deletion_protection   = false
+  num_partitions        = 2
+  partitioned           = true
+  persistent            = true
 }
 
 # --Formatted Outputs--

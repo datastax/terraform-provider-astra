@@ -1,3 +1,15 @@
+terraform {
+  required_providers {
+    astra = {
+      source = "datastax/astra"
+    }
+  }
+}
+
+provider "astra" {
+  token = "AstraCS:vjBdlrsThRAjggEnhvsmKXap:0b6e6f027b8e15ce43ddcdad016441e4782c82aa8bb601d8653b83e2c93e9d49"
+}
+
 # Generate a random pet name to avoid naming conflicts
 resource "random_pet" "server" {}
 
@@ -20,15 +32,15 @@ resource "astra_streaming_namespace" "streaming_namespace" {
   # Optional
   policies              = {
     auto_topic_creation_override              = {
-      allow_auto_topic_creation = false
-      default_num_partitions = 0
-      topic_type = "partitioned"
+      allow_auto_topic_creation = true
+      default_num_partitions = 1
+      topic_type = "partitioned" # "partitioned" or "non_partitioned"
     }
     backlog_quota_map                       = {
       "destination_storage" = {
         "limit": 500170751,
-        "limitSize": 500170751,
-        "limitTime": 0,
+        "limit_size": 500170751,
+        "limit_time": 0,
         "policy": "producer_exception" # "producer_exception" or "producer_request_hold" or "consumer_backlog_eviction"
       }
     }
@@ -40,7 +52,7 @@ resource "astra_streaming_namespace" "streaming_namespace" {
     }
     schema_auto_update_compatibility_strategy = "Full"
     schema_compatibility_strategy             = "UNDEFINED",
-    schema_validation_enforce                 = false
+    schema_validation_enforce                 = true
   }
 }
 

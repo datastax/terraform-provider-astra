@@ -12,18 +12,17 @@ resource "astra_streaming_tenant" "streaming_tenant" {
 
 # Create a new namespace
 resource "astra_streaming_namespace" "streaming_namespace" {
-  cluster               = "pulsar-gcp-uscentral1"
+  cluster               = astra_streaming_tenant.streaming_tenant.cluster_name
   tenant                = astra_streaming_tenant.streaming_tenant.tenant_name
   namespace             = "my-namespace"
 }
 
 # Create a new topic
 resource "astra_streaming_topic" "streaming_topic" {
-  cloud_provider  = astra_streaming_tenant.streaming_tenant.cloud_provider
-  region          = astra_streaming_tenant.streaming_tenant.region
-  tenant_name     = astra_streaming_tenant.streaming_tenant.tenant_name
-  namespace       = astra_streaming_namespace.streaming_namespace.namespace
-  topic           = "my-topic"
+  cluster               = astra_streaming_tenant.streaming_tenant.cluster_name
+  tenant                = astra_streaming_tenant.streaming_tenant.tenant_name
+  namespace             = astra_streaming_namespace.streaming_namespace.namespace
+  topic                 = "my-topic"
   deletion_protection   = false
 }
 
@@ -33,7 +32,7 @@ resource "astra_streaming_topic" "streaming_topic" {
 resource "astra_streaming_sink" "streaming_sink" {
   # Required
   tenant_name           = astra_streaming_tenant.streaming_tenant.tenant_name
-  region                = astra_streaming_tenant.streaming_tenant.region
+  region                = "us-central1"
   cloud_provider        = astra_streaming_tenant.streaming_tenant.cloud_provider
   namespace             = astra_streaming_namespace.streaming_namespace.namespace
   topic                 = astra_streaming_topic.streaming_topic.topic
