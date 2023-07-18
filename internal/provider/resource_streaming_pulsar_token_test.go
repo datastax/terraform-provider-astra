@@ -1,4 +1,4 @@
-package astra
+package provider
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 )
 
 func TestAccStreamingPulsarTokenResource(t *testing.T) {
-	clusterName := getEnvVarOrDefault("ASTRA_TEST_STREAMING_CLUSTER_NAME", testDefaultStreamingClusterName)
-	tenant := getEnvVarOrDefault("ASTRA_TEST_STREAMING_TENANT_NAME", "terraform-"+randomString(4))
+	clusterName := envVarOrDefault("ASTRA_TEST_STREAMING_CLUSTER_NAME", testDefaultStreamingClusterName)
+	tenant := envVarOrDefault("ASTRA_TEST_STREAMING_TENANT_NAME", "terraform-"+randomString(4))
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -35,7 +35,7 @@ resource "astra_streaming_pulsar_token" "pulsar_token_1" {
   depends_on = [
     astra_streaming_tenant.streaming_tenant_1
   ]
-  cluster   = "%s"
-  tenant    = "%s"
-}`, cluster, tenant, cluster, tenant)
+  cluster   = astra_streaming_tenant.streaming_tenant_1.cluster_name
+  tenant    = astra_streaming_tenant.streaming_tenant_1.tenant_name
+}`, cluster, tenant)
 }

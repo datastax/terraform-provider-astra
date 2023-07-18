@@ -57,10 +57,10 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        # list whatever Terraform versions here you would like to support
+        # Test with min and max supported Terraform versions
         terraform:
-          # - '0.15.5'
-          - '1.4.6'
+          - '1.0.11'
+          - '1.5.3'
     steps:
     - uses: actions/setup-go@v4
       with:

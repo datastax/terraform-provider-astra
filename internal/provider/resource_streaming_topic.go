@@ -98,7 +98,7 @@ func resourceStreamingTopicDelete(ctx context.Context, resourceData *schema.Reso
 	token := meta.(astraClients).token
 
 	region := strings.ReplaceAll(rawRegion, "-", "")
-	pulsarCluster := GetPulsarCluster(cloudProvider, region)
+	pulsarCluster := getPulsarCluster(cloudProvider, region)
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
 	var org OrgId
@@ -147,7 +147,7 @@ func resourceStreamingTopicRead(ctx context.Context, resourceData *schema.Resour
 	token := meta.(astraClients).token
 
 	region := strings.ReplaceAll(rawRegion, "-", "")
-	pulsarCluster := GetPulsarCluster(cloudProvider, region)
+	pulsarCluster := getPulsarCluster(cloudProvider, region)
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
 	var org OrgId
@@ -201,7 +201,7 @@ func resourceStreamingTopicCreate(ctx context.Context, resourceData *schema.Reso
 	token := meta.(astraClients).token
 
 	region := strings.ReplaceAll(rawRegion, "-", "")
-	pulsarCluster := GetPulsarCluster(cloudProvider, region)
+	pulsarCluster := getPulsarCluster(cloudProvider, region)
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
 	var org OrgId

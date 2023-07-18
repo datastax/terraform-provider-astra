@@ -1,4 +1,4 @@
-package astra
+package provider
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 )
 
 func TestAccStreamingNamespaceResource(t *testing.T) {
-	clusterName := getEnvVarOrDefault("ASTRA_TEST_STREAMING_CLUSTER_NAME", testDefaultStreamingClusterName)
-	tenant := getEnvVarOrDefault("ASTRA_TEST_STREAMING_TENANT_NAME", "terraform-"+randomString(4))
+	clusterName := envVarOrDefault("ASTRA_TEST_STREAMING_CLUSTER_NAME", testDefaultStreamingClusterName)
+	tenant := envVarOrDefault("ASTRA_TEST_STREAMING_TENANT_NAME", "terraform-"+randomString(4))
 	namespace := "terraform-test-" + randomString(5)
 
 	resource.Test(t, resource.TestCase{

@@ -5,7 +5,6 @@ import (
 	"flag"
 	"log"
 
-	"github.com/datastax/terraform-provider-astra/v2/internal/astra"
 	"github.com/datastax/terraform-provider-astra/v2/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov5"
@@ -41,11 +40,11 @@ func main() {
 	ctx := context.Background()
 	providers := []func() tfprotov5.ProviderServer{
 		// Legacy plugin sdk provider
-		provider.New(version)().GRPCProvider,
+		provider.NewSDKProvider(version)().GRPCProvider,
 
 		// New provider using plugin framework
 		providerserver.NewProtocol5(
-			astra.New(version),
+			provider.New(version),
 		),
 	}
 
