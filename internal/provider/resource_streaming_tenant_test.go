@@ -10,21 +10,22 @@ import (
 
 func TestStreamingTenant(t *testing.T) {
 	t.Parallel()
-	tenantName := "terraform-test-" + randomString(5)
+	tenantName1 := "terraform-test-" + randomString(6)
+	tenantName2 := "terraform-test-" + randomString(6)
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccStreamingTenantConfiguration(tenantName),
+				Config: testAccStreamingTenantConfiguration(tenantName1, tenantName2),
 			},
 		},
 	})
 }
 
 // https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
-func testAccStreamingTenantConfiguration(tenantName string) string {
+func testAccStreamingTenantConfiguration(tenantName1, tenantName2 string) string {
 	return fmt.Sprintf(`
 resource "astra_streaming_tenant" "streaming_tenant_1" {
   tenant_name         = "%s"
@@ -33,12 +34,19 @@ resource "astra_streaming_tenant" "streaming_tenant_1" {
   user_email          = "terraform-test-user@datastax.com"
   deletion_protection = false
 }
-`, tenantName)
+resource "astra_streaming_tenant" "streaming_tenant_2" {
+  tenant_name         = "%s"
+  cluster_name        = "pulsar-gcp-useast4-staging"
+  user_email          = "terraform-test-user@datastax.com"
+  deletion_protection = false
+}
+
+`, tenantName1, tenantName2)
 }
 
 func TestStreamingTenantImport(t *testing.T) {
 	t.Parallel()
-	tenantName := "terraform-test-" + randomString(5)
+	tenantName := "terraform-test-" + randomString(6)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
@@ -48,10 +56,9 @@ func TestStreamingTenantImport(t *testing.T) {
 				Config: testAccStreamingTenantImport(tenantName),
 			},
 			{
-				ResourceName:     "astra_streaming_tenant.streaming_tenant_2",
+				ResourceName:     "astra_streaming_tenant.streaming_tenant_imported_1",
 				ImportState:      true,
 				ImportStateCheck: checkStreamingTenantImportState("azure", "uswest2", tenantName),
-				// ImportStateVerify: true,
 			},
 		},
 	})
@@ -59,7 +66,7 @@ func TestStreamingTenantImport(t *testing.T) {
 
 func testAccStreamingTenantImport(tenantName string) string {
 	return fmt.Sprintf(`
-resource "astra_streaming_tenant" "streaming_tenant_2" {
+resource "astra_streaming_tenant" "streaming_tenant_imported_1" {
   tenant_name         = "%s"
   topic               = "default-topic-1"
   cloud_provider      = "azure"
