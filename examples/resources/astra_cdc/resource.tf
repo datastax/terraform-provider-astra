@@ -1,16 +1,3 @@
-terraform {
-  required_providers {
-    astra = {
-      source = "datastax/astra"
-      version = "2.1.17"
-    }
-  }
-}
-
-provider "astra" {
-  token = "AstraCS:vjBdlrsThRAjggEnhvsmKXap:0b6e6f027b8e15ce43ddcdad016441e4782c82aa8bb601d8653b83e2c93e9d49"
-}
-
 /*
 NOTE:
 
