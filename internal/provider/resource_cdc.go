@@ -416,7 +416,7 @@ func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId 
 	cloudProvider := string(*db.Info.CloudProvider)
 	fmt.Printf("%s", cloudProvider)
 
-	pulsarCluster := getPulsarCluster(cloudProvider, *db.Info.Region)
+	pulsarCluster := getPulsarCluster(cloudProvider, *db.Info.Region, false)
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
 	return pulsarCluster, pulsarToken, err
 }

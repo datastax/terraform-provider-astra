@@ -59,6 +59,7 @@ type astraClients2 struct {
 	stargateClientCache    map[string]astrarestapi.Client
 	providerVersion        string
 	userAgent              string
+	streamingTestMode      bool
 }
 
 // Metadata returns the provider type name.
@@ -195,6 +196,9 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		stargateClientCache:    clientCache,
 		providerVersion:        p.Version,
 		userAgent:              userAgent,
+	}
+	if strings.Contains(streamingAPIServerURL, "staging") {
+		clients.streamingTestMode = true
 	}
 	resp.ResourceData = clients
 	resp.DataSourceData = clients

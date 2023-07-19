@@ -39,6 +39,13 @@ func setPulsarClusterHeaders(pulsarToken, clusterName, organizationID string) fu
 	}
 }
 
+func setContentTypeHeader(contentType string) func(ctx context.Context, req *http.Request) error {
+	return func(ctx context.Context, req *http.Request) error {
+		req.Header.Set("Content-Type", contentType)
+		return nil
+	}
+}
+
 type StreamingToken struct {
 	Iat     int    `json:"iat"`
 	Iss     string `json:"iss"`
@@ -150,8 +157,12 @@ func getCurrentOrgID(ctx context.Context, astraClient *astra.ClientWithResponses
 }
 
 // getPulsarCluster TODO: this is unreliable because not all clusters might follow this format
-func getPulsarCluster(cloudProvider string, rawRegion string) string {
+func getPulsarCluster(cloudProvider string, rawRegion string, testMode bool) string {
 	// In most astra APIs there are dashes in region names depending on the cloud provider, this seems not to be the case for streaming
 	region := strings.ReplaceAll(rawRegion, "-", "")
-	return strings.ToLower(fmt.Sprintf("pulsar-%s-%s", cloudProvider, region))
+	clusterName := strings.ToLower(fmt.Sprintf("pulsar-%s-%s", cloudProvider, region))
+	if testMode {
+		clusterName += "-staging"
+	}
+	return clusterName
 }
