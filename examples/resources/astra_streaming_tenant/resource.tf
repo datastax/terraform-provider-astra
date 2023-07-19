@@ -4,7 +4,7 @@ resource "random_pet" "pet_name" {}
 # Create a new tenant
 resource "astra_streaming_tenant" "streaming_tenant" {
   # Required
-  tenant_name           = "my-tenant-${random_pet.pet_name.id}"
+  tenant_name           = substr( "my-tenant-${random_pet.pet_name.id}", 0, 32)
   user_email            = "someuser@example.com"
 
   # Optional

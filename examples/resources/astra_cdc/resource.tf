@@ -1,9 +1,29 @@
+terraform {
+  required_providers {
+    astra = {
+      source = "datastax/astra"
+      version = "2.1.17"
+    }
+  }
+}
+
+provider "astra" {
+  token = "AstraCS:vjBdlrsThRAjggEnhvsmKXap:0b6e6f027b8e15ce43ddcdad016441e4782c82aa8bb601d8653b83e2c93e9d49"
+}
+
+/*
+NOTE:
+
+The streaming tenant and database will be created at the same time because they have no dependent resources in the flow.
+The table will then be created, and then the CDC connection after that. This all follows terraform dependency rules.
+*/
+
 # Generate a random pet name to avoid naming conflicts
 resource "random_uuid" "identifier" {}
 
 # Create a new tenant
 resource "astra_streaming_tenant" "streaming_tenant" {
-  tenant_name           = "webstore-clicks-${random_uuid.identifier.id}"
+  tenant_name           = substr("webstore-clicks-${random_uuid.identifier.id}", 0, 32)
   user_email            = "someuser@example.com"
   cloud_provider        = "gcp"
   deletion_protection   = true
@@ -12,47 +32,48 @@ resource "astra_streaming_tenant" "streaming_tenant" {
 
 # Create a new database
 resource "astra_database" "db_database" {
-  name           = "webstore-clicks"
-  keyspace       = "click_data"
-  cloud_provider = "gcp" # this must match the cloud_provider of the tenant
-  regions        = ["us-central1"] # this must match the region of the tenant
+  name                  = substr("webstore-clicks-${random_uuid.identifier.id}", 0, 50)
+  keyspace              = "click_data" # 48 characters max
+  cloud_provider        = "gcp" # this must match the cloud_provider of the tenant
+  regions               = ["us-central1"] # this must match the region of the tenant
+  deletion_protection   = false
 }
 
 # Create a new table in that database
 resource "astra_table" "db_table" {
-  keyspace            = astra_database.db_database.keyspace
-  database_id         = astra_database.db_database.id
-  region              = astra_database.db_database.regions[0]
-  table               = "all_clicks-${random_uuid.identifier.id}"
-  clustering_columns  = "click_timestamp:visitor_id"
-  partition_keys      = "click_timestamp"
-  column_definitions= [
-    {
-      Name: "click_timestamp"
-      Static: false
-      TypeDefinition: "bigint"
-    },
-    {
-      Name: "visitor_id"
-      Static: false
-      TypeDefinition: "uuid"
-    },
-    {
-      Name: "click_url"
-      Static: false
-      TypeDefinition: "text"
-    }
-  ]
+  keyspace              = astra_database.db_database.keyspace
+  database_id           = astra_database.db_database.id
+  region                = astra_database.db_database.regions[0]
+  table                 = "all_product_clicks"
+  clustering_columns    = "visitor_id:click_timestamp"
+  partition_keys        = "visitor_id:click_url"
+  column_definitions    = [
+                            {
+                              Name: "click_timestamp"
+                              Static: false
+                              TypeDefinition: "bigint"
+                            },
+                            {
+                              Name: "visitor_id"
+                              Static: false
+                              TypeDefinition: "uuid"
+                            },
+                            {
+                              Name: "click_url"
+                              Static: false
+                              TypeDefinition: "text"
+                            }
+                          ]
 }
 
 # Create a new CDC connection between tenant topic and db table
 resource "astra_cdc" "db_cdc" {
-  database_id      = astra_database.db_database.id
-  database_name    = astra_database.db_database.name
-  table            = astra_table.db_table.table
-  keyspace         = astra_database.db_database.keyspace
-  tenant_name      = astra_streaming_tenant.streaming_tenant.tenant_name
-  topic_partitions = 3
+  database_id           = astra_database.db_database.id
+  database_name         = astra_database.db_database.name
+  table                 = astra_table.db_table.table
+  keyspace              = astra_database.db_database.keyspace
+  tenant_name           = astra_streaming_tenant.streaming_tenant.tenant_name
+  topic_partitions      = 3
 }
 
 # --Formatted Outputs--
