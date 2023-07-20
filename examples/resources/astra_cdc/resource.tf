@@ -13,7 +13,7 @@ resource "astra_streaming_tenant" "streaming_tenant" {
   tenant_name           = substr("webstore-clicks-${random_uuid.identifier.id}", 0, 32)
   user_email            = "someuser@example.com"
   cloud_provider        = "gcp"
-  deletion_protection   = true
+  deletion_protection   = false
   region                = "us-central1"
 }
 
