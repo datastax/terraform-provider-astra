@@ -17,6 +17,10 @@ func ignoreCase(_, old, new string, _ *schema.ResourceData) bool {
 	return strings.EqualFold(old, new)
 }
 
+func removeDashes(s string) string {
+	return strings.ReplaceAll(s, "-", "")
+}
+
 func keyFromStrings(s []string) string {
 	ss := make([]string, len(s))
 	copy(ss, s)

@@ -134,7 +134,7 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	pulsarCluster := getPulsarCluster(cloudProvider, region)
+	pulsarCluster := getPulsarCluster("", cloudProvider, region, "")
 
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
@@ -223,7 +223,7 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	pulsarCluster := getPulsarCluster(cloudProvider, region)
+	pulsarCluster := getPulsarCluster("", cloudProvider, region, "")
 
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
@@ -311,7 +311,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		}
 	}
 
-	pulsarCluster := getPulsarCluster(cloudProvider, region)
+	pulsarCluster := getPulsarCluster("", cloudProvider, region, "")
 
 	token := meta.(astraClients).token
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
