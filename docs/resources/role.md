@@ -45,17 +45,17 @@ resource "astra_database" "exampledb" {
 
 # Example application keyspaces
 resource "astra_keyspace" "appks1" {
-  name = "appks1"
+  name        = "appks1"
   database_id = astra_database.exampledb.id
 }
 
 resource "astra_keyspace" "appks2" {
-  name = "appks2"
+  name        = "appks2"
   database_id = astra_database.exampledb.id
 }
 
 resource "astra_keyspace" "appks3" {
-  name = "appks3"
+  name        = "appks3"
   database_id = astra_database.exampledb.id
 }
 

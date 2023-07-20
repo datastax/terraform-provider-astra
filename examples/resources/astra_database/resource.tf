@@ -4,18 +4,18 @@ resource "random_pet" "pet_name" {}
 # Create a new database
 resource "astra_database" "example_db" {
   # Required
-  name                  = substr( "my-database-${random_pet.pet_name.id}", 0, 50)
-  keyspace              = "example_keyspace" # 48 characters max
-  cloud_provider        = "gcp"
-  regions               = ["us-central1"]
+  name           = substr("my-database-${random_pet.pet_name.id}", 0, 50)
+  keyspace       = "example_keyspace" # 48 characters max
+  cloud_provider = "gcp"
+  regions        = ["us-central1"]
 
   # Optional
-  deletion_protection   = false
-  timeouts              {
-                          create = "30m"
-                          update = "30m"
-                          delete = "30m"
-                        }
+  deletion_protection = false
+  timeouts {
+    create = "30m"
+    update = "30m"
+    delete = "30m"
+  }
 }
 
 # --Formatted Outputs--
@@ -34,11 +34,10 @@ resource "astra_database" "example_db" {
 
 output "status" {
   description = "Database status"
-  value = astra_database.example_db.status
+  value       = astra_database.example_db.status
 }
 
 output "cqlsh_url" {
   description = "CQL shell URL"
-  value = astra_database.example_db.cqlsh_url
+  value       = astra_database.example_db.cqlsh_url
 }
-
