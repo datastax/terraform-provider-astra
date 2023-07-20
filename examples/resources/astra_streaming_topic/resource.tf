@@ -19,38 +19,18 @@ resource "astra_streaming_namespace" "streaming_namespace" {
 
 # Create a new topic
 resource "astra_streaming_topic" "streaming_topic" {
+  # Required
   cluster               = astra_streaming_tenant.streaming_tenant.cluster_name
   tenant                = astra_streaming_tenant.streaming_tenant.tenant_name
   namespace             = astra_streaming_namespace.streaming_namespace.namespace
   topic                 = "my-topic"
-  deletion_protection   = false
-}
-
-# Create a new sink
-# Refer to Astra Streaming documentation for more information on sinks
-#   https://docs.datastax.com/en/streaming/streaming-learning/pulsar-io/connectors/index.html
-resource "astra_streaming_sink" "streaming_sink" {
-  # Required
-  tenant_name           = astra_streaming_tenant.streaming_tenant.tenant_name
-  region                = "us-central1"
-  cloud_provider        = astra_streaming_tenant.streaming_tenant.cloud_provider
-  namespace             = astra_streaming_namespace.streaming_namespace.namespace
-  topic                 = astra_streaming_topic.streaming_topic.topic
-  auto_ack              = true
-  parallelism           = 1
-  retain_ordering       = false
-  processing_guarantees = "ATLEAST_ONCE"
-  sink_name             = "jdbc-clickhouse"
-  sink_configs = jsonencode({
-    "userName" : "clickhouse",
-    "password" : "password",
-    "jdbcUrl" : "jdbc:clickhouse://fake.clickhouse.url:8123/pulsar_clickhouse_jdbc_sink",
-    "tableName" : "pulsar_clickhouse_jdbc_sink"
-  })
 
   # Optional
   deletion_protection   = false
+  num_partitions        = 2
+  partitioned           = true
+  persistent            = true
 }
 
 # --Formatted Outputs--
-# astra_streaming_topic.streaming_sink.id
+# astra_streaming_topic.streaming_topic.id

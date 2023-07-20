@@ -1,23 +1,68 @@
 ---
-layout: ""
-page_title: "Provider: DataStax Astra - Serverless Cassandra DBaaS"
+layout: "astra"
+page_title: "Provider: DataStax Astra"
 description: |-
-  The Astra provider provides Terraform resources to interact with DataStax AstraDB and Astra Streaming, DataStax's cloud offerings based on Apache Cassandra, Apache Pulsar, and Kubernetes.
+The DataStax Astra provider is used to interact with the resources supported by DataStax Astra. The provider needs to be configured with the proper credentials before it can be used.
 ---
 
 # DataStax Astra Provider
 
-  This provider allows [DataStax Astra](https://astra.datastax.com/) users to manage their full database lifecycle for Astra Serverless databases (built on [Apache Cassandra](https://cassandra.apache.org/))
-  using Terraform.
+The DataStax Astra provider is used to interact with the resources supported by DataStax Astra. Those resources include:
 
-  To get started, log into [Astra](https://astra.datastax.com/register) and create an authorization token (in your organization settings). The provider will prompt you for the token
-  on apply if it does not detect it in your environment variable `ASTRA_API_TOKEN`.
+- [Astra DB](https://docs.datastax.com/en/astra-serverless/docs/): Astra Database is a Cassandra database-as-a-service (DBaaS) that is always on, scalable, and built on Apache Cassandra™.
 
-  Astra Streaming (based on [Apache Pulsar](https://pulsar.apache.org/)) is now supported.
+
+- [Astra Streaming](https://docs.datastax.com/streaming): Astra Streaming is a Pulsar-as-a-service (PaaS) that is always on, scalable, and built on Apache Pulsar™.
+
+Before using this provider, you will need to create a free Astra account, [signup here](https://astra.datastax.com/). Once logged in, from the Astra Dashboard, you can generate a new token with the correct permission. Refer to the authentications section below for more details.
 
 ## Example Usage
 
-  {{tffile "examples/provider/provider.tf"}}
+Terraform 1.0 and later:
+
+{{tffile "examples/provider/provider.tf"}}
+
+## Authentication and Configuration
+
+The Astra provider offers a flexible means of providing credentials for authentication. The following methods are supported, in this order:
+
+1. Static credentials provided in the provider configuration
+2. Environment variables
+
+The Astra provider assumes the token has a minimum permission of either `Database Manager` for database actions and/or `Organization Administrator` for the streaming actions. Learn more about Astra roles [here](https://docs.datastax.com/en/astra-serverless/docs/manage/org/user-permissions.html).
+
+!> **Warning:** Hard-coded credentials are not recommended in any Terraform
+configuration and risks secret leakage should this file ever be committed to a
+public version control system.
+
+### Credentials via the provider configuration
+
+Credentials can be provided by adding a `token` value to the `astra` provider block. Replace the text "<ASTRA_TOKEN>" with your Astra token. Learn more about creating Astra tokens [here](https://docs.datastax.com/en/astra-serverless/docs/getting-started/gs-grant-user-access.html#_generate_an_application_token).
+
+Usage:
+
+```hcl
+provider "astra" {
+  token = "<ASTRA_TOKEN>"
+}
+```
+
+### Credentials via the environment
+
+Credentials can be provided via the `ASTRA_API_TOKEN` environment variable.
+
+Terraform definition:
+```hcl
+provider "astra" {}
+```
+
+Environment:
+```sh
+$ export ASTRA_API_TOKEN="<ASTRA_TOKEN>"
+$ terraform plan
+```
+
+{{ .SchemaMarkdown | trimspace }}
 
 ## Requirements
 
