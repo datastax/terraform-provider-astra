@@ -6,11 +6,11 @@ data "astra_streaming_tenant_tokens" "tokens" {
 
 // Example referencing astra_streaming_tenant
 resource "astra_streaming_tenant" "tenant" {
-  tenant_name        = "mytenant"
-  topic              = "topic1"
-  region             = "us-east4"
-  cloud_provider     = "gcp"
-  user_email         = "user@example.com"
+  tenant_name    = "mytenant"
+  topic          = "topic1"
+  region         = "us-east4"
+  cloud_provider = "gcp"
+  user_email     = "user@example.com"
 }
 
 data "astra_streaming_tenant_tokens" "tokens" {
