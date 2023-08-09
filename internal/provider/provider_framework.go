@@ -26,6 +26,7 @@ const (
 	fullProviderName = "terraform-astra-provider"
 
 	DefaultAstraAPIURL     = astra.ServerURL
+	DefaultAstraAppsDomain = "apps.astra.datastax.com"
 	DefaultStreamingAPIURL = "https://api.streaming.datastax.com/"
 )
 
@@ -51,6 +52,7 @@ type astraProvider struct {
 type astraProviderModel struct {
 	Token                   types.String `tfsdk:"token"`
 	AstraServerURL          types.String `tfsdk:"astra_api_url"`
+	AstraAppsDomain         types.String `tfsdk:"astra_apps_domain"`
 	AstraStreamingServerURL types.String `tfsdk:"streaming_api_url"`
 }
 
@@ -83,6 +85,10 @@ func (p *astraProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp
 			},
 			"astra_api_url": schema.StringAttribute{
 				MarkdownDescription: "URL for Astra API. May also be provided via ASTRA_API_URL environment variable.",
+				Optional:            true,
+			},
+			"astra_apps_domain": schema.StringAttribute{
+				MarkdownDescription: "DNS suffix for Astra databases. May also be provided via ASTRA_APPS_DOMAIN environment variable.",
 				Optional:            true,
 			},
 			"streaming_api_url": schema.StringAttribute{

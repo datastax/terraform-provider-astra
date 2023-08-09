@@ -93,6 +93,7 @@ $ terraform plan
 ### Optional
 
 - `astra_api_url` (String) URL for Astra API. May also be provided via ASTRA_API_URL environment variable.
+- `astra_apps_domain` (String) DNS suffix for Astra databases. May also be provided via ASTRA_APPS_DOMAIN environment variable.
 - `streaming_api_url` (String) URL for Astra Streaming API. May also be provided via ASTRA_STREAMING_API_URL environment variable.
 - `token` (String, Sensitive) Authentication token for Astra API. May also be provided via ASTRA_API_TOKEN environment variable.
 
