@@ -20,6 +20,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+var (
+	astraAppsDomain = DefaultAstraAppsDomain
+)
+
 func init() {
 	// Set descriptions to support markdown syntax, this will be used in document generation
 	// and the language server.
@@ -94,6 +98,11 @@ func NewSDKProvider(version string) func() *schema.Provider {
 					Optional:    true,
 					Description: "URL for Astra API. May also be provided via ASTRA_API_URL environment variable.",
 				},
+				"astra_apps_domain": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					Description: "DNS suffix for Astra databases. May also be provided via ASTRA_APPS_DOMAIN environment variable.",
+				},
 				"streaming_api_url": {
 					Type:        schema.TypeString,
 					Optional:    true,
@@ -121,6 +130,8 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 		if _, err := url.Parse(astraAPIServerURL); err != nil {
 			return nil, diag.FromErr(fmt.Errorf("invalid Astra server API URL: %w", err))
 		}
+
+		astraAppsDomain = firstNonEmptyString(d.Get("astra_apps_domain").(string), os.Getenv("ASTRA_APPS_DOMAIN"), DefaultAstraAppsDomain)
 
 		streamingAPIServerURL := firstNonEmptyString(d.Get("streaming_api_url").(string), os.Getenv("ASTRA_STREAMING_API_URL"), DefaultStreamingAPIURL)
 		if _, err := url.Parse(astraAPIServerURL); err != nil {
@@ -209,13 +220,13 @@ func newRestClient(dbid string, providerVersion string, userAgent string, region
 	retryClient.RetryMax = 10
 	retryClient.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
 		// Never retry POST requests because of side effects
-		if resp.Request.Method == "POST" {
+		if err != nil || resp == nil || resp.Request.Method == "POST" {
 			return false, err
 		}
 		return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
 	}
 
-	serverURL := fmt.Sprintf("https://%s-%s.apps.astra.datastax.com/api/rest/", dbid, region)
+	serverURL := fmt.Sprintf("https://%s-%s.%s/api/rest/", dbid, region, astraAppsDomain)
 	restClient, err := astrarestapi.NewClient(serverURL, func(c *astrarestapi.Client) error {
 		c.Client = retryClient.StandardClient()
 		c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {

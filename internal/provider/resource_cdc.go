@@ -431,16 +431,15 @@ func getPulsarToken(ctx context.Context, pulsarCluster string, token string, org
 
 	pulsarTokenResponse, err := streamingClient.GetPulsarTokensByTenantWithResponse(ctx, tenantName, &tenantTokenParams)
 	if err != nil {
-		fmt.Println("Can't generate token", err)
-		diag.Errorf("Can't get pulsar token")
-		return "", err
+		return "", fmt.Errorf("failed to get pulsar token: %w", err)
+	} else if pulsarTokenResponse.StatusCode() > 299 {
+		return "", fmt.Errorf("failed to get pulsar token, status code: %d, message: %s", pulsarTokenResponse.StatusCode(), string(pulsarTokenResponse.Body))
 	}
 
 	var streamingTokens StreamingTokens
 	err = json.Unmarshal(pulsarTokenResponse.Body, &streamingTokens)
 	if err != nil {
-		fmt.Println("Can't deserialize", pulsarTokenResponse.Body)
-		return "", err
+		return "", fmt.Errorf("failed to read token response: %w", err)
 	}
 
 	tokenId := streamingTokens[0].Tokenid

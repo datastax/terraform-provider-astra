@@ -182,7 +182,10 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 		case astra.ACTIVE:
 			resp, err := restClient.CreateTable(ctx, keyspaceName, &tableParams, createJSON)
 			if err != nil {
-				b, _ := io.ReadAll(resp.Body)
+				b := []byte{}
+				if resp != nil {
+					b, _ = io.ReadAll(resp.Body)
+				}
 				return retry.NonRetryableError(fmt.Errorf("Error adding table (not retrying) err: %s,  body: %s", err, b))
 			} else if resp.StatusCode == 409 {
 				// DevOps API returns 409 for concurrent modifications, these need to be retried.
