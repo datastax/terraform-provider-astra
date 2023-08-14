@@ -145,7 +145,7 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 	}
 
 	token := meta.(astraClients).token
-	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
+	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, streamingClient, tenantName)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -231,7 +231,7 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 	}
 
 	token := meta.(astraClients).token
-	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
+	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, streamingClient, tenantName)
 	if err != nil {
 		diag.FromErr(err)
 	}
@@ -309,7 +309,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	pulsarCluster := getPulsarCluster("", cloudProvider, region, "")
 
 	token := meta.(astraClients).token
-	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
+	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, streamingClient, tenantName)
 	if err != nil {
 		diag.FromErr(err)
 	}

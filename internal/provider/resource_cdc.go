@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -110,7 +111,7 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 		return diag.FromErr(fmt.Errorf("failed to read current organization: %w", err))
 	}
 
-	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
+	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, streamingClient, tenantName)
 	if err != nil {
 		diag.FromErr(err)
 	}
@@ -145,7 +146,9 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 
 }
 
-type CDCResult []struct {
+type CDCStatusResponse []CDCStatus
+
+type CDCStatus struct {
 	OrgID           string    `json:"orgId"`
 	ClusterName     string    `json:"clusterName"`
 	Tenant          string    `json:"tenant"`
@@ -194,7 +197,7 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 		return diag.FromErr(fmt.Errorf("failed to read organization: %w", err))
 	}
 
-	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
+	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, streamingClient, tenantName)
 	if err != nil {
 		diag.FromErr(err)
 	}
@@ -211,7 +214,7 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 		return diag.Errorf("Error getting cdc config %s", body)
 	}
 
-	var cdcResult CDCResult
+	var cdcResult CDCStatusResponse
 	err = json.NewDecoder(getCDCResponse.Body).Decode(&cdcResult)
 	if err != nil {
 		return diag.FromErr(fmt.Errorf("failed to read CDC status: %w", err))
@@ -276,6 +279,9 @@ type StreamingTokens []struct {
 	Tokenid string `json:"tokenid"`
 }
 
+// cdcEnablementMutex forces only a one CDC enablement at a time to prevent most concurrency issues
+var cdcEnablementMutex sync.Mutex
+
 func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
@@ -293,14 +299,8 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
 	var org OrgId
-	bodyBuffer, err := io.ReadAll(orgBody.Body)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	err = json.Unmarshal(bodyBuffer, &org)
-	if err != nil {
-		fmt.Println("Can't deserialize", orgBody)
+	if err := json.NewDecoder(orgBody.Body).Decode(&org); err != nil {
+		return diag.FromErr(fmt.Errorf("failed to ready organization: %w", err))
 	}
 
 	cdcRequestJSON := astrastreaming.EnableCDCJSONRequestBody{
@@ -312,7 +312,7 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		TopicPartitions: topicPartitions,
 	}
 
-	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
+	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, streamingClient, tenantName)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -321,84 +321,82 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		XDataStaxPulsarCluster: pulsarCluster,
 		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
-
-	var enableClientResult *http.Response
-	retryCount := 0
-	for enableClientResult == nil || strings.HasPrefix(enableClientResult.Status, "401") {
-
-		if enableClientResult, err = streamingClientv3.EnableCDC(ctx, tenantName, &enableCDCParams, cdcRequestJSON); err != nil {
-			return diag.FromErr(fmt.Errorf("failed to enable CDC: %w", err))
-		}
-
-		if strings.HasPrefix(enableClientResult.Status, "2") {
-			bodyBuffer, err = io.ReadAll(enableClientResult.Body)
-			break
-		}
-		if retryCount > 0 {
-			fmt.Printf("failed to set up cdc with token %s for table %s", pulsarToken, table)
-			time.Sleep(20 * time.Second)
-		}
-		if retryCount > 6 {
-			return diag.Errorf("Could not enable CDC with token: %s", bodyBuffer)
-		}
-		retryCount = retryCount + 1
-
-		pulsarCluster, pulsarToken, err = prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		enableCDCParams = astrastreaming.EnableCDCParams{
-			XDataStaxPulsarCluster: pulsarCluster,
-			Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
-		}
-
-	}
-
 	getCDCParams := astrastreaming.GetCDCParams{
 		XDataStaxPulsarCluster: pulsarCluster,
 		Authorization:          fmt.Sprintf("Bearer %s", pulsarToken),
 	}
 
-	var cdcResult CDCResult
-	retryCount = 0
-	for cdcResult == nil || len(cdcResult) <= 0 {
-		getCDCResponse, err := streamingClientv3.GetCDC(ctx, tenantName, &getCDCParams)
-		if err != nil {
-			return diag.FromErr(err)
+	const maxRetries = 1
+	cdcEnablementMutex.Lock()
+	defer cdcEnablementMutex.Unlock()
+
+	for i := 0; i <= maxRetries; i++ {
+		if enableCDCResponse, err := streamingClientv3.EnableCDC(ctx, tenantName, &enableCDCParams, cdcRequestJSON); err != nil {
+			return diag.FromErr(fmt.Errorf("failed to enable CDC: %w", err))
+		} else if enableCDCResponse.StatusCode > 299 {
+			bodyBuffer, _ := io.ReadAll(enableCDCResponse.Body)
+			return diag.FromErr(fmt.Errorf("failed to enable CDC, status: %v, message: %s", enableCDCResponse.StatusCode, string(bodyBuffer)))
+		}
+
+		tflog.Info(ctx, fmt.Sprintf("waiting for CDC on keyspace: %s, table: %s", cdcRequestJSON.Keyspace, cdcRequestJSON.TableName))
+		time.Sleep(time.Second * 3)
+
+		if cdcStatus, err := waitCDCStatusReady(ctx, streamingClientv3, databaseId, keyspace, table, tenantName, getCDCParams); err != nil {
+			return diag.FromErr(fmt.Errorf("failed to check CDC status %w", err))
+		} else if cdcStatus != nil {
+			if err := resourceData.Set("connector_status", cdcStatus.CodStatus); err != nil {
+				return diag.FromErr(err)
+			}
+			if err := resourceData.Set("data_topic", cdcStatus.DataTopic); err != nil {
+				return diag.FromErr(err)
+			}
+			setCDCData(resourceData, fmt.Sprintf("%s/%s/%s/%s", databaseId, keyspace, table, tenantName))
+			return nil
+		}
+
+		tflog.Warn(ctx, fmt.Sprintf("CDC not ready after max wait time, remaining retries: %v", (maxRetries-i)))
+	}
+
+	return diag.FromErr(fmt.Errorf("failed to enable cdc with max retries for keyspace: %s, table: %s", keyspace, table))
+}
+
+// waitCDCStatusReady tries to wait until CDC becomes ready
+func waitCDCStatusReady(ctx context.Context, client *astrastreaming.ClientWithResponses,
+	databaseId, keyspace, table, streamingTenant string, params astrastreaming.GetCDCParams) (*CDCStatus, error) {
+	const CDCStatusActive = "Active"
+	const maxRetries = 10
+	const statusCheckInterval = time.Second * 6
+	for i := 0; i <= maxRetries; i++ {
+		if getCDCResponse, err := client.GetCDC(ctx, streamingTenant, &params); err != nil {
+			return nil, fmt.Errorf("failed to get CDC status request: %w", err)
 		} else if getCDCResponse.StatusCode > 299 {
-			bodyBuffer, err = io.ReadAll(getCDCResponse.Body)
-			return diag.Errorf("Error enabling client %s", string(bodyBuffer))
+			bodyBuffer, _ := io.ReadAll(getCDCResponse.Body)
+			tflog.Warn(ctx, fmt.Sprintf("failed to read CDC status, code: %v, message: %s", getCDCResponse.StatusCode, string(bodyBuffer)))
+		} else {
+			var cdcStatusResponse CDCStatusResponse
+			if err = json.NewDecoder(getCDCResponse.Body).Decode(&cdcStatusResponse); err != nil {
+				return nil, (fmt.Errorf("failed to read CDC response %w", err))
+			}
+			if status := getTableCDCStatus(databaseId, keyspace, table, cdcStatusResponse); status != nil && status.CodStatus == CDCStatusActive {
+				return status, nil
+			}
 		}
+		time.Sleep(statusCheckInterval)
+	}
+	return nil, nil
+}
 
-		if err = json.NewDecoder(getCDCResponse.Body).Decode(&cdcResult); err != nil {
-			return diag.FromErr(fmt.Errorf("Failed to read CDC response %w", err))
-		}
-
-		if retryCount > 0 {
-			fmt.Printf("failed to set up cdc with token %s for table %s", pulsarToken, table)
-			time.Sleep(20 * time.Second)
-		}
-		if retryCount > 6 {
-			return diag.Errorf("Could not enable CDC with token: %s", bodyBuffer)
+// getTableCDCStatus get the CDC status of a specific table
+func getTableCDCStatus(databaseID, keyspace, table string, cdcStatuses CDCStatusResponse) *CDCStatus {
+	for _, cdcStatus := range cdcStatuses {
+		if (databaseID == cdcStatus.DatabaseID) && (keyspace == cdcStatus.Keyspace) && (table == cdcStatus.DatabaseTable) {
+			return &cdcStatus
 		}
 	}
-
-	if err := resourceData.Set("connector_status", cdcResult[0].ConnectorStatus); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := resourceData.Set("data_topic", cdcResult[0].DataTopic); err != nil {
-		return diag.FromErr(err)
-	}
-
-	setCDCData(resourceData, fmt.Sprintf("%s/%s/%s/%s", databaseId, keyspace, table, tenantName))
-
-	// Step 3: create sink https://pulsar.apache.org/sink-rest-api/?version=2.8.0&apiversion=v3#operation/registerSink
-
 	return nil
 }
 
-func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId string, token string, org OrgId, err error, streamingClient *astrastreaming.ClientWithResponses, tenantName string) (string, string, error) {
+func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId string, token string, org OrgId, streamingClient *astrastreaming.ClientWithResponses, tenantName string) (string, string, error) {
 	databaseResourceData := schema.ResourceData{}
 	db, err := getDatabase(ctx, &databaseResourceData, client, databaseId)
 	if err != nil {
@@ -410,11 +408,11 @@ func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId 
 	fmt.Printf("%s", cloudProvider)
 
 	pulsarCluster := getPulsarCluster("", cloudProvider, *db.Info.Region, "")
-	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, err, streamingClient, tenantName)
+	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, streamingClient, tenantName)
 	return pulsarCluster, pulsarToken, err
 }
 
-func getPulsarToken(ctx context.Context, pulsarCluster string, token string, org OrgId, err error, streamingClient *astrastreaming.ClientWithResponses, tenantName string) (string, error) {
+func getPulsarToken(ctx context.Context, pulsarCluster string, token string, org OrgId, streamingClient *astrastreaming.ClientWithResponses, tenantName string) (string, error) {
 
 	tenantTokenParams := astrastreaming.GetPulsarTokensByTenantParams{
 		Authorization:          fmt.Sprintf("Bearer %s", token),
