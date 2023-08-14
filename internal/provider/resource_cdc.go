@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -98,17 +98,16 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 		return diag.FromErr(err)
 	}
 
-	orgBody, _ := client.GetCurrentOrganization(ctx)
-
-	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	orgResp, err := client.GetCurrentOrganization(ctx)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.FromErr(fmt.Errorf("failed to request current organization: %w", err))
 	}
 
-	err = json.Unmarshal(bodyBuffer, &org)
+	var org OrgId
+
+	err = json.NewDecoder(orgResp.Body).Decode(&org)
 	if err != nil {
-		fmt.Println("Can't deserialize", orgBody)
+		return diag.FromErr(fmt.Errorf("failed to read current organization: %w", err))
 	}
 
 	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
@@ -134,8 +133,8 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 	if err != nil {
 		diag.FromErr(err)
 	}
-	if !strings.HasPrefix(getDeleteCDCResponse.Status, "2") {
-		body, _ := ioutil.ReadAll(getDeleteCDCResponse.Body)
+	if getDeleteCDCResponse.StatusCode > 299 {
+		body, _ := io.ReadAll(getDeleteCDCResponse.Body)
 		return diag.Errorf("Error deleting cdc %s", body)
 	}
 
@@ -183,17 +182,16 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 		return diag.FromErr(err)
 	}
 
-	orgBody, _ := client.GetCurrentOrganization(ctx)
-
-	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	orgResp, err := client.GetCurrentOrganization(ctx)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.FromErr(fmt.Errorf("failed to request organization: %w", err))
 	}
 
-	err = json.Unmarshal(bodyBuffer, &org)
+	var org OrgId
+
+	err = json.NewDecoder(orgResp.Body).Decode(&org)
 	if err != nil {
-		fmt.Println("Can't deserialize", orgBody)
+		return diag.FromErr(fmt.Errorf("failed to read organization: %w", err))
 	}
 
 	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, err, streamingClient, tenantName)
@@ -207,19 +205,16 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 	}
 	getCDCResponse, err := streamingClientv3.GetCDC(ctx, tenantName, &getCDCParams)
 	if err != nil {
-		diag.FromErr(err)
-	}
-	if !strings.HasPrefix(getCDCResponse.Status, "2") {
-		body, _ := ioutil.ReadAll(getCDCResponse.Body)
+		diag.FromErr(fmt.Errorf("failed get CDC request: %w", err))
+	} else if getCDCResponse.StatusCode > 299 {
+		body, _ := io.ReadAll(getCDCResponse.Body)
 		return diag.Errorf("Error getting cdc config %s", body)
 	}
 
-	body, _ := ioutil.ReadAll(getCDCResponse.Body)
-
 	var cdcResult CDCResult
-	err = json.Unmarshal(body, &cdcResult)
+	err = json.NewDecoder(getCDCResponse.Body).Decode(&cdcResult)
 	if err != nil {
-		fmt.Println("Can't deserialize", body)
+		return diag.FromErr(fmt.Errorf("failed to read CDC status: %w", err))
 	}
 
 	for i := 0; i < len(cdcResult); i++ {
@@ -298,7 +293,7 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
 	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	bodyBuffer, err := io.ReadAll(orgBody.Body)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -331,14 +326,12 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 	retryCount := 0
 	for enableClientResult == nil || strings.HasPrefix(enableClientResult.Status, "401") {
 
-		enableClientResult, err = streamingClientv3.EnableCDC(ctx, tenantName, &enableCDCParams, cdcRequestJSON)
-
-		if err != nil {
-			return diag.FromErr(err)
+		if enableClientResult, err = streamingClientv3.EnableCDC(ctx, tenantName, &enableCDCParams, cdcRequestJSON); err != nil {
+			return diag.FromErr(fmt.Errorf("failed to enable CDC: %w", err))
 		}
 
 		if strings.HasPrefix(enableClientResult.Status, "2") {
-			bodyBuffer, err = ioutil.ReadAll(enableClientResult.Body)
+			bodyBuffer, err = io.ReadAll(enableClientResult.Body)
 			break
 		}
 		if retryCount > 0 {
@@ -373,14 +366,14 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		getCDCResponse, err := streamingClientv3.GetCDC(ctx, tenantName, &getCDCParams)
 		if err != nil {
 			return diag.FromErr(err)
-		}
-
-		if !strings.HasPrefix(getCDCResponse.Status, "2") {
-			bodyBuffer, err = ioutil.ReadAll(getCDCResponse.Body)
+		} else if getCDCResponse.StatusCode > 299 {
+			bodyBuffer, err = io.ReadAll(getCDCResponse.Body)
 			return diag.Errorf("Error enabling client %s", string(bodyBuffer))
 		}
-		bodyBuffer, err = ioutil.ReadAll(getCDCResponse.Body)
-		json.Unmarshal(bodyBuffer, &cdcResult)
+
+		if err = json.NewDecoder(getCDCResponse.Body).Decode(&cdcResult); err != nil {
+			return diag.FromErr(fmt.Errorf("Failed to read CDC response %w", err))
+		}
 
 		if retryCount > 0 {
 			fmt.Printf("failed to set up cdc with token %s for table %s", pulsarToken, table)

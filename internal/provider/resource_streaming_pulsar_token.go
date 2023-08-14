@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
@@ -137,7 +137,7 @@ func (r *StreamingPulsarTokenResource) Create(ctx context.Context, req resource.
 		)
 		return
 	} else if tokenHTTPResp.StatusCode >= 300 {
-		errorMsg, err := ioutil.ReadAll(tokenHTTPResp.Body)
+		errorMsg, err := io.ReadAll(tokenHTTPResp.Body)
 		if err != nil {
 			errorMsg = []byte(err.Error())
 		}

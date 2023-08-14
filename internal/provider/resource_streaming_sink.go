@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"regexp"
 	"strings"
 
@@ -136,17 +136,12 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 
 	pulsarCluster := getPulsarCluster("", cloudProvider, region, "")
 
-	orgBody, _ := client.GetCurrentOrganization(ctx)
+	orgResp, _ := client.GetCurrentOrganization(ctx)
 
 	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	err := json.NewDecoder(orgResp.Body).Decode(&org)
 	if err != nil {
 		return diag.FromErr(err)
-	}
-
-	err = json.Unmarshal(bodyBuffer, &org)
-	if err != nil {
-		fmt.Println("Can't deserialize", orgBody)
 	}
 
 	token := meta.(astraClients).token
@@ -228,7 +223,7 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 	orgBody, _ := client.GetCurrentOrganization(ctx)
 
 	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
+	bodyBuffer, err := io.ReadAll(orgBody.Body)
 
 	err = json.Unmarshal(bodyBuffer, &org)
 	if err != nil {
@@ -281,28 +276,28 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	topic := resourceData.Get("topic").(string)
 	autoAck := resourceData.Get("auto_ack").(bool)
 
-	orgBody, _ := client.GetCurrentOrganization(ctx)
-
-	var org OrgId
-	bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
-
-	err = json.Unmarshal(bodyBuffer, &org)
+	orgResp, err := client.GetCurrentOrganization(ctx)
 	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
+		return diag.FromErr(fmt.Errorf("failed to request organization: %w", err))
 	}
 
-	streamingClustersResponse, _ := streamingClient.GetPulsarClustersWithResponse(ctx, org.ID)
+	var org OrgId
+	if err := json.NewDecoder(orgResp.Body).Decode(&org); err != nil {
+		return diag.FromErr(fmt.Errorf("failed to read organization: %w", err))
+	}
+
+	streamingClustersResponse, err := streamingClient.GetPulsarClustersWithResponse(ctx, org.ID)
+	if err != nil {
+		return diag.FromErr(fmt.Errorf("failed to request pulsar clusters: %w", err))
+	}
 
 	var streamingClusters StreamingClusters
-	//bodyBuffer, err := ioutil.ReadAll(orgBody.Body)
-
 	err = json.Unmarshal(streamingClustersResponse.Body, &streamingClusters)
 	if err != nil {
-		fmt.Println("Can't deserislize", orgBody)
+		return diag.FromErr(fmt.Errorf("failed to read pulsar clusters: %w", err))
 	}
 
 	for i := 0; i < len(streamingClusters); i++ {
-		//fmt.Printf("body %s", streamingClusters[i].ClusterName)
 		if streamingClusters[i].CloudProvider == cloudProvider {
 			if streamingClusters[i].CloudRegion == region {
 				// TODO - validation
@@ -333,7 +328,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 
 	builtinSinksResponse, err := streamingClientv3.GetBuiltInSinks(ctx, &getBuiltinSinkParams)
 	if err != nil {
-		diag.FromErr(err)
+		return diag.FromErr(err)
 	}
 
 	type SinkConfig []struct {
@@ -346,12 +341,11 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	}
 
 	var builtinSinks []map[string]interface{}
-
-	bodyBuffer, err = ioutil.ReadAll(builtinSinksResponse.Body)
-	json.Unmarshal(bodyBuffer, &builtinSinks)
+	if err = json.NewDecoder(builtinSinksResponse.Body).Decode(&builtinSinks); err != nil {
+		return diag.FromErr(fmt.Errorf("failed to read builtin sinks response: %w", err))
+	}
 
 	var sinkConfig map[string]interface{}
-
 	for index := range builtinSinks {
 		for key, element := range builtinSinks[index] {
 			if key == "name" {
@@ -409,11 +403,10 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	if err != nil {
 		diag.FromErr(err)
 	}
-	if !strings.HasPrefix(sinkCreationResponse.Status, "2") {
-		bodyBuffer, err = ioutil.ReadAll(sinkCreationResponse.Body)
+	if sinkCreationResponse.StatusCode > 299 {
+		bodyBuffer, _ := io.ReadAll(sinkCreationResponse.Body)
 		return diag.Errorf("Error creating sink %s", bodyBuffer)
 	}
-	bodyBuffer, err = ioutil.ReadAll(sinkCreationResponse.Body)
 
 	setStreamingSinkData(resourceData, tenantName, topic)
 
