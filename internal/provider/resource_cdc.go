@@ -85,6 +85,9 @@ func resourceCDC() *schema.Resource {
 	}
 }
 
+// cdcDisableMutex forces only a one CDC disable at a time to prevent most concurrency issues
+var cdcDisableMutex sync.Mutex
+
 func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
@@ -129,6 +132,10 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 		TableName:       table,
 		TopicPartitions: resourceData.Get("topic_partitions").(int),
 	}
+
+	cdcDisableMutex.Lock()
+	defer cdcDisableMutex.Unlock()
+
 	getDeleteCDCResponse, err := streamingClientv3.DeleteCDC(ctx, tenantName, &deleteCDCParams, deleteRequestBody)
 
 	if err != nil {
@@ -139,11 +146,15 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 		return diag.Errorf("Error deleting cdc %s", body)
 	}
 
+	// We don't have a good way to verify that the delete operation completed, so just wait a few seconds
+	// before the next delete is performed.
+	const cdcDeleteWaitTime = time.Second * 3
+	time.Sleep(cdcDeleteWaitTime)
+
 	// Deleted. Remove from state.
 	resourceData.SetId("")
 
 	return nil
-
 }
 
 type CDCStatusResponse []CDCStatus
