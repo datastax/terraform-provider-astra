@@ -144,8 +144,7 @@ func resourcePrivateLinkRead(ctx context.Context, d *schema.ResourceData, meta i
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	if string(*privateLinks.ServiceName) == serviceName {
+	if privateLinks != nil && string(*privateLinks.ServiceName) == serviceName {
 		if err := setPrivateLinkData(d, databaseID, datacenterID, serviceName, privateLinks.AllowedPrincipals); err != nil {
 			return diag.FromErr(err)
 		}
