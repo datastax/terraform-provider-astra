@@ -13,6 +13,7 @@ setup_env() {
     TEST_ENV_FILE="${SCRIPT_PATH}/${DEFAULT_TEST_ENV_FILE}"
   fi
   if [ -f "$TEST_ENV_FILE" ]; then
+    echo "loading config from file $TEST_ENV_FILE"
     source "$TEST_ENV_FILE"
   else
     echo "file '$TEST_ENV_FILE' not found, some tests may be skipped"

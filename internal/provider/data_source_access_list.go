@@ -2,7 +2,10 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -82,28 +85,32 @@ func dataSourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta 
 }
 
 func listAccessList(ctx context.Context, client *astra.ClientWithResponses, databaseID string) (*astra.AccessListResponse, error) {
-	resp, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
+	dbResp, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
 	if err != nil {
 		return nil, err
 	}
 
-	db := resp.JSON200
+	db := dbResp.JSON200
 	if db == nil {
-		return nil, fmt.Errorf("error fetching database: %s", string(resp.Body))
+		return nil, fmt.Errorf("error fetching database: %s", string(dbResp.Body))
 	}
 
-	// If the database is terminated then the private links have been deleted.
+	// If the database is terminated then the access list has been deleted.
 	if db.Status == astra.TERMINATING || db.Status == astra.TERMINATED {
 		return nil, nil
 	}
 
-	alResponse, err := client.GetAccessListForDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
-
+	resp, err := client.GetAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID))
 	if err != nil {
 		return nil, err
+	} else if resp.StatusCode > 299 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code: %v, message: '%s'", resp.StatusCode, body)
+	}
+	accessList := astra.AccessListResponse{}
+	if err := json.NewDecoder(resp.Body).Decode(&accessList); err != nil {
+		return nil, fmt.Errorf("failed to parse access list response: %w", err)
 	}
 
-	accessListOutput := alResponse.JSON200
-
-	return accessListOutput, err
+	return &accessList, nil
 }
