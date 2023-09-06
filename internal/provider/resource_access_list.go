@@ -168,7 +168,7 @@ func resourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta in
 		return diag.FromErr(err)
 	}
 
-	if string(*accessList.DatabaseId) == databaseID {
+	if accessList != nil && string(*accessList.DatabaseId) == databaseID {
 		if err := setAccessListData(d, accessList); err != nil {
 			return diag.FromErr(err)
 		}

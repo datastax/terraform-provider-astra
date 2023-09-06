@@ -147,7 +147,7 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 		retryClient.RetryMax = 10
 		retryClient.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
 			// Never retry POST requests because of side effects
-			if resp.Request.Method == "POST" {
+			if resp != nil && resp.Request.Method == "POST" {
 				return false, err
 			}
 			return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
