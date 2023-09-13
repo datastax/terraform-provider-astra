@@ -75,6 +75,7 @@ resource "astra_streaming_topic" "streaming_topic" {
 ### Read-Only
 
 - `id` (String) Full path to the topic
+- `topic_fqn` (String) Fully qualified name of the topic, for example 'persistent://mytenant/namespace1/mytopic'
 
 <a id="nestedatt--schema"></a>
 ### Nested Schema for `schema`

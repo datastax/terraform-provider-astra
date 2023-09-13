@@ -50,7 +50,7 @@ resource "astra_streaming_sink" "streaming_sink" {
   region                = "us-central1"
   cloud_provider        = astra_streaming_tenant.streaming_tenant.cloud_provider
   namespace             = astra_streaming_namespace.streaming_namespace.namespace
-  topic                 = astra_streaming_topic.streaming_topic.topic
+  topic                 = astra_streaming_topic.streaming_topic.topic_fqn
   auto_ack              = true
   parallelism           = 1
   retain_ordering       = false
