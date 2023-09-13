@@ -55,6 +55,7 @@ type StreamingTopicResourceModel struct {
 	NumPartitions      types.Int64           `tfsdk:"num_partitions" json:"num_partitions,omitempty"`
 	DeletionProtection types.Bool            `tfsdk:"deletion_protection" json:"deletion_protection,omitempty"`
 	Schema             *StreamingTopicSchema `tfsdk:"schema" json:"schema,omitempty"`
+	TopicFQN           types.String          `tfsdk:"topic_fqn" json:"topic_fqn,omitempty"`
 }
 
 type StreamingTopicSchema struct {
@@ -147,7 +148,6 @@ func (r *StreamingTopicResource) Schema(_ context.Context, _ resource.SchemaRequ
 			"topic": schema.StringAttribute{
 				Description: "Name of the topic",
 				Optional:    true,
-				// Default:     stringdefault.StaticString("1y"),
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -204,6 +204,10 @@ func (r *StreamingTopicResource) Schema(_ context.Context, _ resource.SchemaRequ
 						ElementType: types.StringType,
 					},
 				},
+			},
+			"topic_fqn": schema.StringAttribute{
+				Description: "Fully qualified name of the topic, for example 'persistent://mytenant/namespace1/mytopic'",
+				Computed:    true,
 			},
 		},
 	}
@@ -319,6 +323,7 @@ func (r *StreamingTopicResource) Create(ctx context.Context, req resource.Create
 		resp.Diagnostics.Append(HTTPResponseDiagWarn(respHTTP, err, "Failed to update topic schema")...)
 	}
 
+	plan.TopicFQN = types.StringValue(plan.getTopicFQN())
 	plan.ID = types.StringValue(plan.generateStreamingTopicID())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -429,6 +434,7 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 		}
 	}
 
+	state.TopicFQN = types.StringValue(state.getTopicFQN())
 	state.ID = types.StringValue(state.generateStreamingTopicID())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -446,6 +452,7 @@ func (r *StreamingTopicResource) Update(ctx context.Context, req resource.Update
 		plan.Tenant = plan.TenantName
 	}
 
+	plan.TopicFQN = types.StringValue(plan.getTopicFQN())
 	plan.ID = types.StringValue(plan.generateStreamingTopicID())
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -547,22 +554,27 @@ func (r *StreamingTopicResource) ImportState(ctx context.Context, req resource.I
 }
 
 // setStreamingTopicID formats the ID string based on the fields (cluster, tenant, etc) in the model
-func (t *StreamingTopicResourceModel) generateStreamingTopicID() string {
+func (t *StreamingTopicResourceModel) getTopicFQN() string {
 	persistence := "non-persistent"
 	if t.Persistent.ValueBool() {
 		persistence = "persistent"
-	}
-	partitioned := ""
-	if t.Partitioned.ValueBool() {
-		partitioned = "-partition"
 	}
 	tenant := t.Tenant.ValueString()
 	if tenant == "" {
 		tenant = t.TenantName.ValueString()
 	}
+	return fmt.Sprintf("%s://%s/%s/%s", persistence,
+		tenant, t.Namespace.ValueString(), t.Topic.ValueString())
+}
 
-	return fmt.Sprintf("%s:%s://%s/%s/%s%s", t.Cluster.ValueString(), persistence,
-		tenant, t.Namespace.ValueString(), t.Topic.ValueString(), partitioned)
+// setStreamingTopicID formats the ID string based on the fields (cluster, tenant, etc) in the model
+func (t *StreamingTopicResourceModel) generateStreamingTopicID() string {
+	partitioned := ""
+	if t.Partitioned.ValueBool() {
+		partitioned = "-partition"
+	}
+	topicFqn := t.getTopicFQN()
+	return fmt.Sprintf("%s:%s%s", t.Cluster.ValueString(), topicFqn, partitioned)
 }
 
 var (
@@ -587,7 +599,7 @@ func parseStreamingTopicID(id string) (*StreamingTopicResourceModel, error) {
 	model.Namespace = types.StringValue(parts[4])
 	topicName := parts[5]
 	if strings.HasSuffix(topicName, "-partition") {
-		topicName = strings.TrimRight(topicName, "-partition")
+		topicName = strings.TrimSuffix(topicName, "-partition")
 		model.Partitioned = types.BoolValue(true)
 	} else {
 		model.Partitioned = types.BoolValue(false)

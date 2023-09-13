@@ -79,6 +79,7 @@ func TestParseStreamingTopicID(t *testing.T) {
 	assert.Equal(t, "my-cluster", topic.Cluster.ValueString())
 	assert.True(t, topic.Persistent.ValueBool())
 	assert.False(t, topic.Partitioned.ValueBool())
+	assert.Equal(t, "persistent://my-tenant/my-namespace/topic1", topic.getTopicFQN())
 
 	topicID = "my-cluster:non-persistent://my-tenant/my-namespace/topic1-partition"
 	topic, err = parseStreamingTopicID(topicID)
@@ -90,4 +91,5 @@ func TestParseStreamingTopicID(t *testing.T) {
 	assert.Equal(t, "my-cluster", topic.Cluster.ValueString())
 	assert.False(t, topic.Persistent.ValueBool())
 	assert.True(t, topic.Partitioned.ValueBool())
+	assert.Equal(t, "non-persistent://my-tenant/my-namespace/topic1", topic.getTopicFQN())
 }
