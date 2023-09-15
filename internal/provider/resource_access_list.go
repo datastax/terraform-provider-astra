@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/datastax/astra-client-go/v2/astra"
@@ -35,7 +34,7 @@ func resourceAccessList() *schema.Resource {
 			"addresses": {
 				Description: "List of address requests that should have access to database endpoints.",
 				Type:        schema.TypeList,
-				Required:    true,
+				Optional:    true,
 				ForceNew:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -100,7 +99,6 @@ func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta 
 		},
 	)
 	if err != nil {
-		fmt.Print(err)
 		return diag.FromErr(err)
 	} else if updResp.StatusCode() >= 400 {
 		return diag.Errorf("error updating access list configuration: %d\n%s", updResp.StatusCode(), updResp.Body)
@@ -198,8 +196,6 @@ func setAccessListData(d *schema.ResourceData, accessList *astra.AccessListRespo
 		}
 		requests = append(requests, reqMap)
 	}
-	fmt.Printf("Setting address request map on resource data:\n%v\n", requests)
-	// make a set out of the map of requests
 
 	if err := d.Set("addresses", requests); err != nil {
 		return err

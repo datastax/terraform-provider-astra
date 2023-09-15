@@ -36,11 +36,11 @@ resource "astra_access_list" "example" {
 
 ### Required
 
-- `addresses` (Block List, Min: 1) List of address requests that should have access to database endpoints. (see [below for nested schema](#nestedblock--addresses))
 - `database_id` (String) The ID of the Astra database.
 
 ### Optional
 
+- `addresses` (Block List) List of address requests that should have access to database endpoints. (see [below for nested schema](#nestedblock--addresses))
 - `enabled` (Boolean) Public access restrictions enabled or disabled
 
 ### Read-Only
