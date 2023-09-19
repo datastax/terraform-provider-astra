@@ -23,7 +23,9 @@
             "mode": "debug",
             // this assumes your workspace is the root of the repo
             "program": "${workspaceFolder}",
-            "env": {},
+            "env": {
+                "ASTRA_API_TOKEN": "<mytoken>",
+            },
             "args": [
                 // pass the debug flag for reattaching
                 "-debug",

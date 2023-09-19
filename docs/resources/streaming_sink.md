@@ -90,6 +90,7 @@ resource "astra_streaming_sink" "streaming_sink" {
 
 ### Optional
 
+- `archive` (String) Name of the sink archive type to use. Defaults to the value of sink_name.  Must be formatted as a URL, e.g. 'builtin://jdbc-clickhouse
 - `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy this streaming sink. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
 
 ### Read-Only
