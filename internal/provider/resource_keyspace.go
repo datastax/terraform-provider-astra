@@ -71,7 +71,7 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 
 		// Status code > 200 NOT retried
 		if res.StatusCode() > 200 || res.JSON200 == nil {
-			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database: %s", string(res.Body)))
+			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database, status code: %d, message %s", res.StatusCode(), string(res.Body)))
 		}
 
 		// Success fetching database
@@ -163,7 +163,7 @@ func resourceKeyspaceDelete(ctx context.Context, d *schema.ResourceData, meta in
 
 		// Status code > 200 NOT retried
 		if res.StatusCode() > 200 || res.JSON200 == nil {
-			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database: %s", string(res.Body)))
+			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database, status code: %d, message %s", res.StatusCode(), string(res.Body)))
 		}
 
 		// Success fetching database

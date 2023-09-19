@@ -170,7 +170,7 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 
 		// Status code > 200 NOT retried
 		if res.StatusCode() > 200 || res.JSON200 == nil {
-			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database: %s", string(res.Body)))
+			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database, status code: %d, message %s", res.StatusCode(), string(res.Body)))
 		}
 
 		// Success fetching database
@@ -186,7 +186,7 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 				if resp != nil {
 					b, _ = io.ReadAll(resp.Body)
 				}
-				return retry.NonRetryableError(fmt.Errorf("Error adding table (not retrying) err: %s,  body: %s", err, b))
+				return retry.NonRetryableError(fmt.Errorf("error adding table (not retrying) err: %s,  body: %s", err, b))
 			} else if resp.StatusCode == 409 {
 				// DevOps API returns 409 for concurrent modifications, these need to be retried.
 				b, _ := io.ReadAll(resp.Body)

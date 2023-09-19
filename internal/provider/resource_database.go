@@ -339,7 +339,7 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 
 		// All other status codes > 200 NOT retried
 		if res.StatusCode() > http.StatusOK || res.JSON200 == nil {
-			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database: %s", string(res.Body)))
+			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database, status code: %d, message %s", res.StatusCode(), string(res.Body)))
 		}
 
 		// Return when the database is in a TERMINATED state
@@ -489,7 +489,7 @@ func waitForDatabaseAndUpdateResource(ctx context.Context, resourceData *schema.
 
 		// Status code > 200 NOT retried
 		if res.StatusCode() > http.StatusOK || res.JSON200 == nil {
-			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database: %s", string(res.Body)))
+			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database, status code: %d, message %s", res.StatusCode(), string(res.Body)))
 		}
 
 		// Success fetching database
