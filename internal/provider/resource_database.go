@@ -22,6 +22,10 @@ var availableCloudProviders = []string{
 	"azure",
 }
 
+var availableDbTypes = []string{
+	"vector",
+}
+
 var databaseCreateTimeout = time.Minute * 40
 var databaseReadTimeout = time.Minute * 5
 var databaseDeleteTimeout = time.Minute * 20
@@ -85,6 +89,13 @@ func resourceDatabase() *schema.Resource {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,
+			},
+			"db_type": {
+				Description:  "Database type. Currently only `vector` is supported. Omit this optional field if you want a regular severless database.",
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.StringInSlice(availableDbTypes, false),
 			},
 			// Computed
 			"owner_id": {
@@ -164,6 +175,7 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 	keyspace := resourceData.Get("keyspace").(string)
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 	regions := resourceData.Get("regions").([]interface{})
+	dbType := resourceData.Get("db_type").(string)
 
 	if len(regions) < 1 {
 		return diag.Errorf("\"region\" array must have at least 1 region specified")
@@ -184,14 +196,19 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 		}
 	}
 
-	resp, err := client.CreateDatabaseWithResponse(ctx, astra.CreateDatabaseJSONRequestBody{
+	createDbRequest := astra.CreateDatabaseJSONRequestBody{
 		Name:          name,
 		Keyspace:      keyspace,
 		CloudProvider: astra.CloudProvider(cloudProvider),
 		CapacityUnits: 1,
 		Region:        region,
 		Tier:          astra.Tier("serverless"),
-	})
+	}
+	// if Vector DB was requested, add that to the request
+	if len(dbType) > 0 {
+		createDbRequest.DbType = (*astra.DatabaseInfoCreateDbType)(&dbType)
+	}
+	resp, err := client.CreateDatabaseWithResponse(ctx, createDbRequest)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -563,6 +580,9 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 		}
 		flatDB["regions"] = regions
 		flatDB["datacenters"] = datacenters
+	}
+	if db.Info.DbType != nil {
+		flatDB["db_type"] = *db.Info.DbType
 	}
 	return flatDB
 }

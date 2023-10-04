@@ -97,8 +97,8 @@ github.com/cloudflare/circl v1.3.3 h1:fE/Qz0QdIGqeWfnwq0RE0R7MI51s0M2E4Ga9kq5AEM
 github.com/cloudflare/circl v1.3.3/go.mod h1:5XYMA4rFBvNIrhs50XuiBJ15vF2pZn4nnUKZrLbUZFA=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
-github.com/datastax/astra-client-go/v2 v2.2.50-0.20230626192203-43de11466bf8 h1:lcjdcx7OmSmsXhuD7400+P8WYXGM4Q5y9gw61POOq58=
-github.com/datastax/astra-client-go/v2 v2.2.50-0.20230626192203-43de11466bf8/go.mod h1:zxXWuqDkYia7PzFIL3T7RmjChc9LN81UnfI2yB4kE7M=
+github.com/datastax/astra-client-go/v2 v2.2.50 h1:GEKSQTphbEz0Qe29Uyl2yxs1FuN9N0ID4gXLsy4HuH0=
+github.com/datastax/astra-client-go/v2 v2.2.50/go.mod h1:zxXWuqDkYia7PzFIL3T7RmjChc9LN81UnfI2yB4kE7M=
 github.com/datastax/pulsar-admin-client-go v0.0.0-20230707040954-1a4745e07587 h1:3jv+O0hWcz3oj3sZ9/Ov9/m1Vaqx8Ql8jp5ZeA13O5A=
 github.com/datastax/pulsar-admin-client-go v0.0.0-20230707040954-1a4745e07587/go.mod h1:guL8YZ5gJINN+h5Kmja1AnuzhxLU3sHQL8o/8HYLtqk=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
