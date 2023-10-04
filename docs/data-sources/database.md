@@ -32,6 +32,7 @@ data "astra_database" "db" {
 - `cqlsh_url` (String) URL for cqlsh web
 - `data_endpoint_url` (String) REST API URL
 - `datacenters` (Map of String) Map of Datacenter IDs. The map key is "cloud_provider.region". Example: "GCP.us-east4".
+- `db_type` (String) Database Type. Only 'vector' is supported. For serverless, this field will be omitted
 - `grafana_url` (String) URL for the grafana dashboard for this database
 - `graphql_url` (String) Graphql URL
 - `id` (String) The ID of this resource.

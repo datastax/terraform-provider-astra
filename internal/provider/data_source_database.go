@@ -114,6 +114,11 @@ func dataSourceDatabase() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"db_type": {
+				Description: "Database Type. Only 'vector' is supported. For serverless, this field will be omitted",
+				Type:        schema.TypeString,
+				Computed:    true,
+			},
 		},
 	}
 }
