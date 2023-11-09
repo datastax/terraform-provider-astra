@@ -5,7 +5,7 @@ resource "random_pet" "pet_name" {}
 resource "astra_database" "example_db" {
   # Required
   name           = substr("my-database-${random_pet.pet_name.id}", 0, 50)
-  keyspace       = "example_keyspace" # 48 characters max
+  keyspace       = "example_keyspace" # optional, 48 characters max
   cloud_provider = "gcp"
   regions        = ["us-central1"]
 

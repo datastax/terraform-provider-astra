@@ -57,7 +57,7 @@ func resourceDatabase() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be at least 2 characters"),
 			},
 			"cloud_provider": {
 				Description:      "The cloud provider to launch the database. (Currently supported: aws, azure, gcp)",
@@ -78,7 +78,7 @@ func resourceDatabase() *schema.Resource {
 			},
 			// Optional
 			"keyspace": {
-				Description:      "Initial keyspace name. For additional keyspaces, use the astra_keyspace resource. If omitted, Astra will use its default, currently 'default_keysapce'",
+				Description:      "Initial keyspace name. For additional keyspaces, use the astra_keyspace resource. If omitted, Astra will use its default, currently `default_keyspace`",
 				Type:             schema.TypeString,
 				Optional:         true,
 				ForceNew:         true,
