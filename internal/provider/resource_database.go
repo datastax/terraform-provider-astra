@@ -59,13 +59,6 @@ func resourceDatabase() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
-			"keyspace": {
-				Description:      "Initial keyspace name. For additional keyspaces, use the astra_keyspace resource.",
-				Type:             schema.TypeString,
-				Required:         true,
-				ForceNew:         true,
-				ValidateDiagFunc: validateKeyspace,
-			},
 			"cloud_provider": {
 				Description:      "The cloud provider to launch the database. (Currently supported: aws, azure, gcp)",
 				Type:             schema.TypeString,
@@ -84,6 +77,13 @@ func resourceDatabase() *schema.Resource {
 				},
 			},
 			// Optional
+			"keyspace": {
+				Description:      "Initial keyspace name. For additional keyspaces, use the astra_keyspace resource. If omitted, Astra will use its default, currently 'default_keysapce'",
+				Type:             schema.TypeString,
+				Optional:         true,
+				ForceNew:         true,
+				ValidateDiagFunc: validateKeyspace,
+			},
 			"deletion_protection": {
 				Description: "Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.",
 				Type:        schema.TypeBool,
@@ -198,11 +198,14 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 
 	createDbRequest := astra.CreateDatabaseJSONRequestBody{
 		Name:          name,
-		Keyspace:      keyspace,
 		CloudProvider: astra.CloudProvider(cloudProvider),
 		CapacityUnits: 1,
 		Region:        region,
 		Tier:          astra.Tier("serverless"),
+	}
+	// if keysapce was specified, add it to the request
+	if len(keyspace) > 0 {
+		createDbRequest.Keyspace = &keyspace
 	}
 	// if Vector DB was requested, add that to the request
 	if len(dbType) > 0 {
