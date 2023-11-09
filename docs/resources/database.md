@@ -20,7 +20,7 @@ resource "random_pet" "pet_name" {}
 resource "astra_database" "example_db" {
   # Required
   name           = substr("my-database-${random_pet.pet_name.id}", 0, 50)
-  keyspace       = "example_keyspace" # 48 characters max
+  keyspace       = "example_keyspace" # optional, 48 characters max
   cloud_provider = "gcp"
   regions        = ["us-central1"]
 
@@ -71,7 +71,7 @@ output "cqlsh_url" {
 
 - `db_type` (String) Database type. Currently only `vector` is supported. Omit this optional field if you want a regular severless database.
 - `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
-- `keyspace` (String) Initial keyspace name. For additional keyspaces, use the astra_keyspace resource. If omitted, Astra will use its default, currently 'default_keysapce'
+- `keyspace` (String) Initial keyspace name. For additional keyspaces, use the astra_keyspace resource. If omitted, Astra will use its default, currently `default_keyspace`
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
