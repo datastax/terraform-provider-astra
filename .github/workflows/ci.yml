@@ -36,7 +36,7 @@ jobs:
 
     - name: Uncommitted changes check
       if: ${{ steps.doc_gen.outputs.uncommitted_files != 0 }}
-      uses: actions/github-script@v6
+      uses: actions/github-script@v7
       with:
         script: |
           core.setFailed('tfplugindocs generated uncommitted doc changes. Please run 'make docs' and add doc changes to your commits.')
