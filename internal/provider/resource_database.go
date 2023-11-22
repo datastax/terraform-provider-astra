@@ -28,7 +28,7 @@ var availableDbTypes = []string{
 
 var databaseCreateTimeout = time.Minute * 40
 var databaseReadTimeout = time.Minute * 5
-var databaseDeleteTimeout = time.Minute * 20
+var databaseDeleteTimeout = time.Minute * 40
 var databaseUpdateTimeout = time.Minute * 40
 
 func resourceDatabase() *schema.Resource {
@@ -321,6 +321,11 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 		if resp.StatusCode() == http.StatusNotFound {
 			alreadyDeleted = true
 			return nil
+		}
+
+		// If the database is in Maintenance state, it will return a 409. We can retry this
+		if resp.StatusCode() == http.StatusConflict {
+			return retry.RetryableError(fmt.Errorf("Unable to terminate database %s. %s", databaseID, string(resp.Body)))
 		}
 
 		// All other 4XX status codes are NOT retried
