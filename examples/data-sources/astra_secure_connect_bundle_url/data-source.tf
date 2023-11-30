@@ -2,6 +2,10 @@
 data "astra_secure_connect_bundle_url" "scb" {
   database_id = "f9f4b1e0-4c05-451e-9bba-d631295a7f73"
 }
+// Output for SCB reference
+output "scb" {
+  value = data.astra_secure_connect_bundle_url.scb.secure_bundles[0].url
+}
 
 // For mult-DC databases, specify the datacenter ID
 // Example 1: Hard-coded IDs
@@ -19,6 +23,16 @@ data "astra_secure_connect_bundle_url" "scb2" {
 data "astra_secure_connect_bundle_url" "scb3" {
   database_id   = "f9f4b1e0-4c05-451e-9bba-d631295a7f73"
   datacenter_id = "f9f4b1e0-4c05-451e-9bba-d631295a7f73-3"
+}
+// Output for SCB reference
+output "scb1" {
+  value = data.astra_secure_connect_bundle_url.scb1.secure_bundles[0].url
+}
+output "scb2" {
+  value = data.astra_secure_connect_bundle_url.scb2.secure_bundles[0].url
+}
+output "scb3" {
+  value = data.astra_secure_connect_bundle_url.scb3.secure_bundles[0].url
 }
 
 // Example 2: Referenced IDs
@@ -48,4 +62,14 @@ data "astra_secure_connect_bundle_url" "scb2" {
 data "astra_secure_connect_bundle_url" "scb3" {
   database_id   = astra_database.mydb.id
   datacenter_id = astra_database.mydb.datacenters["${astra_database.mydb.cloud_provider}.${astra_database.mydb.regions[2]}"]
+}
+// Output for SCB reference
+output "scb1" {
+  value = data.astra_secure_connect_bundle_url.scb1.secure_bundles[0].url
+}
+output "scb2" {
+  value = data.astra_secure_connect_bundle_url.scb2.secure_bundles[0].url
+}
+output "scb3" {
+  value = data.astra_secure_connect_bundle_url.scb3.secure_bundles[0].url
 }
