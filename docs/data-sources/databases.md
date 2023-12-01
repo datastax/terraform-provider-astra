@@ -28,7 +28,7 @@ output "existing_dbs" {
 ### Optional
 
 - `cloud_provider` (String) The cloud provider
-- `status` (String) Status flter. Only return databases with matching status, if supplied. Otherwise return all databases matching other requirements
+- `status` (String) Status filter. Only return databases with matching status, if supplied. Otherwise return all databases matching other requirements
 
 ### Read-Only
 
