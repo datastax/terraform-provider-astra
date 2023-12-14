@@ -1,6 +1,6 @@
 module github.com/datastax/terraform-provider-astra/v2
 
-go 1.18
+go 1.20
 
 require (
 	github.com/datastax/astra-client-go/v2 v2.2.52
