@@ -148,8 +148,11 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	if strings.HasSuffix(streamingAPIServerURL, "/") {
 		pulsarAdminPath = strings.TrimPrefix(pulsarAdminPath, "/")
 	}
-	// TODO: when we switch to go 1.19, this should use url.JoinPath
-	streamingAPIServerURLPulsarAdmin := streamingAPIServerURL + pulsarAdminPath
+	streamingAPIServerURLPulsarAdmin, err := url.JoinPath(streamingAPIServerURL, pulsarAdminPath)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to create Pulsar admin server API URL", err.Error())
+		return
+	}
 	if _, err := url.Parse(streamingAPIServerURLPulsarAdmin); err != nil {
 		resp.Diagnostics.AddError("invalid Pulsar admin server API URL", err.Error())
 		return
