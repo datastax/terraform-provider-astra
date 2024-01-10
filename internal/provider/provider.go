@@ -72,6 +72,9 @@ func NewSDKProvider(version string) func() *schema.Provider {
 				"astra_roles":                     dataSourceRoles(),
 				"astra_users":                     dataSourceUsers(),
 				"astra_streaming_tenant_tokens":   dataSourceStreamingTenantTokens(),
+				"astra_customer_keys":             dataSourceCustomerKeys(),
+				"astra_customer_key":              dataSourceCustomerKey(),
+				"astra_cloud_accounts":            dataSourceCloudAccounts(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
 				"astra_database":              resourceDatabase(),
@@ -85,6 +88,7 @@ func NewSDKProvider(version string) func() *schema.Provider {
 				"astra_streaming_tenant":      resourceStreamingTenant(),
 				"astra_streaming_sink":        resourceStreamingSink(),
 				"astra_table":                 resourceTable(),
+				"astra_customer_key":          resourceCustomerKey(),
 			},
 			Schema: map[string]*schema.Schema{
 				"token": {

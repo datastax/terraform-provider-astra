@@ -36,7 +36,7 @@ func dataSourceDatabase() *schema.Resource {
 				Computed:    true,
 			},
 			"organization_id": {
-				Description: "Ordg id (system generated)",
+				Description: "Organization id (system generated)",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
