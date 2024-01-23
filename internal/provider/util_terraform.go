@@ -31,7 +31,7 @@ func CompareTerraformAttrToString(attr attr.Value, s string) bool {
 }
 
 // MergeTerraformObjects combines two Terraform Objects replacing any null or unknown attribute values in `old` with
-// matching attributes from `new`.  Object type attributes are handled recursively to avoid overriding existing
+// matching attributes from `new`.  Object type attributes are handled recursively to avoid overwriting existing
 // nested attributes in the old Object. Full type information must be specified.
 //
 // The reason for this function is to handle situations where a remote resource was created but not all configuration
@@ -77,6 +77,14 @@ func MergeTerraformObjects(old, new types.Object, attributeTypes map[string]attr
 				return old, diags
 			}
 			attributes[name] = newObjValue
+			continue
+		} else if _, ok := oldValue.(basetypes.MapValue); ok {
+			newMapValue, ok := newValue.(basetypes.MapValue)
+			if !ok {
+				diags.AddWarning("Missing type information for attribute "+name, "No type information found when merging objects")
+				continue
+			}
+			attributes[name] = newMapValue
 			continue
 		}
 
