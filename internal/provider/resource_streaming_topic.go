@@ -506,22 +506,22 @@ func (r *StreamingTopicResource) Delete(ctx context.Context, req resource.Delete
 	if state.Persistent.ValueBool() {
 		if state.Partitioned.ValueBool() {
 			topicParams := pulsaradmin.PersistentTopicsDeletePartitionedTopicParams{}
-			resp, err := pulsarClient.PersistentTopicsDeletePartitionedTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
-			diags.Append(HTTPResponseDiagErr(resp, err, "failed to delete topic")...)
+			httpResp, err := pulsarClient.PersistentTopicsDeletePartitionedTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
+			resp.Diagnostics.Append(HTTPResponseDiagErr(httpResp, err, "failed to delete topic")...)
 		} else {
 			topicParams := pulsaradmin.PersistentTopicsDeleteTopicParams{}
-			resp, err := pulsarClient.PersistentTopicsDeleteTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
-			diags.Append(HTTPResponseDiagErr(resp, err, "failed to delete topic")...)
+			httpResp, err := pulsarClient.PersistentTopicsDeleteTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
+			resp.Diagnostics.Append(HTTPResponseDiagErr(httpResp, err, "failed to delete topic")...)
 		}
 	} else {
 		if state.Partitioned.ValueBool() {
 			topicParams := pulsaradmin.NonPersistentTopicsDeletePartitionedTopicParams{}
-			resp, err := pulsarClient.NonPersistentTopicsDeletePartitionedTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
-			diags.Append(HTTPResponseDiagErr(resp, err, "failed to delete topic")...)
+			httpResp, err := pulsarClient.NonPersistentTopicsDeletePartitionedTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
+			resp.Diagnostics.Append(HTTPResponseDiagErr(httpResp, err, "failed to delete topic")...)
 		} else {
 			topicParams := pulsaradmin.NonPersistentTopicsDeleteTopicParams{}
-			resp, err := pulsarClient.NonPersistentTopicsDeleteTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
-			diags.Append(HTTPResponseDiagErr(resp, err, "failed to delete topic")...)
+			httpResp, err := pulsarClient.NonPersistentTopicsDeleteTopic(ctx, tenant, namespace, topic, &topicParams, pulsarRequestEditor)
+			resp.Diagnostics.Append(HTTPResponseDiagErr(httpResp, err, "failed to delete topic")...)
 		}
 	}
 
