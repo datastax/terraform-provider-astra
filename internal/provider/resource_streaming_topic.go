@@ -578,16 +578,16 @@ func (t *StreamingTopicResourceModel) generateStreamingTopicID() string {
 }
 
 var (
-	streamingTopicIDRegexStr = `([a-z][a-z0-9-]*):(persistent|non-persistent)://` +
+	streamingTopicIDPattern = `([a-z][a-z0-9-]*):(persistent|non-persistent)://` +
 		`([a-z][a-z0-9-]*)/([a-z][a-z0-9-]*)/([a-z][a-z0-9-]*)`
-	streamingTopicIDRegex = regexp.MustCompile(streamingTopicIDRegexStr)
+	streamingTopicIDRegex = regexp.MustCompile(streamingTopicIDPattern)
 )
 
 func parseStreamingTopicID(id string) (*StreamingTopicResourceModel, error) {
 	model := &StreamingTopicResourceModel{}
 	parts := streamingTopicIDRegex.FindStringSubmatch(id)
 	if len(parts) != 6 {
-		return nil, fmt.Errorf("failed to parse streaming topic ID, does not match expected pattern")
+		return nil, fmt.Errorf("failed to parse streaming topic ID, does not match expected pattern: %s", streamingTopicIDPattern)
 	}
 	model.Cluster = types.StringValue(parts[1])
 	if parts[2] == "persistent" {
