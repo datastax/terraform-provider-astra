@@ -3,7 +3,7 @@ GOARCH=$(shell go env GOARCH)
 PROVIDER=astra
 DEV_VERSION=0.0.1
 PLUGIN_PATH=registry.terraform.io/datastax/$(PROVIDER)/$(DEV_VERSION)/$(GOOS)_$(GOARCH)
-TF_PLUGIN_DOCS_VERSION=v0.16.0
+TF_PLUGIN_DOCS_VERSION=v0.18.0
 
 
 ifeq ($(GOOS), "windows")
