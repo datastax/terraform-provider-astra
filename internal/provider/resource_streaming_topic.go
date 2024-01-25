@@ -578,8 +578,8 @@ func (t *StreamingTopicResourceModel) generateStreamingTopicID() string {
 }
 
 var (
-	streamingTopicIDPattern = `([a-z][a-z0-9-]*):(persistent|non-persistent)://` +
-		`([a-z][a-z0-9-]*)/([a-z][a-z0-9-]*)/([a-z][a-z0-9-]*)`
+	streamingTopicIDPattern = `^([a-z][a-z0-9-]*):(persistent|non-persistent)://` +
+		`([a-z][a-z0-9-]*)/([a-z][a-z0-9-]*)/([a-z][a-z0-9-._]*)$`
 	streamingTopicIDRegex = regexp.MustCompile(streamingTopicIDPattern)
 )
 
