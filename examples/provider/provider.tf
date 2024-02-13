@@ -2,7 +2,7 @@ terraform {
   required_providers {
     astra = {
       source  = "datastax/astra"
-      version = "2.1.15"
+      version = "2.2.8"
     }
   }
 }
