@@ -27,7 +27,7 @@ Reference documentation can be found in the [terraform registry](https://registr
       required_providers {
         astra = {
           source = "datastax/astra"
-          version = "2.1.15"
+          version = "2.2.8"
         }
       }
     }
