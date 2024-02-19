@@ -20,10 +20,12 @@ resource "astra_streaming_namespace" "streaming_namespace" {
 # Create a new topic
 resource "astra_streaming_topic" "streaming_topic" {
   # Required
-  cluster   = astra_streaming_tenant.streaming_tenant.cluster_name
-  tenant    = astra_streaming_tenant.streaming_tenant.tenant_name
-  namespace = astra_streaming_namespace.streaming_namespace.namespace
-  topic     = "my-topic"
+  #depend_on ensures that the namespace is created before the creation of the topics
+  depends_on = [astra_streaming_namespace.streaming_namespace]
+  cluster    = astra_streaming_tenant.streaming_tenant.cluster_name
+  tenant     = astra_streaming_tenant.streaming_tenant.tenant_name
+  namespace  = astra_streaming_namespace.streaming_namespace.namespace
+  topic      = "my-topic"
 
   # Optional
   deletion_protection = false
