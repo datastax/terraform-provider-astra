@@ -102,9 +102,10 @@ func HTTPResponseDiagErr(resp *http.Response, err error, errorSummary string) di
 	} else if resp.StatusCode >= 300 {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			diags.AddError(errorSummary, err.Error())
+			details := fmt.Sprintf("Received status code: '%v', with error: %s", resp.StatusCode, err.Error())
+			diags.AddError(errorSummary, details)
 		} else {
-			details := fmt.Sprintf("Received status code: '%v', with content: %s", resp.StatusCode, string(bodyBytes))
+			details := fmt.Sprintf("Received status code: '%v', with message: %s", resp.StatusCode, string(bodyBytes))
 			diags.AddError(errorSummary, details)
 		}
 	}
@@ -117,12 +118,13 @@ func HTTPResponseDiagWarn(resp *http.Response, err error, errorSummary string) d
 	diags := diag.Diagnostics{}
 	if err != nil {
 		diags.AddWarning(errorSummary, err.Error())
-	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
+	} else if resp.StatusCode >= 300 {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			diags.AddWarning(errorSummary, err.Error())
+			details := fmt.Sprintf("Received status code: '%v', with error: %s", resp.StatusCode, err.Error())
+			diags.AddWarning(errorSummary, details)
 		} else {
-			details := fmt.Sprintf("Received status code: '%v', with content: %s", resp.StatusCode, string(bodyBytes))
+			details := fmt.Sprintf("Received status code: '%v', with message: %s", resp.StatusCode, string(bodyBytes))
 			diags.AddWarning(errorSummary, details)
 		}
 	}
