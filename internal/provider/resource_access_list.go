@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 
 	"github.com/datastax/astra-client-go/v2/astra"
@@ -77,21 +78,22 @@ func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta 
 	restricted := d.Get("enabled").(bool)
 	addressList := getAddressList(addresses)
 
-	addResp, err := client.AddAddressesToAccessListForDatabaseWithResponse(ctx,
+	addResp, err := client.AddAddressesToAccessListForDatabase(ctx,
 		astra.DatabaseIdParam(databaseID),
 		addressList,
 	)
 
 	if err != nil {
 		return diag.FromErr(err)
-	} else if addResp.StatusCode() >= 400 {
-		return diag.Errorf("error adding access list to database: (%d) %s", addResp.StatusCode(), addResp.Body)
+	} else if addResp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(addResp.Body)
+		return diag.Errorf("failed to create access list, unexpected status code: %v, message: '%s'", addResp.StatusCode, respBody)
 	}
 
 	d.SetId(databaseID)
 
 	accessListConfig := astra.AccessListConfigurations{AccessListEnabled: restricted}
-	updResp, err := client.UpdateAccessListForDatabaseWithResponse(ctx,
+	updResp, err := client.UpdateAccessListForDatabase(ctx,
 		astra.DatabaseIdParam(databaseID),
 		astra.UpdateAccessListForDatabaseJSONRequestBody{
 			Addresses:      &addressList,
@@ -100,8 +102,9 @@ func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta 
 	)
 	if err != nil {
 		return diag.FromErr(err)
-	} else if updResp.StatusCode() >= 400 {
-		return diag.Errorf("error updating access list configuration: %d\n%s", updResp.StatusCode(), updResp.Body)
+	} else if updResp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(addResp.Body)
+		return diag.Errorf("error updating access list configuration: %d\n%s", updResp.StatusCode, respBody)
 	}
 
 	return nil
