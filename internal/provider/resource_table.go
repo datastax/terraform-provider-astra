@@ -246,8 +246,7 @@ func resourceTableRead(ctx context.Context, d *schema.ResourceData, meta interfa
 	}
 	resp, err := restClient.GetTable(ctx, keyspaceName, tableName, &params)
 	if err != nil {
-		b, _ := io.ReadAll(resp.Body)
-		return diag.FromErr(fmt.Errorf("Error getting table (not retrying) err: %s,  body: %s", err, b))
+		return diag.FromErr(fmt.Errorf("error getting table (not retrying) err: %w", err))
 	} else if resp.StatusCode == 409 {
 		// DevOps API returns 409 for concurrent modifications, these need to be retried.
 		b, _ := io.ReadAll(resp.Body)
