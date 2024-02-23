@@ -47,6 +47,7 @@ func main() {
 		providerserver.NewProtocol6(provider.New(version)()),
 	}
 
+	// Combine the legacy SDK provider with the newer Framework provider
 	muxServer, err := tf6muxserver.NewMuxServer(ctx, providers...)
 
 	if err != nil {

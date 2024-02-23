@@ -402,16 +402,12 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 
 	//schema := &StreamingTopicSchema{}
 	params := pulsaradmin.SchemasResourceGetSchemaParams{}
-	schemaResp, err := r.clients.pulsarAdminClient.SchemasResourceGetSchemaWithResponse(ctx, tenant, namespace, topic,
-		&params, streamingRequestHeaders)
+	schemaResp, err := r.clients.pulsarAdminClient.SchemasResourceGetSchemaWithResponse(ctx, tenant, namespace, topic, &params, streamingRequestHeaders)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Failed to get topic schema",
-			err.Error(),
-		)
+		resp.Diagnostics.AddError("Failed to get topic schema", err.Error())
 		return
 	} else if schemaResp.StatusCode() > 299 && schemaResp.StatusCode() != 404 {
-		resp.Diagnostics.Append(HTTPResponseDiagWarn(schemaResp.HTTPResponse, err, "Failed to get topic schema")...)
+		resp.Diagnostics.Append(HTTPResponseDiagWarnWithBody(schemaResp.StatusCode(), schemaResp.Body, err, "failed to get topic schema")...)
 	} else if schemaResp.JSON200 != nil {
 		state.Schema = &StreamingTopicSchema{
 			Type:       (*string)(schemaResp.JSON200.Type),
