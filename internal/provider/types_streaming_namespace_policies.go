@@ -262,7 +262,7 @@ func getPulsarNamespacePolicies(ctx context.Context, pulsarAdminClient *pulsarad
 	policiesAttrTypes := plan.Policies.AttributeTypes(ctx)
 
 	resp, err := pulsarAdminClient.NamespacesGetPoliciesWithResponse(ctx, plan.Tenant.ValueString(), plan.Namespace.ValueString(), requestEditors...)
-	diags.Append(HTTPResponseDiagErr(resp.HTTPResponse, err, "failed to get namespace policies")...)
+	diags.Append(HTTPResponseDiagErrWithBody(resp.StatusCode(), resp.Body, err, "failed to get namespace policies")...)
 	if diags.HasError() {
 		return types.ObjectNull(policiesAttrTypes), diags
 	}
