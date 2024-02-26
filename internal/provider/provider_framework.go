@@ -125,8 +125,8 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	token := firstNonEmptyString(config.Token.ValueString(), os.Getenv("ASTRA_API_TOKEN"))
-	if token == "" {
+	astraToken := firstNonEmptyString(config.Token.ValueString(), os.Getenv("ASTRA_API_TOKEN"))
+	if astraToken == "" {
 		resp.Diagnostics.AddError("missing required Astra API token",
 			"missing required Astra API token.  Please set the ASTRA_API_TOKEN environment variable or provide a token in the provider configuration")
 		return
@@ -171,9 +171,9 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	// TODO: can we get this version at compile time?
-	pluginFrameworkVersion := "1.2.0"
+	pluginFrameworkVersion := "1.5.0"
 	userAgent := p.UserAgent(req.TerraformVersion, pluginFrameworkVersion)
-	authorization := fmt.Sprintf("Bearer %s", token)
+	authorization := fmt.Sprintf("Bearer %s", astraToken)
 	clientVersion := fmt.Sprintf("go/%s", astra.Version)
 	astraClient, err := astra.NewClientWithResponses(astraAPIServerURL, func(c *astra.Client) error {
 		c.Client = retryClient.StandardClient()
@@ -210,6 +210,7 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	// The streaming API server can handle Pulsar admin requests under the '/admin/v2' path, and these are passed through to a backend Pulsar cluster
 	pulsarAdminClient, err := pulsaradmin.NewClientWithResponses(streamingAPIServerURLPulsarAdmin, func(c *pulsaradmin.Client) error {
 		c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
+			req.Header.Set("Authorization", authorization)
 			req.Header.Set("User-Agent", userAgent)
 			req.Header.Set("X-Astra-Provider-Version", p.Version)
 			req.Header.Set("X-Astra-Client-Version", clientVersion)
@@ -228,7 +229,7 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		astraClient:          astraClient,
 		astraStreamingClient: streamingClient,
 		pulsarAdminClient:    pulsarAdminClient,
-		token:                token,
+		token:                astraToken,
 		stargateClientCache:  clientCache,
 		providerVersion:      p.Version,
 		userAgent:            userAgent,

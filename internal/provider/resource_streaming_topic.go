@@ -265,25 +265,7 @@ func (r *StreamingTopicResource) Create(ctx context.Context, req resource.Create
 
 	pulsarClient := r.clients.pulsarAdminClient
 
-	astraOrgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating topic",
-			"Could not get current Astra organization: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, astraOrgID, cluster, tenant)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating topic",
-			"Could not get pulsar token: "+err.Error(),
-		)
-		return
-	}
-
-	streamingRequestHeaders := setPulsarClusterHeaders("", cluster, pulsarToken)
+	streamingRequestHeaders := setPulsarClusterHeaders(cluster)
 
 	if plan.Persistent.ValueBool() {
 		if plan.Partitioned.ValueBool() {
@@ -350,24 +332,6 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 
 	pulsarClient := r.clients.pulsarAdminClient
 
-	astraOrgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading topic",
-			"Could not get current Astra organization: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, astraOrgID, cluster, tenant)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading topic",
-			"Could not get pulsar token: "+err.Error(),
-		)
-		return
-	}
-
 	// Default to persistent true and partitioned false for compatibility with older provider versions
 	if state.Persistent.IsNull() {
 		state.Persistent = types.BoolValue(true)
@@ -376,7 +340,7 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 		state.Partitioned = types.BoolValue(false)
 	}
 
-	streamingRequestHeaders := setPulsarClusterHeaders("", cluster, pulsarToken)
+	streamingRequestHeaders := setPulsarClusterHeaders(cluster)
 
 	if state.Persistent.ValueBool() {
 		if state.Partitioned.ValueBool() {
@@ -500,25 +464,7 @@ func (r *StreamingTopicResource) Delete(ctx context.Context, req resource.Delete
 
 	pulsarClient := r.clients.pulsarAdminClient
 
-	astraOrgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting topic",
-			"Could not get current Astra organization: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, astraOrgID, cluster, tenant)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting topic",
-			"Could not get pulsar token: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarRequestEditor := setPulsarClusterHeaders("", cluster, pulsarToken)
+	pulsarRequestEditor := setPulsarClusterHeaders(cluster)
 
 	if state.Persistent.ValueBool() {
 		if state.Partitioned.ValueBool() {
