@@ -94,6 +94,7 @@ Optional:
 - `schema_auto_update_compatibility_strategy` (String)
 - `schema_compatibility_strategy` (String)
 - `schema_validation_enforced` (Boolean)
+- `subscription_expiration_time` (Number)
 
 <a id="nestedatt--policies--auto_topic_creation_override"></a>
 ### Nested Schema for `policies.auto_topic_creation_override`
