@@ -72,7 +72,7 @@ The [examples diretory](./examples) contains example configuration for the vario
 
 ### Build the provider from source
 
-The build requires [Go](https://golang.org/doc/install) >= 1.20
+The build requires [Go](https://golang.org/doc/install) >= 1.22
 
 In order to develop and test this provider, you'll need to configure your local environment
 with a custom Terraform [config file](https://developer.hashicorp.com/terraform/cli/config/config-file).
