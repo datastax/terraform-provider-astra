@@ -354,6 +354,7 @@ func setNamespacePolicies(ctx context.Context, client *pulsaradmin.ClientWithRes
 		// Set offload threshold
 		resp, err := client.NamespacesSetOffloadThreshold(ctx, tenant, namespace, *policies.OffloadThreshold, requestEditors...)
 		diags.Append(HTTPResponseDiagWarn(resp, err, pulsarNamespacePolicyError(policySetOffloadThreshold))...)
+	}	
 
 
 	if policies.InactiveTopicPolicies != nil {
