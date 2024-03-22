@@ -94,7 +94,7 @@ func MergeTerraformObjects(old, new types.Object, attributeTypes map[string]attr
 	return basetypes.NewObjectValue(attributeTypes, attributes)
 }
 
-// HTTPResponseDiagErr takes an HTTP response and error code and creates a Terraform Error Diagnostic if there is an error
+// HTTPResponseDiagErr takes an HTTP response and error and creates a Terraform Error Diagnostic if there is an error
 func HTTPResponseDiagErr(resp *http.Response, err error, errorSummary string) diag.Diagnostics {
 	diags := diag.Diagnostics{}
 	if err != nil {
@@ -102,29 +102,55 @@ func HTTPResponseDiagErr(resp *http.Response, err error, errorSummary string) di
 	} else if resp.StatusCode >= 300 {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			diags.AddError(errorSummary, err.Error())
+			details := fmt.Sprintf("Received status code: '%v', with error: %s", resp.StatusCode, err.Error())
+			diags.AddError(errorSummary, details)
 		} else {
-			details := fmt.Sprintf("Received status code: '%v', with content: %s", resp.StatusCode, string(bodyBytes))
+			details := fmt.Sprintf("Received status code: '%v', with message: %s", resp.StatusCode, string(bodyBytes))
 			diags.AddError(errorSummary, details)
 		}
 	}
 	return diags
 }
 
-// HTTPResponseDiagWarn takes an HTTP response and error code and creates a Terraform Warn Diagnostic if there is an error
+// HTTPResponseDiagErrWithBody takes an HTTP status code, body, and error and creates a Terraform Error Diagnostic if there is an error
+func HTTPResponseDiagErrWithBody(statusCode int, body []byte, err error, errorSummary string) diag.Diagnostics {
+	diags := diag.Diagnostics{}
+	if err != nil {
+		diags.AddError(errorSummary, err.Error())
+	} else if statusCode >= 300 {
+		details := fmt.Sprintf("Received status code: '%v', with message: %s", statusCode, body)
+		diags.AddError(errorSummary, details)
+	}
+	return diags
+}
+
+// HTTPResponseDiagWarn takes an HTTP response and error and creates a Terraform Warn Diagnostic if there is an error
 // or if the status code is not in the 2xx range
 func HTTPResponseDiagWarn(resp *http.Response, err error, errorSummary string) diag.Diagnostics {
 	diags := diag.Diagnostics{}
 	if err != nil {
 		diags.AddWarning(errorSummary, err.Error())
-	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
+	} else if resp.StatusCode >= 300 {
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			diags.AddWarning(errorSummary, err.Error())
+			details := fmt.Sprintf("Received status code: '%v', with error: %s", resp.StatusCode, err.Error())
+			diags.AddWarning(errorSummary, details)
 		} else {
-			details := fmt.Sprintf("Received status code: '%v', with content: %s", resp.StatusCode, string(bodyBytes))
+			details := fmt.Sprintf("Received status code: '%v', with message: %s", resp.StatusCode, string(bodyBytes))
 			diags.AddWarning(errorSummary, details)
 		}
+	}
+	return diags
+}
+
+// HTTPResponseDiagWarnWithBody takes an HTTP status code, body, and error and creates a Terraform Error Diagnostic if there is an error
+func HTTPResponseDiagWarnWithBody(statusCode int, body []byte, err error, errorSummary string) diag.Diagnostics {
+	diags := diag.Diagnostics{}
+	if err != nil {
+		diags.AddWarning(errorSummary, err.Error())
+	} else if statusCode >= 300 {
+		details := fmt.Sprintf("Received status code: '%v', with message: %s", statusCode, body)
+		diags.AddWarning(errorSummary, details)
 	}
 	return diags
 }

@@ -196,7 +196,7 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 				return retry.NonRetryableError(fmt.Errorf("error adding table (not retrying): %s", b))
 			}
 
-			if err := setTableResourceData(d, databaseID, keyspaceName, tableName); err != nil {
+			if err := setTableResourceData(d, databaseID, region, keyspaceName, tableName); err != nil {
 				return retry.NonRetryableError(fmt.Errorf("Error setting keyspace data (not retrying) %s", err))
 			}
 
@@ -216,13 +216,16 @@ func resourceTableRead(ctx context.Context, d *schema.ResourceData, meta interfa
 	userAgent := meta.(astraClients).userAgent
 	token := meta.(astraClients).token
 
-	tableName := d.Get("table").(string)
-	region := d.Get("region").(string)
-
 	id := d.Id()
-	databaseID, keyspaceName, tableName, err := parseTableID(id)
+	databaseID, region, keyspaceName, tableName, err := parseTableID(id)
 	if err != nil {
 		return diag.FromErr(err)
+	}
+	if region == "" {
+		region = d.Get("region").(string)
+	}
+	if region == "" {
+		return diag.Errorf("missing region for table %s/<region>/%s/%s", databaseID, keyspaceName, tableName)
 	}
 
 	stargateCache := meta.(astraClients).stargateClientCache
@@ -246,8 +249,7 @@ func resourceTableRead(ctx context.Context, d *schema.ResourceData, meta interfa
 	}
 	resp, err := restClient.GetTable(ctx, keyspaceName, tableName, &params)
 	if err != nil {
-		b, _ := io.ReadAll(resp.Body)
-		return diag.FromErr(fmt.Errorf("Error getting table (not retrying) err: %s,  body: %s", err, b))
+		return diag.FromErr(fmt.Errorf("error getting table (not retrying) err: %w", err))
 	} else if resp.StatusCode == 409 {
 		// DevOps API returns 409 for concurrent modifications, these need to be retried.
 		b, _ := io.ReadAll(resp.Body)
@@ -258,7 +260,7 @@ func resourceTableRead(ctx context.Context, d *schema.ResourceData, meta interfa
 		return nil
 	}
 
-	if err := setTableResourceData(d, databaseID, keyspaceName, tableName); err != nil {
+	if err := setTableResourceData(d, databaseID, region, keyspaceName, tableName); err != nil {
 		return diag.FromErr(fmt.Errorf("Error setting keyspace data (not retrying) %s", err))
 	}
 
@@ -270,14 +272,13 @@ func resourceTableDelete(ctx context.Context, d *schema.ResourceData, meta inter
 	userAgent := meta.(astraClients).userAgent
 	token := meta.(astraClients).token
 
-	tableName := d.Get("table").(string)
-	region := d.Get("region").(string)
-
 	id := d.Id()
-	databaseID, keyspaceName, tableName, err := parseTableID(id)
+	databaseID, _, keyspaceName, tableName, err := parseTableID(id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
+	region := d.Get("region").(string)
 
 	stargateCache := meta.(astraClients).stargateClientCache
 
@@ -314,7 +315,7 @@ func resourceTableDelete(ctx context.Context, d *schema.ResourceData, meta inter
 	return nil
 }
 
-func setTableResourceData(d *schema.ResourceData, databaseID string, keyspaceName string, table string) error {
+func setTableResourceData(d *schema.ResourceData, databaseID, region, keyspaceName, table string) error {
 	d.SetId(fmt.Sprintf("%s/%s/%s", databaseID, keyspaceName, table))
 	if err := d.Set("table", table); err != nil {
 		return err
@@ -325,14 +326,20 @@ func setTableResourceData(d *schema.ResourceData, databaseID string, keyspaceNam
 	if err := d.Set("database_id", databaseID); err != nil {
 		return err
 	}
+	if err := d.Set("region", region); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func parseTableID(id string) (string, string, string, error) {
+// parseTableID returns the databaseID, region, keyspace, tablename, error (if the format is invalid).
+func parseTableID(id string) (string, string, string, string, error) {
 	idParts := strings.Split(id, "/")
-	if len(idParts) != 3 {
-		return "", "", "", errors.New("invalid keyspace id format: expected database_id/keyspace/table")
+	if len(idParts) == 3 {
+		return idParts[0], "", idParts[1], idParts[2], nil
+	} else if len(idParts) == 4 {
+		return idParts[0], idParts[1], idParts[2], idParts[3], nil
 	}
-	return idParts[0], idParts[1], idParts[2], nil
+	return "", "", "", "", errors.New("invalid keyspace id format: expected database_id/keyspace/table")
 }

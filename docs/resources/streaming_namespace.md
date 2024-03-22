@@ -87,13 +87,17 @@ Optional:
 
 - `auto_topic_creation_override` (Attributes) (see [below for nested schema](#nestedatt--policies--auto_topic_creation_override))
 - `backlog_quota_map` (Attributes Map) (see [below for nested schema](#nestedatt--policies--backlog_quota_map))
+- `inactive_topic_policies` (Attributes) (see [below for nested schema](#nestedatt--policies--inactive_topic_policies))
 - `is_allow_auto_update_schema` (Boolean)
 - `message_ttl_in_seconds` (Number)
 - `retention_policies` (Attributes) (see [below for nested schema](#nestedatt--policies--retention_policies))
 - `schema_auto_update_compatibility_strategy` (String)
 - `schema_compatibility_strategy` (String)
 - `schema_validation_enforced` (Boolean)
+
 - `set_offload_threshold` (String)
+
+- `subscription_expiration_time_minutes` (Number)
 
 <a id="nestedatt--policies--auto_topic_creation_override"></a>
 ### Nested Schema for `policies.auto_topic_creation_override`
@@ -114,6 +118,16 @@ Optional:
 - `limit_size` (Number)
 - `limit_time` (Number)
 - `policy` (String)
+
+
+<a id="nestedatt--policies--inactive_topic_policies"></a>
+### Nested Schema for `policies.inactive_topic_policies`
+
+Optional:
+
+- `delete_mode` (String)
+- `delete_while_inactive` (Boolean)
+- `max_inactive_duration_seconds` (Number)
 
 
 <a id="nestedatt--policies--retention_policies"></a>

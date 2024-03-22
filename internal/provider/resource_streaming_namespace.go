@@ -104,25 +104,7 @@ func (r *StreamingNamespaceResource) Create(ctx context.Context, req resource.Cr
 	// Manually set the ID because this is not directly managed by the user or the server when creating a new namespace
 	plan.ID = types.StringValue(fmt.Sprintf("%s/%s/%s", plan.Cluster.ValueString(), plan.Tenant.ValueString(), plan.Namespace.ValueString()))
 
-	orgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating namespace",
-			"Could not get current organization: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, orgID, plan.Cluster.ValueString(), plan.Tenant.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating namespace",
-			"Could not get pulsar token: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarRequestEditor := setPulsarClusterHeaders("", plan.Cluster.ValueString(), pulsarToken)
+	pulsarRequestEditor := setPulsarClusterHeaders(plan.Cluster.ValueString())
 
 	// We have to create the namespace with an empty policy because the Astra Streaming control plane will override any
 	// policy that we send.  Then later we adjust any policy fields that have been set by the user.
@@ -160,29 +142,9 @@ func (r *StreamingNamespaceResource) Read(ctx context.Context, req resource.Read
 		return
 	}
 
-	astraClient := r.clients.astraClient
-	streamingClient := r.clients.astraStreamingClient
 	pulsarClient := r.clients.pulsarAdminClient
 
-	orgID, err := getCurrentOrgID(ctx, astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			fmt.Sprintf("Error reading streaming namespace '%s/%s'", state.Tenant.ValueString(), state.Namespace.ValueString()),
-			"Failed to get current organization: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarToken, err := getLatestPulsarToken(ctx, streamingClient, r.clients.token, orgID, state.Cluster.ValueString(), state.Tenant.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError(
-			fmt.Sprintf("Error reading streaming namespace '%s/%s'", state.Tenant.ValueString(), state.Namespace.ValueString()),
-			"Failed to get valid Pulsar token: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarRequestEditor := setPulsarClusterHeaders(orgID, state.Cluster.ValueString(), pulsarToken)
+	pulsarRequestEditor := setPulsarClusterHeaders(state.Cluster.ValueString())
 	policiesFromServer, diags := getPulsarNamespacePolicies(ctx, pulsarClient, state, pulsarRequestEditor)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -204,25 +166,7 @@ func (r *StreamingNamespaceResource) Update(ctx context.Context, req resource.Up
 	// Manually set the ID because this is not directly managed by the user or the server when creating a new namespace
 	plan.ID = types.StringValue(fmt.Sprintf("%s/%s/%s", plan.Cluster.ValueString(), plan.Tenant.ValueString(), plan.Namespace.ValueString()))
 
-	orgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			fmt.Sprintf("Error reading streaming namespace '%s/%s'", plan.Tenant.ValueString(), plan.Namespace.ValueString()),
-			"Failed to get current organization: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, orgID, plan.Cluster.ValueString(), plan.Tenant.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError(
-			fmt.Sprintf("Error reading streaming namespace '%s/%s'", plan.Tenant.ValueString(), plan.Namespace.ValueString()),
-			"Failed to get valid Pulsar token: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarRequestEditor := setPulsarClusterHeaders("", plan.Cluster.ValueString(), pulsarToken)
+	pulsarRequestEditor := setPulsarClusterHeaders(plan.Cluster.ValueString())
 	resp.Diagnostics.Append(setNamespacePolicies(ctx, r.clients.pulsarAdminClient, plan, pulsarRequestEditor)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -250,30 +194,11 @@ func (r *StreamingNamespaceResource) Delete(ctx context.Context, req resource.De
 		return
 	}
 
-	astraClient := r.clients.astraClient
 	streamingClient := r.clients.astraStreamingClient
 
-	orgID, err := getCurrentOrgID(ctx, astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			fmt.Sprintf("Error deleting streaming namespace '%s/%s'", state.Tenant.ValueString(), state.Namespace.ValueString()),
-			"Failed to get current organization: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarToken, err := getLatestPulsarToken(ctx, streamingClient, r.clients.token, orgID, state.Cluster.ValueString(), state.Tenant.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError(
-			fmt.Sprintf("Error deleting streaming namespace '%s/%s'", state.Tenant.ValueString(), state.Namespace.ValueString()),
-			"Failed to get valid Pulsar token: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarRequestEditor := setPulsarClusterHeaders("", state.Cluster.ValueString(), pulsarToken)
+	pulsarRequestEditor := setPulsarClusterHeaders(state.Cluster.ValueString())
 	params := astrastreaming.DeleteNamespaceParams{}
-	_, err = streamingClient.DeleteNamespace(ctx, state.Tenant.ValueString(), state.Namespace.ValueString(), &params, pulsarRequestEditor)
+	_, err := streamingClient.DeleteNamespace(ctx, state.Tenant.ValueString(), state.Namespace.ValueString(), &params, pulsarRequestEditor)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			fmt.Sprintf("Error deleting streaming namespace '%s/%s'", state.Tenant.ValueString(), state.Namespace.ValueString()),

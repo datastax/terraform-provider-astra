@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/datastax/pulsar-admin-client-go/src/pulsaradmin"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -263,25 +265,7 @@ func (r *StreamingTopicResource) Create(ctx context.Context, req resource.Create
 
 	pulsarClient := r.clients.pulsarAdminClient
 
-	astraOrgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating topic",
-			"Could not get current Astra organization: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, astraOrgID, cluster, tenant)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error creating topic",
-			"Could not get pulsar token: "+err.Error(),
-		)
-		return
-	}
-
-	streamingRequestHeaders := setPulsarClusterHeaders("", cluster, pulsarToken)
+	streamingRequestHeaders := setPulsarClusterHeaders(cluster)
 
 	if plan.Persistent.ValueBool() {
 		if plan.Partitioned.ValueBool() {
@@ -348,24 +332,6 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 
 	pulsarClient := r.clients.pulsarAdminClient
 
-	astraOrgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading topic",
-			"Could not get current Astra organization: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, astraOrgID, cluster, tenant)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error reading topic",
-			"Could not get pulsar token: "+err.Error(),
-		)
-		return
-	}
-
 	// Default to persistent true and partitioned false for compatibility with older provider versions
 	if state.Persistent.IsNull() {
 		state.Persistent = types.BoolValue(true)
@@ -374,16 +340,13 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 		state.Partitioned = types.BoolValue(false)
 	}
 
-	streamingRequestHeaders := setPulsarClusterHeaders("", cluster, pulsarToken)
+	streamingRequestHeaders := setPulsarClusterHeaders(cluster)
 
 	if state.Persistent.ValueBool() {
 		if state.Partitioned.ValueBool() {
 			topicParams := pulsaradmin.PersistentTopicsGetPartitionedMetadataParams{}
 			topicResp, err := pulsarClient.PersistentTopicsGetPartitionedMetadataWithResponse(ctx, tenant, namespace, topic, &topicParams, streamingRequestHeaders)
-			resp.Diagnostics.Append(HTTPResponseDiagErr(topicResp.HTTPResponse, err, "failed to read topic")...)
-			if err == nil {
-				state.NumPartitions = types.Int64PointerValue(int32ToInt64Pointer(topicResp.JSON200.Partitions))
-			}
+			resp.Diagnostics.Append(parsePersistentPartitionedTopicResponse(&state, topicResp, err)...)
 		} else {
 			topicParams := pulsaradmin.PersistentTopicsGetStatsParams{}
 			respHTTP, err := pulsarClient.PersistentTopicsGetStats(ctx, tenant, namespace, topic, &topicParams, streamingRequestHeaders)
@@ -393,20 +356,7 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 		if state.Partitioned.ValueBool() {
 			topicParams := pulsaradmin.NonPersistentTopicsGetPartitionedMetadataParams{}
 			topicResp, err := pulsarClient.NonPersistentTopicsGetPartitionedMetadataWithResponse(ctx, tenant, namespace, topic, &topicParams, streamingRequestHeaders)
-			resp.Diagnostics.Append(HTTPResponseDiagErr(topicResp.HTTPResponse, err, "failed to read topic")...)
-			if err != nil {
-				// TODO: need to fix the pulsaradmin API to decode this response for non-partitioned topics
-				partitionMeta := &pulsaradmin.PartitionedTopicMetadata{}
-				err := json.NewDecoder(topicResp.HTTPResponse.Body).Decode(partitionMeta)
-				if err != nil {
-					resp.Diagnostics.AddError(
-						"Failed to read partition metadata",
-						err.Error(),
-					)
-				} else {
-					state.NumPartitions = types.Int64PointerValue(int32ToInt64Pointer(partitionMeta.Partitions))
-				}
-			}
+			resp.Diagnostics.Append(parseNonPersistentPartitionedTopicResponse(&state, topicResp, err)...)
 		} else {
 			topicParams := pulsaradmin.NonPersistentTopicsGetStatsParams{}
 			respHTTP, err := pulsarClient.NonPersistentTopicsGetStats(ctx, tenant, namespace, topic, &topicParams, streamingRequestHeaders)
@@ -416,16 +366,12 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 
 	//schema := &StreamingTopicSchema{}
 	params := pulsaradmin.SchemasResourceGetSchemaParams{}
-	schemaResp, err := r.clients.pulsarAdminClient.SchemasResourceGetSchemaWithResponse(ctx, tenant, namespace, topic,
-		&params, streamingRequestHeaders)
+	schemaResp, err := r.clients.pulsarAdminClient.SchemasResourceGetSchemaWithResponse(ctx, tenant, namespace, topic, &params, streamingRequestHeaders)
 	if err != nil {
-		resp.Diagnostics.AddError(
-			"Failed to get topic schema",
-			err.Error(),
-		)
+		resp.Diagnostics.AddError("Failed to get topic schema", err.Error())
 		return
 	} else if schemaResp.StatusCode() > 299 && schemaResp.StatusCode() != 404 {
-		resp.Diagnostics.Append(HTTPResponseDiagWarn(schemaResp.HTTPResponse, err, "Failed to get topic schema")...)
+		resp.Diagnostics.Append(HTTPResponseDiagWarnWithBody(schemaResp.StatusCode(), schemaResp.Body, err, "failed to get topic schema")...)
 	} else if schemaResp.JSON200 != nil {
 		state.Schema = &StreamingTopicSchema{
 			Type:       (*string)(schemaResp.JSON200.Type),
@@ -438,6 +384,41 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 	state.ID = types.StringValue(state.generateStreamingTopicID())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func parsePersistentPartitionedTopicResponse(state *StreamingTopicResourceModel, resp *pulsaradmin.PersistentTopicsGetPartitionedMetadataResponse, err error) diag.Diagnostics {
+	diags := diag.Diagnostics{}
+	if err == nil && resp.StatusCode() == 200 {
+		state.NumPartitions = types.Int64PointerValue(int32ToInt64Pointer(resp.JSON200.Partitions))
+	} else if err != nil {
+		diags.Append(diag.NewErrorDiagnostic("failed to read topic", fmt.Sprintf("error: %v", err.Error())))
+	} else {
+		diags.Append(diag.NewErrorDiagnostic("failed to read topic", fmt.Sprintf("received http status: %v, message: %v", resp.StatusCode(), string(resp.Body))))
+	}
+	return diags
+}
+
+func parseNonPersistentPartitionedTopicResponse(state *StreamingTopicResourceModel, resp *pulsaradmin.NonPersistentTopicsGetPartitionedMetadataResponse, err error) diag.Diagnostics {
+	diags := diag.Diagnostics{}
+	//resp.Diagnostics.Append(HTTPResponseDiagErr(topicResp.HTTPResponse, err, "failed to read topic")...)
+	if err == nil && resp.StatusCode() == 200 {
+		// TODO: need to fix the pulsaradmin API to decode this response for non-partitioned topics
+		partitionMeta := &pulsaradmin.PartitionedTopicMetadata{}
+		err := json.NewDecoder(bytes.NewReader(resp.Body)).Decode(partitionMeta)
+		if err != nil {
+			diags.AddError(
+				"Failed to read topic partition metadata",
+				err.Error(),
+			)
+		} else {
+			state.NumPartitions = types.Int64PointerValue(int32ToInt64Pointer(partitionMeta.Partitions))
+		}
+	} else if err != nil {
+		diags.Append(diag.NewErrorDiagnostic("failed to read topic", fmt.Sprintf("error: %v", err.Error())))
+	} else {
+		diags.Append(diag.NewErrorDiagnostic("failed to read topic", fmt.Sprintf("received http status: %v, message: %v", resp.StatusCode(), string(resp.Body))))
+	}
+	return diags
 }
 
 func (r *StreamingTopicResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -483,25 +464,7 @@ func (r *StreamingTopicResource) Delete(ctx context.Context, req resource.Delete
 
 	pulsarClient := r.clients.pulsarAdminClient
 
-	astraOrgID, err := getCurrentOrgID(ctx, r.clients.astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting topic",
-			"Could not get current Astra organization: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarToken, err := getLatestPulsarToken(ctx, r.clients.astraStreamingClient, r.clients.token, astraOrgID, cluster, tenant)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error deleting topic",
-			"Could not get pulsar token: "+err.Error(),
-		)
-		return
-	}
-
-	pulsarRequestEditor := setPulsarClusterHeaders("", cluster, pulsarToken)
+	pulsarRequestEditor := setPulsarClusterHeaders(cluster)
 
 	if state.Persistent.ValueBool() {
 		if state.Partitioned.ValueBool() {
