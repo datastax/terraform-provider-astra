@@ -44,6 +44,8 @@ const (
 	policySchemaAutoUpdateCompatibilityStrategy = "schema_auto_update_compatibility_strategy"
 	policySchemaCompatibilityStrategy           = "schema_compatibility_strategy"
 	policySchemaValidationEnforced              = "schema_validation_enforced"
+
+	policySetOffloadThreshold = "set_offload_threshold"
 )
 
 type PulsarNamespacePolicies struct {
@@ -56,6 +58,7 @@ type PulsarNamespacePolicies struct {
 	AutoTopicCreationOverride *PulsarNamespaceAutoTopicCreationOverride `tfsdk:"auto_topic_creation_override" json:"autoTopicCreationOverride,omitempty"`
 	BacklogQuota              map[string]*PulsarNamespaceBacklogQuota   `tfsdk:"backlog_quota_map" json:"backlog_quota_map,omitempty"`
 	RetentionPolicies         *PulsarNamespaceRetentionPolicies         `tfsdk:"retention_policies" json:"retention_policies,omitempty"`
+	SetOffloadThreshold       *string                                   `tfsdk:"set_offload_threshold" json:"set_offload_threshold,omitempty"`
 }
 
 type PulsarNamespaceRetentionPolicies struct {
@@ -171,6 +174,7 @@ var (
 					policyRetentionSizeInMB:      int64PulsarNamespacePolicyAttribute,
 				},
 			},
+			policySetOffloadThreshold: stringPulsarNamespacePolicyAttribute,
 		},
 	}
 )
@@ -306,7 +310,11 @@ func setNamespacePolicies(ctx context.Context, client *pulsaradmin.ClientWithRes
 		resp, err := client.NamespacesSetRetention(ctx, tenant, namespace, *policies.RetentionPolicies, requestEditors...)
 		diags.Append(HTTPResponseDiagWarn(resp, err, pulsarNamespacePolicyError(policyRetentionPolicies))...)
 	}
-
+	if policies.OffloadThreshold != nil {
+		// Set offload threshold
+		resp, err := client.NamespacesSetOffloadThreshold(ctx, tenant, namespace, *policies.OffloadThreshold, requestEditors...)
+		diags.Append(HTTPResponseDiagWarn(resp, err, pulsarNamespacePolicyError(policySetOffloadThreshold))...)
+	}
 	return diags
 }
 
