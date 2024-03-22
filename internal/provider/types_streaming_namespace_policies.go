@@ -68,10 +68,6 @@ type PulsarNamespacePolicies struct {
 	BacklogQuota              map[string]*PulsarNamespaceBacklogQuota   `tfsdk:"backlog_quota_map" json:"backlog_quota_map,omitempty"`
 	RetentionPolicies         *PulsarNamespaceRetentionPolicies         `tfsdk:"retention_policies" json:"retention_policies,omitempty"`
 	SetOffloadThreshold       *string                                   `tfsdk:"set_offload_threshold" json:"set_offload_threshold,omitempty"`
-
-	AutoTopicCreationOverride         *PulsarNamespaceAutoTopicCreationOverride `tfsdk:"auto_topic_creation_override" json:"autoTopicCreationOverride,omitempty"`
-	BacklogQuota                      map[string]*PulsarNamespaceBacklogQuota   `tfsdk:"backlog_quota_map" json:"backlog_quota_map,omitempty"`
-	RetentionPolicies                 *PulsarNamespaceRetentionPolicies         `tfsdk:"retention_policies" json:"retention_policies,omitempty"`
 	InactiveTopicPolicies             *PulsarNamespaceInactiveTopicPolicies     `tfsdk:"inactive_topic_policies" json:"inactive_topic_policies,omitempty"`
 	SubscriptionExpirationTimeMinutes *int64                                    `tfsdk:"subscription_expiration_time_minutes" json:"subscription_expiration_time_minutes,omitempty"`
 
@@ -212,7 +208,7 @@ var (
 				},
 			},
 			policySubscriptionExpirationTimeMinutes: int64PulsarNamespacePolicyAttribute,
-      policySetOffloadThreshold: stringPulsarNamespacePolicyAttribute,
+     		        policySetOffloadThreshold: stringPulsarNamespacePolicyAttribute,
 
 		},
 	}
