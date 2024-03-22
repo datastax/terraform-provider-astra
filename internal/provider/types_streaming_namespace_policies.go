@@ -45,7 +45,6 @@ const (
 	policySchemaCompatibilityStrategy           = "schema_compatibility_strategy"
 	policySchemaValidationEnforced              = "schema_validation_enforced"
 
-
 	policySetOffloadThreshold = "set_offload_threshold"
 
 	policyInactiveTopicPolicies                   = "inactive_topic_policies"
@@ -63,14 +62,12 @@ type PulsarNamespacePolicies struct {
 	SchemaCompatibilityStrategy           *string `tfsdk:"schema_compatibility_strategy" json:"schema_compatibility_strategy,omitempty"`
 	SchemaValidationEnforced              *bool   `tfsdk:"schema_validation_enforced" json:"schema_validation_enforced,omitempty"`
 
-
-	AutoTopicCreationOverride *PulsarNamespaceAutoTopicCreationOverride `tfsdk:"auto_topic_creation_override" json:"autoTopicCreationOverride,omitempty"`
-	BacklogQuota              map[string]*PulsarNamespaceBacklogQuota   `tfsdk:"backlog_quota_map" json:"backlog_quota_map,omitempty"`
-	RetentionPolicies         *PulsarNamespaceRetentionPolicies         `tfsdk:"retention_policies" json:"retention_policies,omitempty"`
-	SetOffloadThreshold       *string                                   `tfsdk:"set_offload_threshold" json:"set_offload_threshold,omitempty"`
+	AutoTopicCreationOverride         *PulsarNamespaceAutoTopicCreationOverride `tfsdk:"auto_topic_creation_override" json:"autoTopicCreationOverride,omitempty"`
+	BacklogQuota                      map[string]*PulsarNamespaceBacklogQuota   `tfsdk:"backlog_quota_map" json:"backlog_quota_map,omitempty"`
+	RetentionPolicies                 *PulsarNamespaceRetentionPolicies         `tfsdk:"retention_policies" json:"retention_policies,omitempty"`
+	SetOffloadThreshold               *string                                   `tfsdk:"set_offload_threshold" json:"set_offload_threshold,omitempty"`
 	InactiveTopicPolicies             *PulsarNamespaceInactiveTopicPolicies     `tfsdk:"inactive_topic_policies" json:"inactive_topic_policies,omitempty"`
 	SubscriptionExpirationTimeMinutes *int64                                    `tfsdk:"subscription_expiration_time_minutes" json:"subscription_expiration_time_minutes,omitempty"`
-
 }
 
 type PulsarNamespaceRetentionPolicies struct {
@@ -193,8 +190,6 @@ var (
 				},
 			},
 
-			
-
 			policyInactiveTopicPolicies: schema.SingleNestedAttribute{
 				Optional: true,
 				Computed: true,
@@ -208,8 +203,7 @@ var (
 				},
 			},
 			policySubscriptionExpirationTimeMinutes: int64PulsarNamespacePolicyAttribute,
-     		        policySetOffloadThreshold: stringPulsarNamespacePolicyAttribute,
-
+			policySetOffloadThreshold:               stringPulsarNamespacePolicyAttribute,
 		},
 	}
 )
@@ -350,8 +344,7 @@ func setNamespacePolicies(ctx context.Context, client *pulsaradmin.ClientWithRes
 		// Set offload threshold
 		resp, err := client.NamespacesSetOffloadThreshold(ctx, tenant, namespace, *policies.OffloadThreshold, requestEditors...)
 		diags.Append(HTTPResponseDiagWarn(resp, err, pulsarNamespacePolicyError(policySetOffloadThreshold))...)
-	}	
-
+	}
 
 	if policies.InactiveTopicPolicies != nil {
 		resp, err := client.NamespacesSetInactiveTopicPolicies(ctx, tenant, namespace, *policies.InactiveTopicPolicies, requestEditors...)
