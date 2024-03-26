@@ -51,6 +51,7 @@ const (
 	policyInactiveTopicDeleteMode                 = "delete_mode"
 
 	policySubscriptionExpirationTimeMinutes = "subscription_expiration_time_minutes"
+	policyOffloadThreshold                  = "offload_threshold"
 )
 
 type PulsarNamespacePolicies struct {
@@ -65,6 +66,7 @@ type PulsarNamespacePolicies struct {
 	RetentionPolicies                 *PulsarNamespaceRetentionPolicies         `tfsdk:"retention_policies" json:"retention_policies,omitempty"`
 	InactiveTopicPolicies             *PulsarNamespaceInactiveTopicPolicies     `tfsdk:"inactive_topic_policies" json:"inactive_topic_policies,omitempty"`
 	SubscriptionExpirationTimeMinutes *int64                                    `tfsdk:"subscription_expiration_time_minutes" json:"subscription_expiration_time_minutes,omitempty"`
+	OffloadThreshold                  *int64                                    `tfsdk:"offload_threshold" json:"offload_threshold,omitempty"`
 }
 
 type PulsarNamespaceRetentionPolicies struct {
@@ -199,6 +201,7 @@ var (
 				},
 			},
 			policySubscriptionExpirationTimeMinutes: int64PulsarNamespacePolicyAttribute,
+			policyOffloadThreshold:                  int64PulsarNamespacePolicyAttribute,
 		},
 	}
 )
@@ -316,6 +319,10 @@ func setNamespacePolicies(ctx context.Context, client *pulsaradmin.ClientWithRes
 		resp, err := client.NamespacesSetSchemaValidationEnforced(ctx, tenant, namespace, *policies.SchemaValidationEnforced, requestEditors...)
 		diags.Append(HTTPResponseDiagWarn(resp, err, pulsarNamespacePolicyError(policySchemaValidationEnforced))...)
 	}
+	if policies.OffloadThreshold != nil {
+		resp, err := client.NamespacesSetOffloadThreshold(ctx, tenant, namespace, *policies.OffloadThreshold, requestEditors...)
+		diags.Append(HTTPResponseDiagWarn(resp, err, pulsarNamespacePolicyError(policyOffloadThreshold))...)
+	}
 
 	// Nested objects
 	if policies.AutoTopicCreationOverride != nil {
@@ -334,7 +341,6 @@ func setNamespacePolicies(ctx context.Context, client *pulsaradmin.ClientWithRes
 		resp, err := client.NamespacesSetRetention(ctx, tenant, namespace, *policies.RetentionPolicies, requestEditors...)
 		diags.Append(HTTPResponseDiagWarn(resp, err, pulsarNamespacePolicyError(policyRetentionPolicies))...)
 	}
-
 	if policies.InactiveTopicPolicies != nil {
 		resp, err := client.NamespacesSetInactiveTopicPolicies(ctx, tenant, namespace, *policies.InactiveTopicPolicies, requestEditors...)
 		diags.Append(HTTPResponseDiagWarn(resp, err, pulsarNamespacePolicyError(policyInactiveTopicPolicies))...)

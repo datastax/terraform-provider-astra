@@ -90,6 +90,7 @@ Optional:
 - `inactive_topic_policies` (Attributes) (see [below for nested schema](#nestedatt--policies--inactive_topic_policies))
 - `is_allow_auto_update_schema` (Boolean)
 - `message_ttl_in_seconds` (Number)
+- `offload_threshold` (Number)
 - `retention_policies` (Attributes) (see [below for nested schema](#nestedatt--policies--retention_policies))
 - `schema_auto_update_compatibility_strategy` (String)
 - `schema_compatibility_strategy` (String)
