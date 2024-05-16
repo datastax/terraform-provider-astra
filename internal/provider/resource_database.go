@@ -596,8 +596,13 @@ func flattenDatabase(db *astra.Database) map[string]interface{} {
 }
 
 func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, resourceData *schema.ResourceData) diag.Diagnostics {
-	// get the list of serveless regions
-	regionsResp, err := client.ListServerlessRegionsWithResponse(ctx)
+	params := &astra.ListServerlessRegionsParams{}
+	// get the list of regions
+	if resourceData.Get("db_type").(string) == "vector" {
+		regionType := "vector"
+		params.RegionType = &regionType
+	}
+	regionsResp, err := client.ListServerlessRegionsWithResponse(ctx, params)
 	if err != nil {
 		return diag.FromErr(err)
 	} else if regionsResp.StatusCode() != http.StatusOK {
