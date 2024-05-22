@@ -3,12 +3,12 @@
 page_title: "astra_customer_key Resource - terraform-provider-astra"
 subcategory: ""
 description: |-
-  astra_customer_key provides a Customer Key resource for Astra's Bring Your Own Key (BYOK).
+  astra_customer_key provides a Customer Key resource for Astra's Bring Your Own Key (BYOK). Note that DELETE is not supported through Terraform currently. A support ticket must be created to delete Customer Keys in Astra.
 ---
 
 # astra_customer_key (Resource)
 
-`astra_customer_key` provides a Customer Key resource for Astra's Bring Your Own Key (BYOK).
+`astra_customer_key` provides a Customer Key resource for Astra's Bring Your Own Key (BYOK). Note that DELETE is not supported through Terraform currently. A support ticket must be created to delete Customer Keys in Astra.
 
 
 

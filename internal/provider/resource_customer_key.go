@@ -21,7 +21,7 @@ var availableBYOKCloudProviders = []string{
 
 func resourceCustomerKey() *schema.Resource {
 	return &schema.Resource{
-		Description:   "`astra_customer_key` provides a Customer Key resource for Astra's Bring Your Own Key (BYOK).",
+		Description:   "`astra_customer_key` provides a Customer Key resource for Astra's Bring Your Own Key (BYOK). Note that DELETE is not supported through Terraform currently. A support ticket must be created to delete Customer Keys in Astra.",
 		CreateContext: resourceCustomerKeyCreate,
 		ReadContext:   resourceCustomerKeyRead,
 		DeleteContext: resourceCustomerKeyDelete,
@@ -108,7 +108,13 @@ func resourceCustomerKeyRead(ctx context.Context, d *schema.ResourceData, meta i
 
 func resourceCustomerKeyDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	// Delete not yet supported via DevOps API
-	return nil
+	return diag.Diagnostics{
+		diag.Diagnostic{
+			Severity: diag.Warning,
+			Summary:  "Delete of Customer Key resource not supported",
+			Detail:  "Please open a Support ticket to delete Customer Keys in Astra.",
+		},
+	}
 }
 
 func buildAWSKms(region, keyId string) *astra.AWSKMS {
