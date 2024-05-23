@@ -67,9 +67,16 @@ func resourceCustomerKeyCreate(ctx context.Context, d *schema.ResourceData, meta
 	cloudProvider := d.Get("cloud_provider").(string)
 	keyId := d.Get("key_id").(string)
 	region := d.Get("region").(string)
+	// Determine the orgId from the current context
+	orgId, err := getOrgId(ctx, client)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	// build the create Key request
-	createKeyReq := &astra.ExternalKMS{}
+	createKeyReq := &astra.ExternalKMS{
+		OrgId: &orgId,
+	}
 	if strings.EqualFold("aws", cloudProvider) {
 		createKeyReq.Aws = buildAWSKms(region, keyId)
 	} else if strings.EqualFold("gcp", cloudProvider) {
@@ -82,10 +89,6 @@ func resourceCustomerKeyCreate(ctx context.Context, d *schema.ResourceData, meta
 	}
 	if resp.StatusCode() != http.StatusOK {
 		return diag.Errorf("Unexpected error creating Customer Key. Status: %d, Message: %s", resp.StatusCode(), string(resp.Body))
-	}
-	orgId, err := getOrgId(ctx, client)
-	if err != nil {
-		return diag.FromErr(err)
 	}
 	// set the data
 	if err := setCustomerKeyData(d, orgId, cloudProvider, region, keyId); err != nil {
