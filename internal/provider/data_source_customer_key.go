@@ -58,12 +58,12 @@ func dataSourceCustomerKeyRead(ctx context.Context, d *schema.ResourceData, meta
 	}
 	for _, key := range customerKeys {
 		if strings.EqualFold(cloudProvider, key["cloud_provider"].(string)) &&
-		    region == key["region].(string)"] {
+		    region == key["region"].(string) {
 				orgId := key["organization_id"].(string)
 				keyId := key["key_id"].(string)
 				d.Set("organization_id", orgId)
 				d.Set("key_id", keyId)
-				d.SetId(fmt.Sprintf("%s/%s/%s", orgId, cloudProvider, region))
+				d.SetId(fmt.Sprintf("%s/cloudProvider/%s/region/%s/keyId/%s", orgId, cloudProvider, region, keyId))
 				return nil
 		}
 	}

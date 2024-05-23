@@ -21,7 +21,11 @@ var availableBYOKCloudProviders = []string{
 
 func resourceCustomerKey() *schema.Resource {
 	return &schema.Resource{
-		Description:   "`astra_customer_key` provides a Customer Key resource for Astra's Bring Your Own Key (BYOK). Note that DELETE is not supported through Terraform currently. A support ticket must be created to delete Customer Keys in Astra.",
+		Description:   "`astra_customer_key` provides a Customer Key resource for Astra's Bring Your Own Key (BYOK). " +
+		               "Note that DELETE is not supported through Terraform currently. " +
+					   "A support ticket must be created to delete Customer Keys in Astra. " +
+					   "WARNING: Deleting a key from Astra will result in an outage. " +
+					   "Please see https://docs.datastax.com/en/astra-db-serverless/administration/delete-customer-keys.html for more information.",
 		CreateContext: resourceCustomerKeyCreate,
 		ReadContext:   resourceCustomerKeyRead,
 		DeleteContext: resourceCustomerKeyDelete,
@@ -41,7 +45,7 @@ func resourceCustomerKey() *schema.Resource {
 				DiffSuppressFunc: ignoreCase,
 			},
 			"key_id": {
-				Description:      "Customer Key ID.",
+				Description:      "Customer Key ID. This is cloud provider specific.",
 				Type:             schema.TypeString,
 				Required:         true,
 				ForceNew:         true,
@@ -104,7 +108,6 @@ func resourceCustomerKeyRead(ctx context.Context, d *schema.ResourceData, meta i
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
 	setCustomerKeyData(d, orgId, cloudProvider, region, keyId)
 	return nil
 }
@@ -149,8 +152,8 @@ func setCustomerKeyData(d *schema.ResourceData, orgId, cloudProvider, region, ke
 	}
 
 	// generate the resource ID
-	// format: <organization_id>/<cloud_provider>/<region>/<key_id>
-	d.SetId(fmt.Sprintf("%s/%s/%s/%s", orgId, cloudProvider, region, keyId))
+	// format: <organization_id>/cloudProvider/<cloud_provider>/region/<region>/keyId/<key_id>
+	d.SetId(fmt.Sprintf("%s/cloudProvider/%s/region/%s/keyId/%s", orgId, cloudProvider, region, keyId))
 	return nil
 }
 
@@ -167,9 +170,9 @@ func getOrgId(ctx context.Context, client *astra.ClientWithResponses) (string, e
 }
 
 func parseCustomerKeyId(id string) (string, string, string, string, error) {
-	re := regexp.MustCompile(`(?P<orgid>.*)/(?P<cloudprovider>.*)/(?P<region>.*)/(?P<keyid>.*)`)
+	re := regexp.MustCompile(`(?P<orgid>.*)/cloudProvider/(?P<cloudprovider>.*)/region/(?P<region>.*)/keyId/(?P<keyid>.*)`)
 	if !re.MatchString(id) {
-		return "", "", "", "", errors.New("invalid customer key id format: expected <organization_id>/<cloud_provider>/<region>/<key_id>")
+		return "", "", "", "", errors.New("invalid customer key id format: expected <organization_id>/cloudProvider/<cloud_provider>/region/<region>/keyId/<key_id>")
 	}
 	matches := re.FindStringSubmatch(id)
 	orgIdIndex := re.SubexpIndex("orgid")

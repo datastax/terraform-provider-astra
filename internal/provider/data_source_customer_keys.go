@@ -79,10 +79,10 @@ func listCustomerKeys(ctx context.Context, client *astra.ClientWithResponses) ([
 	result := make([]map[string]interface{}, 0, len(*customerKeys))
 	for _, key := range *customerKeys {
 		result = append(result, map[string]interface{}{
-			"organization_id" : key.OrganizationID,
-			"cloud_provider"  : key.CloudProvider,
-			"region"          : key.Region,
-			"key_id"          : key.KeyID,
+			"organization_id" : *key.OrganizationID,
+			"cloud_provider"  : *key.CloudProvider,
+			"region"          : *key.Region,
+			"key_id"          : *key.KeyID,
 		})
 	}
 	return result, nil
