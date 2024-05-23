@@ -87,7 +87,7 @@ func resourceCustomerKeyCreate(ctx context.Context, d *schema.ResourceData, meta
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	if resp.StatusCode() != http.StatusOK {
+	if resp.StatusCode() != http.StatusCreated {
 		return diag.Errorf("Unexpected error creating Customer Key. Status: %d, Message: %s", resp.StatusCode(), string(resp.Body))
 	}
 	// set the data
