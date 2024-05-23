@@ -160,6 +160,9 @@ func getOrgId(ctx context.Context, client *astra.ClientWithResponses) (string, e
 	if err != nil {
 		return "", err
 	}
+	if resp.StatusCode() != http.StatusOK {
+		return "", fmt.Errorf("Error fetching current organization. Status: %d, Message: %s", resp.StatusCode(), string(resp.Body))
+	}
 	return resp.JSON200.Id, nil
 }
 
