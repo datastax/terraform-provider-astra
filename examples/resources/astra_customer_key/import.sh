@@ -1,0 +1,2 @@
+# the import id is in the fomrat of <orgId>/cloudProvider/<cloud_provider>/region/<region>/keyId/<key_id>
+terraform import astra_customer_key.customerkey 4d3c2b1a-5e6f-1a2b-3c4d-5e6f1a2b3c4d/cloudProvider/aws/region/us-east-1/keyId/arn:aws:kms:us-east-1:123456789012:key/1a2b3c4d-5e6f-1a2b-3c4d-5e6f1a2b3c4d
