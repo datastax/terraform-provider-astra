@@ -13,6 +13,8 @@ func resourceEnterpriseOrg() *schema.Resource {
 	return &schema.Resource{
 		Description:   "`enterprise_org` resource represents an Organization that is created under an Enterprise in Astra.",
 		CreateContext: resourceEnterpriseOrgCreate,
+		ReadContext:   resourceEnterpriseOrgRead,
+		DeleteContext: resourceEnterpriseOrgDelete,
 
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
@@ -104,6 +106,26 @@ func resourceEnterpriseOrgCreate(ctx context.Context, d *schema.ResourceData, me
 		return diag.FromErr(err)
 	}
 	return nil
+}
+
+func resourceEnterpriseOrgRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return diag.Diagnostics{
+		diag.Diagnostic{
+			Severity: diag.Warning,
+			Summary:  "Read of Enterprise Organizations not supported",
+			Detail:  "Read of Enterprise Organizations not supported.",
+		},
+	}
+}
+
+func resourceEnterpriseOrgDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return diag.Diagnostics{
+		diag.Diagnostic{
+			Severity: diag.Warning,
+			Summary:  "Delete of Enterprise Organizations not supported",
+			Detail:  "Delete of Enterprise Organizations not supported.",
+		},
+	}
 }
 
 func setEnterpriseOrgData(d *schema.ResourceData, org *astra.CreateOrgInEnterpriseResponse) error {
