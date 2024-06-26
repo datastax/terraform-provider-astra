@@ -29,12 +29,12 @@ resource "astra_enterprise_org" "entorg" {
 
 - `admin_user_id` (String) UUID of the Astra user that will be the admin of the organization
 - `email` (String) Organization email address
-- `enterprise_id` (String) UUID of the Enterprise under which the organization should be created
 - `name` (String) Organization name
 
 ### Read-Only
 
 - `created_at` (String) The timestamp when the organization was created.
+- `enterprise_id` (String) UUID of the Enterprise under which the organization is created
 - `id` (String) The ID of this resource.
 - `last_modified` (String) The timestamp when the organization was last modified.
 - `organization_group_id` (String) The group ID (UUID) of the organization.

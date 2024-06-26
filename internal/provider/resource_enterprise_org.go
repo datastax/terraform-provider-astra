@@ -40,37 +40,36 @@ func resourceEnterpriseOrg() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 			},
-			"enterprise_id": {
-				Description: "UUID of the Enterprise under which the organization should be created",
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-			},
 			// Computed
+			"enterprise_id": {
+				Description: "UUID of the Enterprise under which the organization is created",
+				Type:        schema.TypeString,
+				Computed:    true,
+			},
 			"organization_id": {
-				Description:    "The Astra organization ID (UUID) for the created Enterprise organization.",
-				Type:           schema.TypeString,
-				Computed:       true,
+				Description: "The Astra organization ID (UUID) for the created Enterprise organization.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"organization_type": {
-				Description:    "The type of the organization.",
-				Type:           schema.TypeString,
-				Computed:       true,
+				Description: "The type of the organization.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"organization_group_id": {
-				Description:    "The group ID (UUID) of the organization.",
-				Type:           schema.TypeString,
-				Computed:       true,
+				Description: "The group ID (UUID) of the organization.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"created_at": {
-				Description:    "The timestamp when the organization was created.",
-				Type:           schema.TypeString,
-				Computed:       true,
+				Description: "The timestamp when the organization was created.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			"last_modified": {
-				Description:    "The timestamp when the organization was last modified.",
-				Type:           schema.TypeString,
-				Computed:       true,
+				Description: "The timestamp when the organization was last modified.",
+				Type:        schema.TypeString,
+				Computed:    true,
 			},
 			// TODO: Add MarketPlaceData
 		},
@@ -83,13 +82,11 @@ func resourceEnterpriseOrgCreate(ctx context.Context, d *schema.ResourceData, me
 	orgName := d.Get("name").(string)
 	orgEmail := d.Get("email").(string)
 	adminUid := d.Get("admin_user_id").(string)
-	enterpriseId := d.Get("enterprise_id").(string)
 
 	orgReq := astra.CreateOrganizationInEnterpriseJSONRequestBody{
 		Name:         orgName,
 		Email:        orgEmail,
 		AdminUserID:  adminUid,
-		EnterpriseID: enterpriseId,
 	}
 
 	resp, err := client.CreateOrganizationInEnterpriseWithResponse(ctx, orgReq)
@@ -132,7 +129,7 @@ func setEnterpriseOrgData(d *schema.ResourceData, org *astra.CreateOrgInEnterpri
 	if org == nil {
 		return errors.New("organization is nil")
 	}
-
+	d.Set("enterprise_id", *org.EnterpriseId)
 	d.Set("organization_id", *org.OrganizationID)
 	d.Set("organization_type", *org.OrgType)
 	d.Set("organization_group_id", *org.OrganizationGroupId)
