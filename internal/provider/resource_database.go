@@ -91,7 +91,7 @@ func resourceDatabase() *schema.Resource {
 				Default:     true,
 			},
 			"db_type": {
-				Description:  "Database type. Currently only `vector` is supported. Omit this optional field if you want a regular severless database.",
+				Description:  "Database type. Currently only `vector` is supported. Omit this optional field if you want a regular serverless database.",
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,

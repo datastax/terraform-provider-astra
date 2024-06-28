@@ -33,6 +33,13 @@ func resourceToken() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			// Optional
+			"org_id": {
+				Description: "The UUID of the organization under which the token will be created. If not provided, the token will be created under the organization/enterprise of the token making the request.",
+				Type:        schema.TypeString,
+				Optional:    true,
+				ForceNew:    true,
+			},
 			"client_id": {
 				Description: "Client id, use as username in cql to connect",
 				Type:        schema.TypeString,
@@ -58,6 +65,17 @@ func resourceTokenCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	roles := d.Get("roles").([]interface{})
+	orgId := d.Get("org_id").(string)
+
+	if len(orgId) == 0 {
+		// no orgId provided, use the one associated with the effective token
+		currentOrg, err := getCurrentOrgID(ctx, client)
+		if err != nil {
+			return diag.Errorf("No Organization ID provided for token creation and an error occurred trying to fetch the Organization associated with the current API token.")
+		}
+		// use the org associated with the API token making the call if not provided
+		orgId = currentOrg
+	}
 
 	rolesList := make([]string, len(roles))
 
@@ -73,8 +91,9 @@ func resourceTokenCreate(ctx context.Context, d *schema.ResourceData, meta inter
 
 	tokenJSON := astra.GenerateTokenForClientJSONRequestBody{
 		Roles: rolesList,
+		OrgId: &orgId,
 	}
-	resp, err := client.GenerateTokenForClientWithResponse(ctx,
+	resp, err := client.GenerateAppTokenForClientWithResponse(ctx,
 		tokenJSON,
 	)
 
@@ -136,6 +155,7 @@ func setTokenData(d *schema.ResourceData, tokenMap map[string]interface{}) error
 	clientID := tokenMap["clientId"].(string)
 	secret := tokenMap["secret"].(string)
 	token := tokenMap["token"].(string)
+	responseOrgId := tokenMap["orgId"].(string)
 
 	d.SetId(fmt.Sprintf("%s", clientID))
 
@@ -146,6 +166,9 @@ func setTokenData(d *schema.ResourceData, tokenMap map[string]interface{}) error
 		return err
 	}
 	if err := d.Set("token", token); err != nil {
+		return err
+	}
+	if err := d.Set("org_id", responseOrgId); err != nil {
 		return err
 	}
 

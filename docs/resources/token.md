@@ -25,6 +25,10 @@ resource "astra_token" "example" {
 
 - `roles` (List of String) List of Role IDs to be assigned to the generated token
 
+### Optional
+
+- `org_id` (String) The UUID of the organization under which the token will be created. If not provided, the token will be created under the organization/enterprise of the token making the request.
+
 ### Read-Only
 
 - `client_id` (String) Client id, use as username in cql to connect
