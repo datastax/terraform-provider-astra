@@ -129,6 +129,12 @@ func dataSourceDatabases() *schema.Resource {
 								Type: schema.TypeString,
 							},
 						},
+						"db_type": {
+							Description: "Type of Database. This will be 'vector' if the DB supports vector, otherwise 'null'",
+							Type:	     schema.TypeString,
+							Computed:    true,
+							Optional:    true,
+						},
 					},
 				},
 			},

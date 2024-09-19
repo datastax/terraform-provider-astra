@@ -45,6 +45,7 @@ Read-Only:
 - `cqlsh_url` (String)
 - `data_endpoint_url` (String)
 - `datacenters` (Map of String)
+- `db_type` (String)
 - `grafana_url` (String)
 - `graphql_url` (String)
 - `id` (String)
