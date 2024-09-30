@@ -39,6 +39,7 @@ func resourceToken() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
+				Computed:    true,
 			},
 			"client_id": {
 				Description: "Client id, use as username in cql to connect",
