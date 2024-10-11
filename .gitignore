@@ -39,3 +39,5 @@ website/vendor
 *.winfile eol=crlf
 
 terraform-provider-astra
+
+dist/
