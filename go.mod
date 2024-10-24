@@ -5,7 +5,7 @@ go 1.22.0
 toolchain go1.23.1
 
 require (
-	github.com/datastax/astra-client-go/v2 v2.2.58
+	github.com/datastax/astra-client-go/v2 v2.2.60
 	github.com/datastax/pulsar-admin-client-go v0.0.0-20230707040954-1a4745e07587
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320
