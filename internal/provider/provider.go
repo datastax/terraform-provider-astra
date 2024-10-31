@@ -202,7 +202,7 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return nil, diag.FromErr(err)
 		}
 
-		var clientCache = make(map[string]astrarestapi.Client)
+		var clientCache = make(map[string]*astrarestapi.ClientWithResponses)
 
 		clients := astraClients{
 			astraClient:            astraClient,
@@ -217,7 +217,7 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 	}
 }
 
-func newRestClient(dbid string, providerVersion string, userAgent string, region string) (astrarestapi.Client, error) {
+func newRestClient(dbid string, providerVersion string, userAgent string, region string) (*astrarestapi.ClientWithResponses, error) {
 	clientVersion := fmt.Sprintf("go/%s", astra.Version)
 	// Build a retryable http astraClient to automatically
 	// handle intermittent api errors
@@ -232,7 +232,7 @@ func newRestClient(dbid string, providerVersion string, userAgent string, region
 	}
 
 	serverURL := fmt.Sprintf("https://%s-%s.%s/api/rest/", dbid, region, astraAppsDomain)
-	restClient, err := astrarestapi.NewClient(serverURL, func(c *astrarestapi.Client) error {
+	restClient, err := astrarestapi.NewClientWithResponses(serverURL, func(c *astrarestapi.Client) error {
 		c.Client = retryClient.StandardClient()
 		c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
 			req.Header.Set("User-Agent", userAgent)
@@ -243,9 +243,9 @@ func newRestClient(dbid string, providerVersion string, userAgent string, region
 		return nil
 	})
 	if err != nil {
-		return *restClient, err
+		return restClient, err
 	}
-	return *restClient, nil
+	return restClient, nil
 }
 
 type astraClients struct {
@@ -253,7 +253,7 @@ type astraClients struct {
 	astraStreamingClient   interface{}
 	token                  string
 	astraStreamingClientv3 *astrastreaming.ClientWithResponses
-	stargateClientCache    map[string]astrarestapi.Client
+	stargateClientCache    map[string]*astrarestapi.ClientWithResponses
 	providerVersion        string
 	userAgent              string
 	streamingClusterSuffix string
