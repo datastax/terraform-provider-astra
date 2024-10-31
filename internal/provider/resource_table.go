@@ -142,7 +142,7 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 		TableOptions:      nil,
 	}
 
-	var restClient astrarestapi.Client
+	var restClient *astrarestapi.ClientWithResponses
 	if val, ok := stargateCache[databaseID]; ok {
 		restClient = val
 	} else {
@@ -230,7 +230,7 @@ func resourceTableRead(ctx context.Context, d *schema.ResourceData, meta interfa
 
 	stargateCache := meta.(astraClients).stargateClientCache
 
-	var restClient astrarestapi.Client
+	var restClient *astrarestapi.ClientWithResponses
 	if val, ok := stargateCache[databaseID]; ok {
 		restClient = val
 	} else {
@@ -243,24 +243,25 @@ func resourceTableRead(ctx context.Context, d *schema.ResourceData, meta interfa
 
 	fmt.Printf("%v", restClient)
 
+	raw := true
 	params := astrarestapi.GetTableParams{
-		Raw:             nil,
+		Raw:             &raw,
 		XCassandraToken: token,
 	}
-	resp, err := restClient.GetTable(ctx, keyspaceName, tableName, &params)
+	resp, err := restClient.GetTableWithResponse(ctx, keyspaceName, tableName, &params)
 	if err != nil {
 		return diag.FromErr(fmt.Errorf("error getting table (not retrying) err: %w", err))
-	} else if resp.StatusCode == 409 {
+	} else if resp.StatusCode() == 409 {
 		// DevOps API returns 409 for concurrent modifications, these need to be retried.
-		b, _ := io.ReadAll(resp.Body)
-		return diag.FromErr(fmt.Errorf("error getting table (retrying): %s", b))
-	} else if resp.StatusCode >= 400 {
+		return diag.Errorf("error getting table (retrying): %s", string(resp.Body))
+	} else if resp.StatusCode() >= 400 {
 		//table not found
 		d.SetId("")
 		return nil
 	}
 
-	if err := setTableResourceData(d, databaseID, region, keyspaceName, tableName); err != nil {
+	tableData := resp.JSON200
+	if err := setTableResourceDataWithTableData(d, databaseID, region, keyspaceName, tableName, tableData); err != nil {
 		return diag.FromErr(fmt.Errorf("Error setting keyspace data (not retrying) %s", err))
 	}
 
@@ -282,7 +283,7 @@ func resourceTableDelete(ctx context.Context, d *schema.ResourceData, meta inter
 
 	stargateCache := meta.(astraClients).stargateClientCache
 
-	var restClient astrarestapi.Client
+	var restClient *astrarestapi.ClientWithResponses
 	if val, ok := stargateCache[databaseID]; ok {
 		restClient = val
 	} else {
@@ -330,6 +331,42 @@ func setTableResourceData(d *schema.ResourceData, databaseID, region, keyspaceNa
 		return err
 	}
 
+	return nil
+}
+
+func setTableResourceDataWithTableData(d *schema.ResourceData, databaseID, region, keyspaceName, table string, tableData *astrarestapi.Table) error {
+	if err := setTableResourceData(d, databaseID,region, keyspaceName, table); err != nil {
+		return err
+	}
+	if tableData == nil {
+		return fmt.Errorf("Table Data was nil")
+	}
+	// now set the rest of the table data
+	// partition_key
+	if err := d.Set("partition_keys", strings.Join(tableData.PrimaryKey.PartitionKey, ":")); err != nil {
+		return err
+	}
+
+	// clustering_columns
+	if tableData.PrimaryKey.ClusteringKey != nil {
+		if err := d.Set("clustering_columns", strings.Join(*tableData.PrimaryKey.ClusteringKey, ":")); err != nil {
+			return err
+		}
+	}
+
+	// column_definitions
+	cdefs := make([]map[string]string, len(tableData.ColumnDefinitions))
+	for index, cdef := range tableData.ColumnDefinitions {
+		defs := map[string]string {
+			"Name": cdef.Name,
+			"TypeDefinition": string(cdef.TypeDefinition),
+			"Static": strconv.FormatBool(*cdef.Static),
+		}
+		cdefs[index] = defs
+	}
+	if err := d.Set("column_definitions", cdefs); err != nil {
+		return err
+	}
 	return nil
 }
 
