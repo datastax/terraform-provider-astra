@@ -93,3 +93,20 @@ func TestParseStreamingTopicID(t *testing.T) {
 	assert.True(t, topic.Partitioned.ValueBool())
 	assert.Equal(t, "non-persistent://my-tenant/my-namespace/topic1", topic.getTopicFQN())
 }
+
+func TestTopicNameValidation(t *testing.T) {
+	topicID := "my-cluster:persistent://my-tenant/my-namespace/this.Topic-is_valid123-DLQ"
+	topic, err := parseStreamingTopicID(topicID)
+	assert.Nil(t, err)
+	assert.Equal(t, "this.Topic-is_valid123-DLQ", topic.Topic.ValueString())
+
+	invalidTopics := []string{
+		"my-cluster:persistent://my-tenant/my-namespace/this.Topic-isnt$valid123",
+		"my-cluster:persistent://my-tenant/my-namespace/1this.Topic-isnt_valid123",
+		"my-cluster:persistent://my-tenant/my-namespace/this.Topic-isnt_valid123+",
+	}
+	for _, topicID := range invalidTopics {
+		topic, err = parseStreamingTopicID(topicID)
+		assert.NotNil(t, err)
+	}
+}
