@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -129,7 +130,7 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 	}
 
 	astraClient := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+	streamingClientv3 := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 
 	tenantName := resourceData.Get("tenant_name").(string)
 	sinkName := resourceData.Get("sink_name").(string)
@@ -202,7 +203,7 @@ type SinkResponse struct {
 
 func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	astraClient := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+	streamingClientv3 := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 
 	tenantName := resourceData.Get("tenant_name").(string)
 	sinkName := resourceData.Get("sink_name").(string)
@@ -249,7 +250,7 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 
 func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	astraClient := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClientv3
+	streamingClientv3 := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
 
 	rawRegion := resourceData.Get("region").(string)
 	region := strings.ReplaceAll(rawRegion, "-", "")
@@ -285,9 +286,8 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		return diag.FromErr(fmt.Errorf("failed to request pulsar clusters: %w", err))
 	}
 
-	var streamingClusters StreamingClusters
-	if err = json.Unmarshal(streamingClustersResponse.Body, &streamingClusters); err != nil {
-		return diag.FromErr(fmt.Errorf("failed to read pulsar clusters: %w", err))
+	if streamingClustersResponse.StatusCode() != http.StatusOK {
+		return diag.FromErr(fmt.Errorf("failed to read pulsar clusters. Status code: %s, msg:\n%s", streamingClustersResponse.Status(), string(streamingClustersResponse.Body)))
 	}
 
 	pulsarCluster := getPulsarCluster("", cloudProvider, region, "")

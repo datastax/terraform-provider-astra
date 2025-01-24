@@ -132,6 +132,11 @@ type StreamingClusters []struct {
 	JvmVersion             string `json:"jvmVersion"`
 	PulsarVersion          string `json:"pulsarVersion"`
 	Email                  string `json:"Email"`
+	UserMetricsUrl         string `json:"userMetricsUrl"`
+	PulsarInstance         string `json:"pulsarInstance"`
+	PulsarClusterDNS       string `json:"pulsarClusterDNS"`
+	ClusterType            string `json:"clusterType"`
+	AzType                 string `json:"azType"`
 }
 
 func resourceStreamingTenantUpdate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
