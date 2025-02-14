@@ -18,7 +18,6 @@ resource "astra_enterprise_org" "entorg" {
   name          = "My Enterprise Organization"
   email         = "admin@example.com"
   admin_user_id = "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
-  enterprise_id = "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
 }
 ```
 
@@ -46,6 +45,7 @@ resource "astra_enterprise_org" "entorg" {
 Import is supported using the following syntax:
 
 ```shell
-# The import ID is the organization ID (UUID)
-terraform import astra_enterprise_org.example a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d
+**NOTE** Import of astra_enterprise_org resources is currently not available, and
+has not been available in previous versions of the provider, up to and including
+version 2.3.11.
 ```
