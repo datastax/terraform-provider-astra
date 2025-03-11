@@ -234,6 +234,10 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 	getSinkResponse, err := streamingClientv3.GetSinksWithResponse(ctx, tenantName, namespace, sinkName, &getSinksParams)
 	if err != nil {
 		diag.FromErr(err)
+	} else if getSinkResponse.StatusCode() == 404 {
+		// sink not found, remove it from the state
+		resourceData.SetId("")
+		return nil
 	} else if getSinkResponse.StatusCode() > 299 {
 		return diag.Errorf("failed to get sink, status code %d, message: %s", getSinkResponse.StatusCode(), getSinkResponse.Body)
 	}

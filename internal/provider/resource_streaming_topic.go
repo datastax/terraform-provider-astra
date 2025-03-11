@@ -346,6 +346,13 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 		if state.Partitioned.ValueBool() {
 			topicParams := pulsaradmin.PersistentTopicsGetPartitionedMetadataParams{}
 			topicResp, err := pulsarClient.PersistentTopicsGetPartitionedMetadataWithResponse(ctx, tenant, namespace, topic, &topicParams, streamingRequestHeaders)
+			if topicResp.StatusCode() == 404 || topicResp.StatusCode() == 401 {
+				// we get back a 401 if the tenant is not present
+				// we get back a 404 if the topic is not present
+				// if we have no tenant, we have no topic
+				resp.State.RemoveResource(ctx)
+				return
+			}
 			resp.Diagnostics.Append(parsePersistentPartitionedTopicResponse(&state, topicResp, err)...)
 		} else {
 			topicParams := pulsaradmin.PersistentTopicsGetStatsParams{}
@@ -356,6 +363,13 @@ func (r *StreamingTopicResource) Read(ctx context.Context, req resource.ReadRequ
 		if state.Partitioned.ValueBool() {
 			topicParams := pulsaradmin.NonPersistentTopicsGetPartitionedMetadataParams{}
 			topicResp, err := pulsarClient.NonPersistentTopicsGetPartitionedMetadataWithResponse(ctx, tenant, namespace, topic, &topicParams, streamingRequestHeaders)
+			if topicResp.StatusCode() == 404 || topicResp.StatusCode() == 401 {
+				// we get back a 401 if the tenant is not present
+				// we get back a 404 if the topic is not present
+				// if we have no tenant, we have no topic
+				resp.State.RemoveResource(ctx)
+				return
+			}
 			resp.Diagnostics.Append(parseNonPersistentPartitionedTopicResponse(&state, topicResp, err)...)
 		} else {
 			topicParams := pulsaradmin.NonPersistentTopicsGetStatsParams{}

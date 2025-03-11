@@ -191,6 +191,11 @@ func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.Resou
 	if err != nil {
 		return diag.Errorf("failed to get streaming tenant: %v", err)
 	}
+	if getTenantResponse.HTTPResponse.StatusCode == 404 {
+		// Tenant not found, remove it from the state
+		resourceData.SetId("")
+		return nil
+	}
 	if getTenantResponse.HTTPResponse.StatusCode != http.StatusOK {
 		return diag.Errorf("invalid status code returned for tenant: %v", getTenantResponse.HTTPResponse.StatusCode)
 	}
