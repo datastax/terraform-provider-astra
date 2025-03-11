@@ -269,6 +269,12 @@ func getPulsarNamespacePolicies(ctx context.Context, pulsarAdminClient *pulsarad
 	policiesAttrTypes := plan.Policies.AttributeTypes(ctx)
 
 	resp, err := pulsarAdminClient.NamespacesGetPoliciesWithResponse(ctx, plan.Tenant.ValueString(), plan.Namespace.ValueString(), requestEditors...)
+	if resp.StatusCode() == 401 || resp.StatusCode() == 404 {
+		// we get back a 401 if the tenant is not present
+		// we get back a 404 if the namespace is not present
+		// if we have no tenant, we have no namespace
+		return types.ObjectNull(policiesAttrTypes), diags
+	}
 	diags.Append(HTTPResponseDiagErrWithBody(resp.StatusCode(), resp.Body, err, "failed to get namespace policies")...)
 	if diags.HasError() {
 		return types.ObjectNull(policiesAttrTypes), diags

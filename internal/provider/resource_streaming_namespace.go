@@ -126,6 +126,12 @@ func (r *StreamingNamespaceResource) Create(ctx context.Context, req resource.Cr
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// if we have no errors, but the policies is null, we need to remove the namespace from the state
+	if policiesFromServer.IsNull() {
+		// remove it from the state
+		resp.State.RemoveResource(ctx)
+		return
+	}
 	mergedPolicies, diags := MergeTerraformObjects(plan.Policies, policiesFromServer, plan.Policies.AttributeTypes(context.Background()))
 	resp.Diagnostics.Append(diags...)
 	plan.Policies = mergedPolicies
@@ -148,6 +154,12 @@ func (r *StreamingNamespaceResource) Read(ctx context.Context, req resource.Read
 	policiesFromServer, diags := getPulsarNamespacePolicies(ctx, pulsarClient, state, pulsarRequestEditor)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+	// if we have no errors, but the policies is null, we need to remove the namespace from the state
+	if policiesFromServer.IsNull() {
+		// remove it from the state
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -176,6 +188,12 @@ func (r *StreamingNamespaceResource) Update(ctx context.Context, req resource.Up
 	policiesFromServer, diags := getPulsarNamespacePolicies(ctx, r.clients.pulsarAdminClient, plan, pulsarRequestEditor)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+	// if we have no errors, but the policies is null, we need to remove the namespace from the state
+	if policiesFromServer.IsNull() {
+		// remove it from the state
+		resp.State.RemoveResource(ctx)
 		return
 	}
 	mergedPolicies, diags := MergeTerraformObjects(plan.Policies, policiesFromServer, plan.Policies.AttributeTypes(context.Background()))
