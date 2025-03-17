@@ -512,6 +512,10 @@ func waitForDatabaseAndUpdateResource(ctx context.Context, resourceData *schema.
 			return retry.RetryableError(fmt.Errorf("error while fetching database: %s", string(res.Body)))
 		}
 
+		// Status code == 401 Unauthorized
+		if res.StatusCode() == http.StatusUnauthorized {
+			return retry.NonRetryableError(fmt.Errorf("User not authorized. Effective role must have 'View DB' permission on the database (or on all DBs in the current org)"))
+		}
 		// Status code > 200 NOT retried
 		if res.StatusCode() > http.StatusOK || res.JSON200 == nil {
 			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database, status code: %d, message %s", res.StatusCode(), string(res.Body)))
@@ -605,8 +609,11 @@ func ensureValidRegions(ctx context.Context, client *astra.ClientWithResponses, 
 	regionsResp, err := client.ListServerlessRegionsWithResponse(ctx, params)
 	if err != nil {
 		return diag.FromErr(err)
+	} else if regionsResp.StatusCode() == http.StatusUnauthorized {
+		// if we get a 401 back, we don't have the "Create DB" permission
+		return diag.Errorf("User not authorized. Effective role must have 'Create DB' permission to list available regions")
 	} else if regionsResp.StatusCode() != http.StatusOK {
-		return diag.Errorf("unexpected list available regions response: %s", string(regionsResp.Body))
+		return diag.Errorf("unexpected response listing available regions: %s, return code: %d", string(regionsResp.Body), regionsResp.StatusCode())
 	}
 	// make sure all of the regions are valid
 	cloudProvider := resourceData.Get("cloud_provider").(string)
