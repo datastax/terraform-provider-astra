@@ -65,6 +65,12 @@ func resourceCDC() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 			},
+			"pulsar_cluster": {
+				Description: "Pulsar cluster name",
+				Type:        schema.TypeString,
+				Optional:    true,
+				ForceNew:    true,
+			},
 			"tenant_name": {
 				Description: "Streaming tenant name",
 				Type:        schema.TypeString,
@@ -96,6 +102,7 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 	token := meta.(astraClients).token
 
 	id := resourceData.Id()
+	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster_name").(string)
 
 	databaseId, keyspace, table, tenantName, err := parseCDCID(id)
 	if err != nil {
@@ -114,7 +121,7 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 		return diag.FromErr(fmt.Errorf("failed to read current organization: %w", err))
 	}
 
-	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, streamingClient, tenantName)
+	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, streamingClient, tenantName, pulsarClusterFromConfig)
 	if err != nil {
 		diag.FromErr(err)
 	}
@@ -190,6 +197,7 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 	token := meta.(astraClients).token
 
 	id := resourceData.Id()
+	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster_name").(string)
 
 	databaseId, keyspace, table, tenantName, err := parseCDCID(id)
 	if err != nil {
@@ -206,7 +214,7 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 		return diag.FromErr(fmt.Errorf("failed to read organization: %w", err))
 	}
 
-	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, orgId, streamingClient, tenantName)
+	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, orgId, streamingClient, tenantName, pulsarClusterFromConfig)
 	if err != nil {
 		diag.FromErr(err)
 	}
@@ -291,6 +299,7 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 	databaseId := resourceData.Get("database_id").(string)
 	databaseName := resourceData.Get("database_name").(string)
 	topicPartitions := resourceData.Get("topic_partitions").(int)
+	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster_name").(string)
 	tenantName := resourceData.Get("tenant_name").(string)
 
 	orgBody, _ := client.GetCurrentOrganization(ctx)
@@ -309,7 +318,7 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 		TopicPartitions: topicPartitions,
 	}
 
-	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, streamingClient, tenantName)
+	pulsarCluster, pulsarToken, err := prepCDC(ctx, client, databaseId, token, org, streamingClient, tenantName, pulsarClusterFromConfig)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -386,7 +395,10 @@ func getTableCDCStatus(databaseID, keyspace, table string, cdcStatuses CDCStatus
 	return nil
 }
 
-func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId string, token string, org OrgId, streamingClient *astrastreaming.ClientWithResponses, tenantName string) (string, string, error) {
+// prepCDC get the pulsar cluster name (if it's not set) and the pulsar token
+func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId string, token string, org OrgId,
+	streamingClient *astrastreaming.ClientWithResponses, tenantName string, pulsarCluster string) (string, string, error) {
+
 	databaseResourceData := schema.ResourceData{}
 	db, err := getDatabase(ctx, &databaseResourceData, client, databaseId)
 	if err != nil {
@@ -395,9 +407,8 @@ func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId 
 
 	// In most astra APIs there are dashes in region names depending on the cloud provider, this seems not to be the case for streaming
 	cloudProvider := string(*db.Info.CloudProvider)
-	fmt.Printf("%s", cloudProvider)
+	pulsarCluster = getPulsarCluster(pulsarCluster, cloudProvider, *db.Info.Region, "")
 
-	pulsarCluster := getPulsarCluster("", cloudProvider, *db.Info.Region, "")
 	pulsarToken, err := getPulsarToken(ctx, pulsarCluster, token, org, streamingClient, tenantName)
 	return pulsarCluster, pulsarToken, err
 }
@@ -455,6 +466,7 @@ func setCDCData(resourceData *schema.ResourceData, cdc CDCStatus) diag.Diagnosti
 	return nil
 }
 
+// parseCDCID expects an ID in the format "databaseId/keyspace/table/tenantName"
 func parseCDCID(id string) (string, string, string, string, error) {
 	idParts := strings.Split(strings.ToLower(id), "/")
 	if len(idParts) != 4 {

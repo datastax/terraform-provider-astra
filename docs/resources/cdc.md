@@ -74,6 +74,7 @@ resource "astra_cdc" "db_cdc" {
   database_name    = astra_database.db_database.name
   table            = astra_table.db_table.table
   keyspace         = astra_database.db_database.keyspace
+  pulsar_cluster   = astra_streaming_tenant.cluster_name
   tenant_name      = astra_streaming_tenant.streaming_tenant.tenant_name
   topic_partitions = 3
 }
@@ -95,6 +96,10 @@ resource "astra_cdc" "db_cdc" {
 - `table` (String) Astra database table.
 - `tenant_name` (String) Streaming tenant name
 - `topic_partitions` (Number) Number of partitions in cdc topic.
+
+### Optional
+
+- `pulsar_cluster` (String) Pulsar cluster name
 
 ### Read-Only
 
