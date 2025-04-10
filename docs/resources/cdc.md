@@ -99,7 +99,7 @@ resource "astra_cdc" "db_cdc" {
 
 ### Optional
 
-- `pulsar_cluster` (String) Pulsar cluster name
+- `pulsar_cluster` (String) Name of the pulsar cluster to connect CDC.  If this is not set, Terraform will try to determine the pulsar cluster name based on the database cloud provider and region
 
 ### Read-Only
 

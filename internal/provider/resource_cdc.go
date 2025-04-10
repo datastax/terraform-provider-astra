@@ -66,10 +66,11 @@ func resourceCDC() *schema.Resource {
 				ForceNew:    true,
 			},
 			"pulsar_cluster": {
-				Description: "Pulsar cluster name",
-				Type:        schema.TypeString,
-				Optional:    true,
-				ForceNew:    true,
+				Description: "Name of the pulsar cluster to connect CDC.  If this is not set, Terraform will try to " +
+					"determine the pulsar cluster name based on the database cloud provider and region",
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
 			},
 			"tenant_name": {
 				Description: "Streaming tenant name",
@@ -102,7 +103,7 @@ func resourceCDCDelete(ctx context.Context, resourceData *schema.ResourceData, m
 	token := meta.(astraClients).token
 
 	id := resourceData.Id()
-	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster_name").(string)
+	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster").(string)
 
 	databaseId, keyspace, table, tenantName, err := parseCDCID(id)
 	if err != nil {
@@ -197,7 +198,7 @@ func resourceCDCRead(ctx context.Context, resourceData *schema.ResourceData, met
 	token := meta.(astraClients).token
 
 	id := resourceData.Id()
-	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster_name").(string)
+	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster").(string)
 
 	databaseId, keyspace, table, tenantName, err := parseCDCID(id)
 	if err != nil {
@@ -299,7 +300,7 @@ func resourceCDCCreate(ctx context.Context, resourceData *schema.ResourceData, m
 	databaseId := resourceData.Get("database_id").(string)
 	databaseName := resourceData.Get("database_name").(string)
 	topicPartitions := resourceData.Get("topic_partitions").(int)
-	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster_name").(string)
+	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster").(string)
 	tenantName := resourceData.Get("tenant_name").(string)
 
 	orgBody, _ := client.GetCurrentOrganization(ctx)
