@@ -1,6 +1,8 @@
 # Terraform Provider for Astra
 
 [Astra](https://astra.datastax.com/) is the DataStax (serverless) service platform for Apache Cassandra and Apache Pulsar.
+[Complete API documentation](https://registry.terraform.io/providers/datastax/astra/latest/docs) for this terraform provider is
+available in the Terrfarm provider registry.
 
 ## Prerequisites
 
@@ -15,8 +17,6 @@ From the [Astra Dashboard](https://astra.datastax.com), you can generate a new t
 You will need [Terraform](https://www.terraform.io/) version 1.0 or higher.
 
 ## Getting Started
-
-Reference documentation can be found in the [terraform registry](https://registry.terraform.io/providers/datastax/astra/latest/docs)
 
 ### Create a new Astra database using terraform
 
