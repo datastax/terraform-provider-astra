@@ -8,23 +8,23 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestStreamingSink(t *testing.T) {
+func TestAccStreamingSink(t *testing.T) {
 	// Disable this test by default until test works with non-prod clusters
 	checkRequiredTestVars(t, "ASTRA_TEST_STREAMING_SINK_TEST_ENABLED")
 
-	//tenantName := fmt.Sprintf("terraform-test-%s", uuid.New().String())[0:20]
-	snowflakeTenantName := fmt.Sprintf("terraform-test-%s", uuid.New().String())[0:20]
+	tenantName := fmt.Sprintf("terraform-test-%s", uuid.New().String())[0:20]
+	//snowflakeTenantName := fmt.Sprintf("terraform-test-%s", uuid.New().String())[0:20]
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			//			{
-			//				Config: testAccStreamingSinkConfiguration(),
-			//			},
 			{
-				Config: testAccStreamingSnowflakeSinkConfiguration(snowflakeTenantName),
+				Config: testAccStreamingSinkConfiguration(tenantName),
 			},
+			// {
+			// 	Config: testAccStreamingSnowflakeSinkConfiguration(snowflakeTenantName),
+			// },
 		},
 	})
 }
@@ -32,34 +32,37 @@ func TestStreamingSink(t *testing.T) {
 // https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
 func testAccStreamingSinkConfiguration(tenantName string) string {
 	return fmt.Sprintf(`
-resource "astra_streaming_tenant" "streaming_tenant-1" {
-  tenant_name        = "%s"
-  topic              = "terraformtest"
-  region             = "useast-4"
-  cloud_provider     = "gcp"
-  user_email         = "seb@datastax.com"
+resource "astra_streaming_tenant" "streaming_tenant_1" {
+  deletion_protection = false
+  tenant_name         = "%s"
+  topic               = "terraformtest"
+  cloud_provider      = "gcp"
+  region              = "us-east4"
+  user_email          = "test@datastax.com"
 }
 
-resource "astra_cdc" "cdc-1" {
-  depends_on            = [ astra_streaming_tenant.streaming_tenant-1 ]
-  database_id           = "5b70892f-e01a-4595-98e6-19ecc9985d50"
-  database_name         = "sai_test"
-  table                 = "test"
-  keyspace              = "sai_test"
-  topic_partitions      = 3
-  tenant_name           = astra_streaming_tenant.streaming_tenant-1.tenant_name
+resource "astra_streaming_topic" "streaming_topic_1" {
+  depends_on            = [astra_streaming_tenant.streaming_tenant_1]
+  deletion_protection   = false
+  cluster               = astra_streaming_tenant.streaming_tenant_1.cluster_name
+  tenant                = astra_streaming_tenant.streaming_tenant_1.tenant_name
+  namespace             = "default"
+  topic                 = "terraform-sink-test-1"
 }
-resource "astra_streaming_sink" "streaming_sink-1" {
-  depends_on            = [ astra_streaming_tenant.streaming_tenant-1, astra_cdc.cdc-1 ]
-  tenant_name           = astra_streaming_tenant.streaming_tenant-1.tenant_name
-  topic                 = astra_cdc.cdc-1.data_topic
-  region                = "useast-4"
+
+resource "astra_streaming_sink" "streaming_sink_1" {
+  depends_on            = [ astra_streaming_tenant.streaming_tenant_1, astra_streaming_topic.streaming_topic_1 ]
+  deletion_protection   = false
+  pulsar_cluster        = "pulsar-gcp-useast4-staging"
   cloud_provider        = "gcp"
+  region                = "us-east4"
+  tenant_name           = astra_streaming_tenant.streaming_tenant_1.tenant_name
+  namespace             = "default"
+  topic                 = astra_streaming_topic.streaming_topic_1.topic_fqn
   sink_name             = "jdbc-clickhouse"
   retain_ordering       = true
   processing_guarantees = "ATLEAST_ONCE"
   parallelism           = 3
-  namespace             = "default"
   sink_configs          = jsonencode({
       "userName": "clickhouse",
       "password": "password",
@@ -70,6 +73,7 @@ resource "astra_streaming_sink" "streaming_sink-1" {
 }
 `, tenantName)
 }
+
 func testAccStreamingSnowflakeSinkConfiguration(tenantName string) string {
 	return fmt.Sprintf(`
 resource "astra_streaming_tenant" "streaming_tenant-1" {

@@ -44,6 +44,14 @@ func resourceStreamingSink() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
+			"pulsar_cluster": {
+				Description: "Name of the pulsar cluster in which to create the sink.  If left blank, the name will be inferred from the" +
+					"cloud provider and region",
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+			},
 			"region": {
 				Description:  "cloud region",
 				Type:         schema.TypeString,
@@ -136,11 +144,12 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 	sinkName := resourceData.Get("sink_name").(string)
 	namespace := resourceData.Get("namespace").(string)
 
+	pulsarClusterName := resourceData.Get("pulsar_cluster").(string)
 	rawRegion := resourceData.Get("region").(string)
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	pulsarCluster := getPulsarCluster("", cloudProvider, region, "")
+	pulsarCluster := getPulsarCluster(pulsarClusterName, cloudProvider, region, "")
 
 	orgResp, err := astraClient.GetCurrentOrganization(ctx)
 	if err != nil {
@@ -210,11 +219,12 @@ func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.Resourc
 	topic := resourceData.Get("topic").(string)
 	namespace := resourceData.Get("namespace").(string)
 
+	pulsarClusterName := resourceData.Get("pulsar_cluster").(string)
 	rawRegion := resourceData.Get("region").(string)
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	pulsarCluster := getPulsarCluster("", cloudProvider, region, "")
+	pulsarCluster := getPulsarCluster(pulsarClusterName, cloudProvider, region, "")
 
 	orgBody, err := astraClient.GetCurrentOrganization(ctx)
 	if err != nil {
@@ -260,6 +270,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 	tenantName := resourceData.Get("tenant_name").(string)
+	pulsarClusterName := resourceData.Get("pulsar_cluster").(string)
 
 	sinkName := resourceData.Get("sink_name").(string)
 	archive := resourceData.Get("archive").(string)
@@ -294,7 +305,7 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		return diag.FromErr(fmt.Errorf("failed to read pulsar clusters. Status code: %s, msg:\n%s", streamingClustersResponse.Status(), string(streamingClustersResponse.Body)))
 	}
 
-	pulsarCluster := getPulsarCluster("", cloudProvider, region, "")
+	pulsarCluster := getPulsarCluster(pulsarClusterName, cloudProvider, region, "")
 
 	var configs map[string]interface{}
 	if err := json.Unmarshal([]byte(rawConfigs), &configs); err != nil {
