@@ -404,6 +404,8 @@ func prepCDC(ctx context.Context, client *astra.ClientWithResponses, databaseId 
 	db, err := getDatabase(ctx, &databaseResourceData, client, databaseId)
 	if err != nil {
 		return "", "", err
+	} else if db == nil || db.Info.CloudProvider == nil {
+		return "", "", fmt.Errorf("failed to get database metadata for databaseID: %s", databaseId)
 	}
 
 	// In most astra APIs there are dashes in region names depending on the cloud provider, this seems not to be the case for streaming

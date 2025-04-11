@@ -5,6 +5,7 @@ set -o allexport errexit
 DEFAULT_TEST_ENV_FILE="test.env"
 DEFAULT_TEST_ASTRA_API_URL="https://api.test.cloud.datastax.com"
 DEFAULT_TEST_ASTRA_STREAMING_API_URL="https://api.staging.streaming.datastax.com"
+DEFAULT_TEST_ASTRA_APPS_DOMAIN="apps.astra-test.datastax.com"
 
 SCRIPT_PATH=$(dirname -- "$0")
 
@@ -33,6 +34,9 @@ setup_env() {
 
   if [ -z "$ASTRA_TEST_TIMEOUT" ]; then
     ASTRA_TEST_TIMEOUT="15m"
+  fi
+  if [ -z "$ASTRA_APPS_DOMAIN" ]; then
+    ASTRA_APPS_DOMAIN="$DEFAULT_TEST_ASTRA_APPS_DOMAIN"
   fi
 }
 
