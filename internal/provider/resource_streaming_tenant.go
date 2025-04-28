@@ -2,115 +2,163 @@ package provider
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
 
-	"github.com/datastax/astra-client-go/v2/astra"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceStreamingTenant() *schema.Resource {
-	return &schema.Resource{
-		Description:   "`astra_streaming_tenant` creates an Astra Streaming tenant.",
-		CreateContext: resourceStreamingTenantCreate,
-		ReadContext:   resourceStreamingTenantRead,
-		DeleteContext: resourceStreamingTenantDelete,
-		UpdateContext: resourceStreamingTenantUpdate,
+// Ensure the implementation satisfies the expected interfaces.
+var (
+	_ resource.Resource                = &StreamingTenantResource{}
+	_ resource.ResourceWithConfigure   = &StreamingTenantResource{}
+	_ resource.ResourceWithImportState = &StreamingTenantResource{}
+)
 
-		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
-		},
+// NewStreamingTenantResource is a helper function to simplify the provider implementation.
+func NewStreamingTenantResource() resource.Resource {
+	return &StreamingTenantResource{}
+}
 
-		Schema: map[string]*schema.Schema{
-			"tenant_name": {
-				Description:  "Streaming tenant name.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^[a-z]([-a-z0-9]*[a-z0-9])$"), "name must be atleast 2 characters and contain only alphanumeric characters"),
+// StreamingTenantResource is the resource implementation.
+type StreamingTenantResource struct {
+	clients *astraClients2
+}
+
+// StreamingTenantResourceModel maps the resource schema data.
+type StreamingTenantResourceModel struct {
+	ID                     types.String `tfsdk:"id"` // Unique ID in the form cluster_name/tenant_name
+	ClusterName            types.String `tfsdk:"cluster_name"`
+	CloudProvider          types.String `tfsdk:"cloud_provider"`
+	Region                 types.String `tfsdk:"region"`
+	TenantName             types.String `tfsdk:"tenant_name"`
+	UserEmail              types.String `tfsdk:"user_email"`
+	DeletionProtection     types.Bool   `tfsdk:"deletion_protection"`
+	BrokerServiceURL       types.String `tfsdk:"broker_service_url"`
+	WebServiceURL          types.String `tfsdk:"web_service_url"`
+	WebSocketURL           types.String `tfsdk:"web_socket_url"`
+	WebsocketQueryParamURL types.String `tfsdk:"web_socket_query_param_url"`
+	UserMetricsURL         types.String `tfsdk:"user_metrics_url"`
+	TenantID               types.String `tfsdk:"tenant_id"` // GUID assigned by the Astra backend
+	Topic                  types.String `tfsdk:"topic"`
+}
+
+// Metadata returns the data source type name.
+func (r *StreamingTenantResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_streaming_tenant"
+}
+
+// Schema defines the schema for the data source.
+func (r *StreamingTenantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "Astra Streaming Tenant",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Description: "ID used by Terraform to identify the tenant.  In the form <cluster_name>/<tenant_name>",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
-			"topic": {
-				Description:  "Streaming tenant topic. Please use the `astra_streaming_topic` resource instead.",
-				Type:         schema.TypeString,
-				Optional:     true,
-				Deprecated:   "This field is deprecated and will be removed in a future release. Please use the `astra_streaming_topic` resource instead.",
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-			},
-			"cluster_name": {
-				Description: "Pulsar cluster name.  Required if `cloud_provider` and `region` are not specified.",
-				Type:        schema.TypeString,
+			"cluster_name": schema.StringAttribute{
+				Description: "Pulsar cluster name. Required if `cloud_provider` and `region` are not specified.",
 				Optional:    true,
 				Computed:    true,
-				ForceNew:    true,
+				PlanModifiers: []planmodifier.String{
+					requiresReplaceIfClusterChange(),
+				},
 			},
-			"cloud_provider": {
-				Description:  "Cloud provider, one of `aws`, `gcp`, or `azure`.  Required if `cluster_name` is not set.",
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+			"cloud_provider": schema.StringAttribute{
+				Description: "Cloud provider, one of `aws`, `gcp`, or `azure`. Required if `cluster_name` is not set.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
-			"region": {
-				Description:      "Cloud provider region.  Required if `cluster_name` is not set.",
-				Type:             schema.TypeString,
-				Optional:         true,
-				Computed:         true,
-				ForceNew:         true,
-				RequiredWith:     []string{"cloud_provider"},
-				ValidateFunc:     validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-				DiffSuppressFunc: streamingRegionSuppressDiff,
+			"region": schema.StringAttribute{
+				Description: "Cloud provider region. Required if `cluster_name` is not set.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					//removeDashesModifier{},
+					//suppressDashesDiffModifier{},
+					requiresReplaceIfRegionChange(),
+				},
 			},
-			"user_email": {
-				Description:  "User email for tenant.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+			"tenant_name": schema.StringAttribute{
+				Description: "Name of the Astra Streaming tenant.  Similar to a Pulsar tenant.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{stringvalidator.RegexMatches(regexp.MustCompile("^[a-z]([-a-z0-9]*[a-z0-9])$"),
+					"name must be atleast 2 characters and contain only alphanumeric characters")},
 			},
-			"deletion_protection": {
+			"user_email": schema.StringAttribute{
+				Description: "Email address of the owner of the tenant.",
+				Required:    true,
+			},
+			"topic": schema.StringAttribute{
+				Description:        "Streaming tenant topic. Please use the `astra_streaming_topic` resource instead.",
+				Optional:           true,
+				DeprecationMessage: "This field is deprecated and will be removed in a future release. Please use the `astra_streaming_topic` resource instead.",
+				Validators: []validator.String{stringvalidator.RegexMatches(regexp.MustCompile("^.{2,}"),
+					"name must be atleast 2 characters")},
+			},
+			"deletion_protection": schema.BoolAttribute{
 				Description: "Whether or not to allow Terraform to destroy this tenant. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.",
-				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
 			},
-			"broker_service_url": {
+			// The fields below are only filled in after creating the tenant and retrieving the tenant info from the DevOps API
+			"broker_service_url": schema.StringAttribute{
 				Description: "The Pulsar Binary Protocol URL used for production and consumption of messages.",
-				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			"web_service_url": {
+			"web_service_url": schema.StringAttribute{
 				Description: "URL used for administrative operations.",
-				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			"web_socket_url": {
+			"web_socket_url": schema.StringAttribute{
 				Description: "URL used for web socket operations.",
-				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			"web_socket_query_param_url": {
+			"web_socket_query_param_url": schema.StringAttribute{
 				Description: "URL used for web socket query parameter operations.",
-				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			// The fields below are only filled in after creating the tenant and then retrieving the tenant info from the DevOps API
-			"user_metrics_url": {
+			"user_metrics_url": schema.StringAttribute{
 				Description: "URL for metrics.",
-				Type:        schema.TypeString,
 				Computed:    true,
 			},
-			"tenant_id": {
+			"tenant_id": schema.StringAttribute{
 				Description: "UUID for the tenant.",
-				Type:        schema.TypeString,
 				Computed:    true,
 			},
 		},
 	}
+}
+
+// Configure adds the provider configured client to the data source.
+func (r *StreamingTenantResource) Configure(_ context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+
+	r.clients = req.ProviderData.(*astraClients2)
 }
 
 type StreamingClusters []struct {
@@ -139,188 +187,263 @@ type StreamingClusters []struct {
 	AzType                 string `json:"azType"`
 }
 
-func resourceStreamingTenantUpdate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	// In-place update not supported. This is only here to support deletion_protection
-	return nil
-}
-
-func resourceStreamingTenantDelete(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	if protectedFromDelete(resourceData) {
-		return diag.Errorf("\"deletion_protection\" must be explicitly set to \"false\" in order to destroy astra_streaming_tenant")
+func (r *StreamingTenantResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	plan := &StreamingTenantResourceModel{}
+	diags := req.Plan.Get(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
+	normalizedRegion := removeDashes(plan.Region.ValueString())
 
-	id := resourceData.Id()
-
-	tenantID, err := parseStreamingTenantID(id)
-	if err != nil {
-		return diag.FromErr(err)
+	if plan.ClusterName.ValueString() == "" && (plan.CloudProvider.ValueString() == "" || plan.Region.ValueString() == "") {
+		resp.Diagnostics.AddError(
+			"missing required configuration",
+			"cluster_name or (cloud_provider and region) must be specified")
+		return
 	}
 
-	params := astrastreaming.DeleteStreamingTenantParams{}
-	cluster := resourceData.Get("cluster_name").(string)
-	deleteResponse, err := streamingClient.DeleteStreamingTenantWithResponse(ctx, tenantID, cluster, &params)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	if !strings.HasPrefix(deleteResponse.HTTPResponse.Status, "2") {
-		return diag.Errorf("Error creating tenant %s", deleteResponse.Body)
-	}
-
-	// Deleted. Remove from state.
-	resourceData.SetId("")
-
-	return nil
-}
-
-func resourceStreamingTenantRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	astraClient := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-
-	tenantID, err := parseStreamingTenantID(resourceData.Id())
-	if err != nil {
-		return diag.Errorf("failed to parse tenannt ID: %v", err)
-	}
+	astraClient := r.clients.astraClient
+	astraStreamingClient := r.clients.astraStreamingClient
 
 	orgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {
-		return diag.Errorf("failed to get current org ID: %v", err)
-	}
-
-	getTenantResponse, err := streamingClient.GetStreamingTenantWithResponse(ctx, orgID, tenantID)
-	if err != nil {
-		return diag.Errorf("failed to get streaming tenant: %v", err)
-	}
-	if getTenantResponse.HTTPResponse.StatusCode == 404 {
-		// Tenant not found, remove it from the state
-		resourceData.SetId("")
-		return nil
-	}
-	if getTenantResponse.HTTPResponse.StatusCode != http.StatusOK {
-		return diag.Errorf("invalid status code returned for tenant: %v", getTenantResponse.HTTPResponse.StatusCode)
-	}
-
-	if err := setStreamingTenantData(ctx, resourceData, *getTenantResponse.JSON200); err != nil {
-		return diag.Errorf("failed to set streaming tenant data: %v", err)
-	}
-	return nil
-}
-
-func resourceStreamingTenantCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	clusterName := resourceData.Get("cluster_name").(string) // this can be used for dedicated plan that must specify a cluster name
-	cloudProvider := resourceData.Get("cloud_provider").(string)
-	region := resourceData.Get("region").(string)
-	normalizedRegion := removeDashes(region)
-
-	if clusterName == "" && (cloudProvider == "" || region == "") {
-		return diag.Errorf("cluster_name or (cloud_provider and region) must be specified")
-	}
-
-	tenantName := resourceData.Get("tenant_name").(string)
-	userEmail := resourceData.Get("user_email").(string)
-	topic := resourceData.Get("topic").(string)
-
-	astraClient := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	astraStreamingClient := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-
-	orgID, err := getCurrentOrgID(ctx, astraClient)
-	if err != nil {
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError(
+			"failed to get current OrgID",
+			err.Error())
+		return
 	}
 
 	tenantRequest := astrastreaming.IdOfCreateTenantEndpointJSONRequestBody{
-		OrgID:      &orgID,
-		OrgName:    &orgID,
-		TenantName: &tenantName,
-		UserEmail:  &userEmail,
-	}
-	if clusterName != "" {
-		tenantRequest.ClusterName = &clusterName
-	} else {
-		tenantRequest.CloudProvider = &cloudProvider
-		tenantRequest.CloudRegion = &normalizedRegion
+		OrgID:         &orgID,
+		OrgName:       &orgID,
+		ClusterName:   plan.ClusterName.ValueStringPointer(),
+		CloudProvider: plan.CloudProvider.ValueStringPointer(),
+		CloudRegion:   &normalizedRegion,
+		TenantName:    plan.TenantName.ValueStringPointer(),
+		UserEmail:     plan.UserEmail.ValueStringPointer(),
 	}
 
 	params := astrastreaming.IdOfCreateTenantEndpointParams{
-		Topic: &topic,
+		Topic: plan.Topic.ValueStringPointer(),
 	}
 
-	tenantCreationResponse, err := astraStreamingClient.IdOfCreateTenantEndpointWithResponse(ctx, &params, tenantRequest)
+	tenantCreateResponse, err := astraStreamingClient.IdOfCreateTenantEndpointWithResponse(ctx, &params, tenantRequest)
 	if err != nil {
-		return diag.Errorf("failed to create tenant: %v", err)
-	}
-	if tenantCreationResponse.StatusCode() != http.StatusOK {
-		return diag.Errorf("failed to create tenant '%s' on cluster '%s'. Status Code: %d, Message: %s",
-			tenantName, clusterName, tenantCreationResponse.StatusCode(), string(tenantCreationResponse.Body))
+		resp.Diagnostics.AddError(
+			"failed to create tenant",
+			err.Error())
+		return
+	} else if tenantCreateResponse.StatusCode() != http.StatusOK {
+		errString := fmt.Sprintf("failed to create tenant '%s' with status code '%v', message: '%s'",
+			plan.TenantName.ValueString(), tenantCreateResponse.StatusCode(), string(tenantCreateResponse.Body))
+		resp.Diagnostics.AddError("failed to create tenant", errString)
+		return
 	}
 
-	// Now let's fetch the tenant again so that it fills in the missing fields (like userMetricsUrl and tenant ID)
-	streamingTenantResponse, err := astraStreamingClient.GetStreamingTenantWithResponse(ctx, orgID, tenantName)
+	// Now fetch the tenant again so that it fills in the missing fields (like userMetricsUrl and tenant ID)
+	tenantGetResponse, err := astraStreamingClient.GetStreamingTenantWithResponse(ctx, orgID, plan.TenantName.ValueString())
 	if err != nil {
-		diag.FromErr(err)
-	}
-	if streamingTenantResponse.StatusCode() != http.StatusOK {
-		return diag.Errorf("Unexpected response fetching tenant: %s. Response code: %d, message = %s", tenantName, streamingTenantResponse.StatusCode(), string(streamingTenantResponse.Body))
+		resp.Diagnostics.AddError("failed to get data for tenant "+plan.TenantName.ValueString(), err.Error())
+		return
+	} else if tenantGetResponse.StatusCode() != http.StatusOK {
+		errDetail := fmt.Sprintf("failed to get tenant data for tenant '%s', received response code '%v' with error message: %v",
+			plan.TenantName.ValueString(), tenantGetResponse.StatusCode(), string(tenantGetResponse.Body))
+		resp.Diagnostics.AddError("failed to get data for tenant", errDetail)
+		return
 	}
 
-	resourceData.SetId(tenantName)
-	setStreamingTenantData(ctx, resourceData, *streamingTenantResponse.JSON200)
+	setStreamingTenantData(plan, tenantGetResponse.JSON200)
 
-	return nil
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+
 }
 
-func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantResponse astrastreaming.TenantClusterPlanResponse) error {
-	if err := d.Set("cluster_name", *tenantResponse.ClusterName); err != nil {
-		return err
-	}
-	if err := d.Set("cloud_provider", *tenantResponse.CloudProvider); err != nil {
-		return err
-	}
-	if region, ok := d.Get("region").(string); !ok || region == "" {
-		if err := d.Set("region", *tenantResponse.CloudProviderRegion); err != nil {
-			return err
-		}
-	}
-	if err := d.Set("tenant_name", *tenantResponse.TenantName); err != nil {
-		return err
-	}
-	if err := d.Set("broker_service_url", *tenantResponse.PulsarURL); err != nil {
-		return err
-	}
-	if err := d.Set("web_service_url", *tenantResponse.AdminURL); err != nil {
-		return err
-	}
-	if err := d.Set("cluster_name", *tenantResponse.ClusterName); err != nil {
-		return err
-	}
-	if err := d.Set("web_socket_url", *tenantResponse.WebsocketURL); err != nil {
-		return err
-	}
-	if err := d.Set("web_socket_query_param_url", *tenantResponse.WebsocketQueryParamURL); err != nil {
-		return err
+func (r *StreamingTenantResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+
+	state := &StreamingTenantResourceModel{}
+	diags := req.State.Get(ctx, state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	if tenantResponse.UserMetricsURL != nil && *tenantResponse.UserMetricsURL != "" {
-		if err := d.Set("user_metrics_url", *tenantResponse.UserMetricsURL); err != nil {
-			return err
-		}
+	astraClient := r.clients.astraClient
+	astraStreamingClient := r.clients.astraStreamingClient
+
+	orgID, err := getCurrentOrgID(ctx, astraClient)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to get tenant org ID", err.Error())
+		return
 	}
-	if tenantResponse.Id != nil && *tenantResponse.Id != "" {
-		if err := d.Set("tenant_id", *tenantResponse.Id); err != nil {
-			return err
-		}
+
+	getTenantResponse, err := astraStreamingClient.GetStreamingTenantWithResponse(ctx, orgID, state.TenantName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("failed to get tenant org ID", err.Error())
+		return
+	} else if getTenantResponse.HTTPResponse.StatusCode == 404 {
+		// Tenant not found, remove it from the state
+		resp.State.RemoveResource(ctx)
+		return
+	} else if getTenantResponse.HTTPResponse.StatusCode != http.StatusOK {
+		errMsg := fmt.Sprintf("received invalid status code from tenant request '%v' with error message: %v",
+			getTenantResponse.HTTPResponse.StatusCode, string(getTenantResponse.Body))
+		resp.Diagnostics.AddError("failed to get tenant data", errMsg)
+		return
 	}
-	return nil
+
+	setStreamingTenantData(state, getTenantResponse.JSON200)
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+
 }
 
-func parseStreamingTenantID(id string) (string, error) {
-	idParts := strings.Split(strings.ToLower(id), "/")
-	if len(idParts) != 1 {
-		return "", errors.New("invalid tenant id format: expected tenantID/")
+func (r *StreamingTenantResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+
+	plan := &StreamingTenantResourceModel{}
+	diags := req.Plan.Get(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
-	return idParts[0], nil
+
+	state := &StreamingTenantResourceModel{}
+	diags = req.State.Get(ctx, state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	state.DeletionProtection = plan.DeletionProtection
+	state.UserEmail = plan.UserEmail
+	state.Region = plan.Region
+
+	// Save updated data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+
 }
 
-func streamingRegionSuppressDiff(k, oldValue, newValue string, d *schema.ResourceData) bool {
-	return removeDashes(oldValue) == removeDashes(newValue)
+func (r *StreamingTenantResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	state := &StreamingTenantResourceModel{}
+	diags := req.State.Get(ctx, state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if state.DeletionProtection.ValueBool() {
+		resp.Diagnostics.AddError("failed to delete streaming tenant", "'deletion_protection' must be explicitly set to 'false' in order to destroy astra_streaming_tenant")
+		return
+	}
+
+	astraStreamingClient := r.clients.astraStreamingClient
+
+	clusterName := state.ClusterName.ValueString()
+	tenantName := state.TenantName.ValueString()
+	params := astrastreaming.DeleteStreamingTenantParams{}
+
+	deleteResponse, err := astraStreamingClient.DeleteStreamingTenantWithResponse(ctx, tenantName, clusterName, &params)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to delete streaming tenant", "error: "+err.Error())
+		return
+	} else if deleteResponse.HTTPResponse.StatusCode >= 300 || deleteResponse.HTTPResponse.StatusCode < 200 {
+		errMsg := fmt.Sprintf("received error code '%v' with message: %v", deleteResponse.HTTPResponse.StatusCode, string(deleteResponse.Body))
+		resp.Diagnostics.AddError("failed to delete streaming tenant", errMsg)
+		return
+	}
+
+}
+
+// ImportState just reads the ID from the CLI and then calls Read() to get the state of the object
+func (r *StreamingTenantResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	tenantID := strings.Split(req.ID, "/")
+	if len(tenantID) != 2 {
+		resp.Diagnostics.AddError(
+			"Error importing streaming tenant",
+			"ID must be in the format <cluster>/<tenant>",
+		)
+		return
+	}
+
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cluster_name"), tenantID[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("tenant_name"), tenantID[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("deletion_protection"), true)...)
+}
+
+func setStreamingTenantData(data *StreamingTenantResourceModel, tenantResponse *astrastreaming.TenantClusterPlanResponse) {
+	data.ClusterName = types.StringPointerValue(tenantResponse.ClusterName)
+	data.CloudProvider = types.StringPointerValue(tenantResponse.CloudProvider)
+	if data.Region.IsNull() || data.Region.ValueString() == "" {
+		// The region returned from a streaming request will have the dashes removed,
+		// so we only set it if it's currently empty.
+		data.Region = types.StringPointerValue(tenantResponse.CloudProviderRegion)
+	}
+	data.TenantID = types.StringPointerValue(tenantResponse.Id)
+	data.TenantName = types.StringPointerValue(tenantResponse.TenantName)
+
+	data.BrokerServiceURL = types.StringPointerValue(tenantResponse.PulsarURL)
+	data.WebServiceURL = types.StringPointerValue(tenantResponse.AdminURL)
+	data.WebSocketURL = types.StringPointerValue(tenantResponse.WebsocketURL)
+	data.WebsocketQueryParamURL = types.StringPointerValue(tenantResponse.WebsocketQueryParamURL)
+	data.UserMetricsURL = types.StringPointerValue(tenantResponse.UserMetricsURL)
+	data.ID = types.StringValue(data.ClusterName.ValueString() + "/" + data.TenantName.ValueString())
+
+}
+
+// requiresReplaceIfClusterChange only require replace if the cluster name, cloud provider, or region has changed.
+func requiresReplaceIfClusterChange() planmodifier.String {
+	return stringplanmodifier.RequiresReplaceIf(
+		func(ctx context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+			state := &StreamingTenantResourceModel{}
+			diags := req.State.Get(ctx, state)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			plan := &StreamingTenantResourceModel{}
+			diags = req.Plan.Get(ctx, plan)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			if state.ClusterName.ValueString() != plan.ClusterName.ValueString() && !plan.ClusterName.IsUnknown() {
+				resp.RequiresReplace = true
+				return
+			}
+
+		},
+		"If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+		"If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+	)
+}
+
+// requiresReplaceIfRegionChange only require replace if the cluster name, cloud provider, or region has changed.
+func requiresReplaceIfRegionChange() planmodifier.String {
+	return stringplanmodifier.RequiresReplaceIf(
+		func(ctx context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+			state := &StreamingTenantResourceModel{}
+			diags := req.State.Get(ctx, state)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			plan := &StreamingTenantResourceModel{}
+			diags = req.Plan.Get(ctx, plan)
+			resp.Diagnostics.Append(diags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			if removeDashes(state.Region.ValueString()) != removeDashes(plan.Region.ValueString()) && plan.Region.ValueString() != "" {
+				resp.RequiresReplace = true
+				return
+			}
+
+		},
+		"If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+		"If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+	)
 }

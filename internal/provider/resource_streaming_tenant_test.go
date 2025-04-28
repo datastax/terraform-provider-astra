@@ -49,8 +49,8 @@ func TestStreamingTenantImport(t *testing.T) {
 	tenantName := "terraform-test-" + randomString(6)
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: testAccStreamingTenantImport(tenantName),
@@ -58,6 +58,7 @@ func TestStreamingTenantImport(t *testing.T) {
 			{
 				ResourceName:     "astra_streaming_tenant.streaming_tenant_imported_1",
 				ImportState:      true,
+				ImportStateId:    "pulsar-azure-westus2-staging/" + tenantName,
 				ImportStateCheck: checkStreamingTenantImportState("azure", "uswest2", tenantName),
 			},
 		},

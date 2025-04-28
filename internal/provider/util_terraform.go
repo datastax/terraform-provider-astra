@@ -171,6 +171,7 @@ func planModifierRemoveDashes() planmodifier.String {
 }
 
 // removeDashesModifier implements the plan modifier.
+// TODO: maybe this can be replaced by the suppressDashesDiffModifier
 type removeDashesModifier struct{}
 
 // Description returns a human-readable description of the plan modifier.
@@ -197,4 +198,28 @@ func (m removeDashesModifier) PlanModifyString(ctx context.Context, req planmodi
 	}
 
 	resp.PlanValue = types.StringValue(strings.ReplaceAll(req.PlanValue.ValueString(), "-", ""))
+}
+
+type suppressDashesDiffModifier struct{}
+
+func (m suppressDashesDiffModifier) Description(ctx context.Context) string {
+	return "Suppresses diffs if old and new values differ only in dashes"
+}
+
+func (m suppressDashesDiffModifier) MarkdownDescription(ctx context.Context) string {
+	return "Suppresses diffs if old and new values differ only in dashes"
+}
+
+func (m suppressDashesDiffModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if req.ConfigValue.IsNull() || req.StateValue.IsNull() {
+		return
+	}
+
+	oldVal := req.StateValue.ValueString()
+	newVal := req.ConfigValue.ValueString()
+
+	if removeDashes(oldVal) == removeDashes(newVal) {
+		// Suppress the diff by keeping the existing state value
+		resp.PlanValue = req.StateValue
+	}
 }

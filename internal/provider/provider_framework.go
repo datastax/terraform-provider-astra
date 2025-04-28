@@ -107,6 +107,7 @@ func (p *astraProvider) DataSources(_ context.Context) []func() datasource.DataS
 // Resources defines the resources implemented in this provider.
 func (p *astraProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
+		NewStreamingTenantResource,
 		NewStreamingNamespaceResource,
 		NewStreamingPulsarTokenResource,
 		NewStreamingTopicResource,
