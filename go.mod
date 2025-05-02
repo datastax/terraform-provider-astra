@@ -1,10 +1,11 @@
 module github.com/datastax/terraform-provider-astra/v2
 
-go 1.22.0
-toolchain go1.24.1
+go 1.22.7
+
+toolchain go1.24.2
 
 require (
-	github.com/datastax/astra-client-go/v2 v2.2.60
+	github.com/datastax/astra-client-go/v2 v2.2.61
 	github.com/datastax/pulsar-admin-client-go v0.0.2
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320
@@ -39,7 +40,6 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.8.1 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/deepmap/oapi-codegen v1.12.4 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
