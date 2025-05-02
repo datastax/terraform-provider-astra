@@ -3,12 +3,12 @@
 page_title: "astra_streaming_tenant Resource - terraform-provider-astra"
 subcategory: ""
 description: |-
-  astra_streaming_tenant creates an Astra Streaming tenant.
+  Astra Streaming Tenant
 ---
 
 # astra_streaming_tenant (Resource)
 
-`astra_streaming_tenant` creates an Astra Streaming tenant.
+Astra Streaming Tenant
 
 ## Example Usage
 
@@ -70,21 +70,21 @@ output "web_socket_url" {
 
 ### Required
 
-- `tenant_name` (String) Streaming tenant name.
-- `user_email` (String) User email for tenant.
+- `tenant_name` (String) Name of the Astra Streaming tenant.  Similar to a Pulsar tenant.
+- `user_email` (String) Email address of the owner of the tenant.
 
 ### Optional
 
-- `cloud_provider` (String) Cloud provider, one of `aws`, `gcp`, or `azure`.  Required if `cluster_name` is not set.
-- `cluster_name` (String) Pulsar cluster name.  Required if `cloud_provider` and `region` are not specified.
+- `cloud_provider` (String) Cloud provider, one of `aws`, `gcp`, or `azure`. Required if `cluster_name` is not set.
+- `cluster_name` (String) Pulsar cluster name. Required if `cloud_provider` and `region` are not specified.
 - `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy this tenant. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
-- `region` (String) Cloud provider region.  Required if `cluster_name` is not set.
+- `region` (String) Cloud provider region. Required if `cluster_name` is not set.
 - `topic` (String, Deprecated) Streaming tenant topic. Please use the `astra_streaming_topic` resource instead.
 
 ### Read-Only
 
 - `broker_service_url` (String) The Pulsar Binary Protocol URL used for production and consumption of messages.
-- `id` (String) The ID of this resource.
+- `id` (String) ID used by Terraform to identify the tenant.  In the form <cluster_name>/<tenant_name>
 - `tenant_id` (String) UUID for the tenant.
 - `user_metrics_url` (String) URL for metrics.
 - `web_service_url` (String) URL used for administrative operations.
@@ -96,5 +96,5 @@ output "web_socket_url" {
 Import is supported using the following syntax:
 
 ```shell
-terraform import astra_streaming_tenant.example_tenant terraformtest1
+terraform import astra_streaming_tenant.example_tenant cluster_name/my_tenant
 ```

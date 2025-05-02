@@ -85,7 +85,6 @@ func NewSDKProvider(version string) func() *schema.Provider {
 				"astra_role":                  resourceRole(),
 				"astra_token":                 resourceToken(),
 				"astra_cdc":                   resourceCDC(),
-				"astra_streaming_tenant":      resourceStreamingTenant(),
 				"astra_streaming_sink":        resourceStreamingSink(),
 				"astra_table":                 resourceTable(),
 				"astra_customer_key":          resourceCustomerKey(),
