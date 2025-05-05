@@ -75,10 +75,10 @@ output "web_socket_url" {
 
 ### Optional
 
-- `cloud_provider` (String) Cloud provider, one of `aws`, `gcp`, or `azure`. Required if `cluster_name` is not set.
+- `cloud_provider` (String, Deprecated) Cloud provider, one of `aws`, `gcp`, or `azure`. Required if `cluster_name` is not set.
 - `cluster_name` (String) Pulsar cluster name. Required if `cloud_provider` and `region` are not specified.
 - `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy this tenant. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
-- `region` (String) Cloud provider region. Required if `cluster_name` is not set.
+- `region` (String, Deprecated) Cloud provider region. Required if `cluster_name` is not set.
 - `topic` (String, Deprecated) Streaming tenant topic. Please use the `astra_streaming_topic` resource instead.
 
 ### Read-Only
