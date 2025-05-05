@@ -21,10 +21,11 @@ import (
 
 func resourceCDC() *schema.Resource {
 	return &schema.Resource{
-		Description:   "`astra_cdc` enables cdc for an Astra Serverless table.",
-		CreateContext: resourceCDCCreate,
-		ReadContext:   resourceCDCRead,
-		DeleteContext: resourceCDCDelete,
+		DeprecationMessage: "`astra_cdc` is deprecated, please migrate to `astra_cdc_v3`.",
+		Description:        "`astra_cdc` enables cdc for an Astra Serverless table.",
+		CreateContext:      resourceCDCCreate,
+		ReadContext:        resourceCDCRead,
+		DeleteContext:      resourceCDCDelete,
 
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
