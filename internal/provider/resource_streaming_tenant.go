@@ -80,17 +80,19 @@ func (r *StreamingTenantResource) Schema(_ context.Context, _ resource.SchemaReq
 				},
 			},
 			"cloud_provider": schema.StringAttribute{
-				Description: "Cloud provider, one of `aws`, `gcp`, or `azure`. Required if `cluster_name` is not set.",
-				Optional:    true,
-				Computed:    true,
+				DeprecationMessage: "'cluster_name' should be used instead of 'cloud_provider' and 'region'.",
+				Description:        "Cloud provider, one of `aws`, `gcp`, or `azure`. Required if `cluster_name` is not set.",
+				Optional:           true,
+				Computed:           true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.RequiresReplaceIfConfigured(),
 				},
 			},
 			"region": schema.StringAttribute{
-				Description: "Cloud provider region. Required if `cluster_name` is not set.",
-				Optional:    true,
-				Computed:    true,
+				DeprecationMessage: "'cluster_name' should be used instead of 'cloud_provider' and 'region'.",
+				Description:        "Cloud provider region. Required if `cluster_name` is not set.",
+				Optional:           true,
+				Computed:           true,
 				PlanModifiers: []planmodifier.String{
 					//removeDashesModifier{},
 					//suppressDashesDiffModifier{},
@@ -315,7 +317,9 @@ func (r *StreamingTenantResource) Update(ctx context.Context, req resource.Updat
 
 	state.DeletionProtection = plan.DeletionProtection
 	state.UserEmail = plan.UserEmail
-	state.Region = plan.Region
+	if !plan.Region.IsNull() && !plan.Region.IsUnknown() {
+		state.Region = plan.Region
+	}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
