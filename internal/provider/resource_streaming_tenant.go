@@ -113,7 +113,7 @@ func (r *StreamingTenantResource) Schema(_ context.Context, _ resource.SchemaReq
 				Required:    true,
 			},
 			"topic": schema.StringAttribute{
-				Description:        "Streaming tenant topic. Please use the `astra_streaming_topic` resource instead.",
+				Description:        "Streaming tenant topic. Use the `astra_streaming_topic` resource instead.",
 				Optional:           true,
 				DeprecationMessage: "This field is deprecated and will be removed in a future release. Please use the `astra_streaming_topic` resource instead.",
 				Validators: []validator.String{stringvalidator.RegexMatches(regexp.MustCompile("^.{2,}"),
@@ -226,11 +226,11 @@ func (r *StreamingTenantResource) Create(ctx context.Context, req resource.Creat
 		UserEmail:     plan.UserEmail.ValueStringPointer(),
 	}
 
-	params := astrastreaming.IdOfCreateTenantEndpointParams{
+	postParams := astrastreaming.IdOfCreateTenantEndpointParams{
 		Topic: plan.Topic.ValueStringPointer(),
 	}
 
-	tenantCreateResponse, err := astraStreamingClient.IdOfCreateTenantEndpointWithResponse(ctx, &params, tenantRequest)
+	tenantCreateResponse, err := astraStreamingClient.IdOfCreateTenantEndpointWithResponse(ctx, &postParams, tenantRequest)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"failed to create tenant",
@@ -243,8 +243,14 @@ func (r *StreamingTenantResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
+	if plan.ClusterName.IsNull() || plan.ClusterName.IsUnknown() {
+		plan.ClusterName = types.StringPointerValue(tenantCreateResponse.JSON200.ClusterName)
+	}
+	getParams := &astrastreaming.GetStreamingTenantParams{
+		XDataStaxPulsarCluster: plan.ClusterName.ValueString(),
+	}
 	// Now fetch the tenant again so that it fills in the missing fields (like userMetricsUrl and tenant ID)
-	tenantGetResponse, err := astraStreamingClient.GetStreamingTenantWithResponse(ctx, orgID, plan.TenantName.ValueString())
+	tenantGetResponse, err := astraStreamingClient.GetStreamingTenantWithResponse(ctx, plan.TenantName.ValueString(), getParams)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to get data for tenant "+plan.TenantName.ValueString(), err.Error())
 		return
@@ -270,16 +276,12 @@ func (r *StreamingTenantResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	astraClient := r.clients.astraClient
 	astraStreamingClient := r.clients.astraStreamingClient
 
-	orgID, err := getCurrentOrgID(ctx, astraClient)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to get tenant org ID", err.Error())
-		return
+	params := &astrastreaming.GetStreamingTenantParams{
+		XDataStaxPulsarCluster: state.ClusterName.ValueString(),
 	}
-
-	getTenantResponse, err := astraStreamingClient.GetStreamingTenantWithResponse(ctx, orgID, state.TenantName.ValueString())
+	getTenantResponse, err := astraStreamingClient.GetStreamingTenantWithResponse(ctx, state.TenantName.ValueString(), params)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to get tenant org ID", err.Error())
 		return
@@ -317,6 +319,7 @@ func (r *StreamingTenantResource) Update(ctx context.Context, req resource.Updat
 
 	state.DeletionProtection = plan.DeletionProtection
 	state.UserEmail = plan.UserEmail
+	state.Topic = plan.Topic
 	if !plan.Region.IsNull() && !plan.Region.IsUnknown() {
 		state.Region = plan.Region
 	}
