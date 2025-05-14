@@ -5,7 +5,7 @@ go 1.22.7
 toolchain go1.24.2
 
 require (
-	github.com/datastax/astra-client-go/v2 v2.2.61
+	github.com/datastax/astra-client-go/v2 v2.2.62
 	github.com/datastax/pulsar-admin-client-go v0.0.2
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-cty v1.5.0
@@ -19,7 +19,6 @@ require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.36.1
 	github.com/stretchr/testify v1.10.0
 	github.com/terraform-providers/terraform-provider-aws v1.60.1-0.20210625132053-af2d5c0ad54f
-
 )
 
 require (
