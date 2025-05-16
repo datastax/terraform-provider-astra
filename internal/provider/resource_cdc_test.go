@@ -68,7 +68,8 @@ resource "astra_table" "table_1" {
   partition_keys     = "b"
   column_definitions = [
     {
-      Name: "a"-      Static: false
+      Name: "a"
+      Static: false
       TypeDefinition: "text"
     },
     {
