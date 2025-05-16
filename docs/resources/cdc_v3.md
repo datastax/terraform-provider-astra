@@ -128,6 +128,10 @@ Required:
 - `keyspace` (String)
 - `table` (String)
 
+Read-Only:
+
+- `data_topics` (List of String) List of Pulsar topics to which CDC data is published.  One data topic per region, in the same order of regions.
+
 ## Import
 
 Import is supported using the following syntax:

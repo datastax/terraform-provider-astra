@@ -47,8 +47,9 @@ type CDCResourceModel struct {
 }
 
 type KeyspaceTable struct {
-	Keyspace types.String `tfsdk:"keyspace"`
-	Table    types.String `tfsdk:"table"`
+	Keyspace   types.String   `tfsdk:"keyspace"`
+	Table      types.String   `tfsdk:"table"`
+	DataTopics []types.String `tfsdk:"data_topics"`
 }
 
 type DatacenterToStreamingMap struct {
@@ -56,6 +57,17 @@ type DatacenterToStreamingMap struct {
 	DatacenterID     types.String `tfsdk:"datacenter_id"`
 	StreamingCluster types.String `tfsdk:"streaming_cluster"`
 	StreamingTenant  types.String `tfsdk:"streaming_tenant"`
+}
+
+// setDataTopics updates the data topics field for each table based on caculateCDCDataTopicName.
+func (m *CDCResourceModel) setDataTopics() {
+	for i := range m.Tables {
+		m.Tables[i].DataTopics = make([]types.String, len(m.Regions))
+		for j := range m.Regions {
+			m.Tables[i].DataTopics[j] = types.StringValue(calculateCDCDataTopicName(m.Regions[j].StreamingTenant.ValueString(),
+				m.DatabaseID.ValueString(), m.Tables[i].Keyspace.ValueString(), m.Tables[i].Table.ValueString()))
+		}
+	}
 }
 
 func (r *CDCResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -87,6 +99,12 @@ func (r *CDCResource) Schema(_ context.Context, req resource.SchemaRequest, resp
 						},
 						"table": schema.StringAttribute{
 							Required: true,
+						},
+						"data_topics": schema.ListAttribute{
+							Description: "List of Pulsar topics to which CDC data is published.  " +
+								"One data topic per region, in the same order of regions.",
+							Computed:    true,
+							ElementType: types.StringType,
 						},
 					},
 				},
@@ -144,6 +162,7 @@ func (r *CDCResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
+	plan.setDataTopics()
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 }
@@ -286,7 +305,7 @@ func updateStateForCDCReadRequest(tfData *CDCResourceModel, respData *astra.List
 		})
 	}
 	tfData.Regions = regions
-
+	tfData.setDataTopics()
 }
 
 func createDeleteCDCRequestBody(tfData *CDCResourceModel) astra.DeleteCDCJSONRequestBody {
@@ -301,4 +320,12 @@ func createDeleteCDCRequestBody(tfData *CDCResourceModel) astra.DeleteCDCJSONReq
 		reqData.Tables = append(reqData.Tables, nextTable)
 	}
 	return reqData
+}
+
+const AstraCDCPulsarNamespace = "astracdc"
+
+// calculateCDCDataTopicName constructs the expected CDC data topic name based on the database ID and streaming tenant.
+// For example 'persistent://terraform-support1/astracdc/data-0d509b0f-d38a-4c8e-9680-fa7c752189b7-ks1.table1'
+func calculateCDCDataTopicName(streamingTenant, databaseID, keyspace, tableName string) string {
+	return fmt.Sprintf("persistent://%s/%s/data-%s-%s.%s", streamingTenant, AstraCDCPulsarNamespace, databaseID, keyspace, tableName)
 }
