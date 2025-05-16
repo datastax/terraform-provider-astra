@@ -22,7 +22,7 @@ import (
 func resourceCDC() *schema.Resource {
 	return &schema.Resource{
 		DeprecationMessage: "`astra_cdc` is deprecated, please migrate to `astra_cdc_v3`.",
-		Description:        "`astra_cdc` enables cdc for an Astra Serverless table.",
+		Description:        "Deprecated as of version 2.4, please use `astra_cdc_v3` resource instead.",
 		CreateContext:      resourceCDCCreate,
 		ReadContext:        resourceCDCRead,
 		DeleteContext:      resourceCDCDelete,

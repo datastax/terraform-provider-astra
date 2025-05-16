@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/datastax/astra-client-go/v2/astra"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -47,9 +48,9 @@ type CDCResourceModel struct {
 }
 
 type KeyspaceTable struct {
-	Keyspace   types.String   `tfsdk:"keyspace"`
-	Table      types.String   `tfsdk:"table"`
-	DataTopics []types.String `tfsdk:"data_topics"`
+	Keyspace   types.String `tfsdk:"keyspace"`
+	Table      types.String `tfsdk:"table"`
+	DataTopics types.List   `tfsdk:"data_topics"`
 }
 
 type DatacenterToStreamingMap struct {
@@ -61,12 +62,15 @@ type DatacenterToStreamingMap struct {
 
 // setDataTopics updates the data topics field for each table based on caculateCDCDataTopicName.
 func (m *CDCResourceModel) setDataTopics() {
+
 	for i := range m.Tables {
-		m.Tables[i].DataTopics = make([]types.String, len(m.Regions))
-		for j := range m.Regions {
-			m.Tables[i].DataTopics[j] = types.StringValue(calculateCDCDataTopicName(m.Regions[j].StreamingTenant.ValueString(),
-				m.DatabaseID.ValueString(), m.Tables[i].Keyspace.ValueString(), m.Tables[i].Table.ValueString()))
+		dataTopics := []attr.Value{}
+
+		for _, region := range m.Regions {
+			topicFQDN := calculateCDCDataTopicName(region.StreamingTenant.ValueString(), m.DatabaseID.ValueString(), m.Tables[i].Keyspace.ValueString(), m.Tables[i].Table.ValueString())
+			dataTopics = append(dataTopics, types.StringValue(topicFQDN))
 		}
+		m.Tables[i].DataTopics, _ = types.ListValue(types.StringType, dataTopics)
 	}
 }
 

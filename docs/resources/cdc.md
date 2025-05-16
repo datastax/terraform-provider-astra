@@ -3,12 +3,12 @@
 page_title: "astra_cdc Resource - terraform-provider-astra"
 subcategory: ""
 description: |-
-  astra_cdc enables cdc for an Astra Serverless table.
+  Deprecated as of version 2.4, please use astra_cdc_v3 resource instead.
 ---
 
 # astra_cdc (Resource)
 
-`astra_cdc` enables cdc for an Astra Serverless table.
+Deprecated as of version 2.4, please use `astra_cdc_v3` resource instead.
 
 ## Example Usage
 
