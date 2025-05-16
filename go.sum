@@ -105,8 +105,8 @@ github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGX
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/cyphar/filepath-securejoin v0.2.5 h1:6iR5tXJ/e6tJZzzdMc1km3Sa7RRIVBKAK32O2s7AYfo=
 github.com/cyphar/filepath-securejoin v0.2.5/go.mod h1:aPGpWjXOXUn2NCNjFvBE6aRxGGx79pTxQpKOJNYHHl4=
-github.com/datastax/astra-client-go/v2 v2.2.61 h1:yT8pn8aUsBhte7VYv4o7Pc0TeyXrCppg3q+HjV3+tUA=
-github.com/datastax/astra-client-go/v2 v2.2.61/go.mod h1:piBMy3fnDcLN8+MDQfvjZr8ejcP2oh+CXkQYwNy8blA=
+github.com/datastax/astra-client-go/v2 v2.2.62 h1:HpOxYgZ7ng9ASz0R0MYh1du2VkWt6R5GM0xof83j4p0=
+github.com/datastax/astra-client-go/v2 v2.2.62/go.mod h1:piBMy3fnDcLN8+MDQfvjZr8ejcP2oh+CXkQYwNy8blA=
 github.com/datastax/pulsar-admin-client-go v0.0.2 h1:CValQbSLI6q1PuCzkM4Tr3tAgwSi6RYDJ7PxvcBLyhw=
 github.com/datastax/pulsar-admin-client-go v0.0.2/go.mod h1:GOBpX6jwznrSlECwGeOZE6sNFJJ+FtYkwlv8PgFCZng=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
