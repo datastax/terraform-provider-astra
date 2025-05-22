@@ -171,6 +171,9 @@ func getPulsarCluster(clusterName, cloudProvider, region, suffix string) string 
 	}
 	// In most astra APIs there are dashes in region names depending on the cloud provider, this seems not to be the case for streaming
 	normalizedRegion := strings.ReplaceAll(region, "-", "")
+	if cloudProvider == "" || normalizedRegion == "" {
+		return ""
+	}
 	return strings.ToLower(fmt.Sprintf("pulsar-%s-%s%s", cloudProvider, normalizedRegion, suffix))
 }
 

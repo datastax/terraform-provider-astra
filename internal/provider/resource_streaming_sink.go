@@ -54,15 +54,17 @@ func resourceStreamingSink() *schema.Resource {
 			},
 			"region": {
 				Description:  "cloud region",
+				Deprecated:   "use `pulsar_cluster` instead",
 				Type:         schema.TypeString,
-				Required:     true,
+				Optional:     true,
 				ForceNew:     true,
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
 			"cloud_provider": {
 				Description:  "Cloud provider",
+				Deprecated:   "use `pulsar_cluster` instead",
 				Type:         schema.TypeString,
-				Required:     true,
+				Optional:     true,
 				ForceNew:     true,
 				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
 			},
@@ -144,12 +146,17 @@ func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.Resou
 	sinkName := resourceData.Get("sink_name").(string)
 	namespace := resourceData.Get("namespace").(string)
 
-	pulsarClusterName := resourceData.Get("pulsar_cluster").(string)
+	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster").(string)
 	rawRegion := resourceData.Get("region").(string)
 	region := strings.ReplaceAll(rawRegion, "-", "")
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
-	pulsarCluster := getPulsarCluster(pulsarClusterName, cloudProvider, region, "")
+	if pulsarClusterFromConfig == "" {
+		if cloudProvider == "" || region == "" {
+			return diag.Errorf("failed to configure resource, pulsar_cluster or cloud_provider and region must be set")
+		}
+	}
+	pulsarCluster := getPulsarCluster(pulsarClusterFromConfig, cloudProvider, region, "")
 
 	orgResp, err := astraClient.GetCurrentOrganization(ctx)
 	if err != nil {
