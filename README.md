@@ -14,7 +14,7 @@ From the [Astra Dashboard](https://astra.datastax.com), you can generate a new t
 
 ### Terraform
 
-You will need [Terraform](https://www.terraform.io/) version 1.0 or higher.
+You will need [Terraform](https://www.terraform.io/) version 1.5 or higher.
 
 ## Getting Started
 
@@ -72,7 +72,7 @@ The [examples diretory](./examples) contains example configuration for the vario
 
 ### Build the provider from source
 
-The build requires [Go](https://golang.org/doc/install) >= 1.22
+The build requires [Go](https://golang.org/doc/install) >= 1.23
 
 In order to develop and test this provider, you'll need to configure your local environment
 with a custom Terraform [config file](https://developer.hashicorp.com/terraform/cli/config/config-file).
