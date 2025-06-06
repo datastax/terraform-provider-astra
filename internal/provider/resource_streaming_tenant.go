@@ -313,12 +313,16 @@ func setStreamingTenantData(ctx context.Context, d *schema.ResourceData, tenantR
 	return nil
 }
 
+// parseStreamingTenantID parses the tenant ID in the form "clusterID/tenantName" or just "tenantName"
+// and returns the tenantName, or error for invalid format.
 func parseStreamingTenantID(id string) (string, error) {
 	idParts := strings.Split(strings.ToLower(id), "/")
-	if len(idParts) != 1 {
-		return "", errors.New("invalid tenant id format: expected tenantID/")
+	if len(idParts) == 1 {
+		return idParts[0], nil // tenantName only
+	} else if len(idParts) == 2 {
+		return idParts[1], nil // clusterName/tenantName
 	}
-	return idParts[0], nil
+	return "", errors.New("invalid tenant id format: expected clusterName/tenantName")
 }
 
 func streamingRegionSuppressDiff(k, oldValue, newValue string, d *schema.ResourceData) bool {
