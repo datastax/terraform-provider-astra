@@ -3,12 +3,12 @@
 page_title: "astra_streaming_sink Resource - terraform-provider-astra"
 subcategory: ""
 description: |-
-  astra_streaming_sink creates a streaming sink which sends data from a topic to a target system.
+  Creates a streaming sink which sends data from a topic to a target system.
 ---
 
 # astra_streaming_sink (Resource)
 
-`astra_streaming_sink` creates a streaming sink which sends data from a topic to a target system.
+Creates a streaming sink which sends data from a topic to a target system.
 
 ## Example Usage
 
@@ -79,7 +79,7 @@ resource "astra_streaming_sink" "streaming_sink" {
 - `auto_ack` (Boolean) auto ack
 - `namespace` (String) Pulsar Namespace
 - `parallelism` (Number) Parallelism for Pulsar sink
-- `processing_guarantees` (String) "ATLEAST_ONCE""ATMOST_ONCE""EFFECTIVELY_ONCE".
+- `processing_guarantees` (String) "ATLEAST_ONCE" "ATMOST_ONCE" "EFFECTIVELY_ONCE".
 - `retain_ordering` (Boolean) Retain ordering.
 - `sink_configs` (String) Sink Configs
 - `sink_name` (String) Name of the sink.
@@ -88,15 +88,16 @@ resource "astra_streaming_sink" "streaming_sink" {
 
 ### Optional
 
-- `archive` (String) Name of the sink archive type to use. Defaults to the value of sink_name.  Must be formatted as a URL, e.g. 'builtin://jdbc-clickhouse
-- `cloud_provider` (String, Deprecated) Cloud provider
+- `archive` (String) Name of the sink archive type to use. Defaults to the value of sink_name. Must be formatted as a URL, e.g. 'builtin://jdbc-clickhouse'
+- `cloud_provider` (String, Deprecated) Cloud provider (deprecated, use `cluster` instead)
+- `cluster` (String) Name of the pulsar cluster in which to create the sink. If left blank, the name will be inferred from the cloud provider and region.
 - `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy this streaming sink. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
-- `pulsar_cluster` (String) Name of the pulsar cluster in which to create the sink.  If left blank, the name will be inferred from thecloud provider and region
-- `region` (String, Deprecated) cloud region
+- `pulsar_cluster` (String, Deprecated) Name of the pulsar cluster in which to create the sink. If left blank, the name will be inferred from the cloud provider and region.
+- `region` (String, Deprecated) cloud region (deprecated, use `cluster` instead)
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) Unique ID in the form cluster_name/tenant_name/namespace/sink_name
 
 ## Import
 

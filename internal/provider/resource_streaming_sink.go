@@ -5,324 +5,264 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"regexp"
 	"strings"
 
-	"github.com/datastax/astra-client-go/v2/astra"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceStreamingSink() *schema.Resource {
-	return &schema.Resource{
-		Description:   "`astra_streaming_sink` creates a streaming sink which sends data from a topic to a target system.",
-		CreateContext: resourceStreamingSinkCreate,
-		ReadContext:   resourceStreamingSinkRead,
-		DeleteContext: resourceStreamingSinkDelete,
-		UpdateContext: resourceStreamingSinkUpdate,
+// Ensure the implementation satisfies the expected interfaces.
+var (
+	_ resource.Resource              = &StreamingSinkResource{}
+	_ resource.ResourceWithConfigure = &StreamingSinkResource{}
+	//_ resource.ResourceWithImportState = &StreamingTenantResource{}
+)
 
-		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
-		},
+// NewStreamingTenantResource is a helper function to simplify the provider implementation.
+func NewStreamingSinkResource() resource.Resource {
+	return &StreamingSinkResource{}
+}
 
-		Schema: map[string]*schema.Schema{
-			// Required
-			"tenant_name": {
-				Description:  "Streaming tenant name.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
+// StreamingTenantResource is the resource implementation.
+type StreamingSinkResource struct {
+	clients *astraClients2
+}
+
+type StreamingSinkResourceModel struct {
+	ID                   types.String `tfsdk:"id"` // Unique ID in the form cluster_name/tenant_name
+	Cluster              types.String `tfsdk:"cluster"`
+	PulsarClusterName    types.String `tfsdk:"pulsar_cluster"`
+	CloudProvider        types.String `tfsdk:"cloud_provider"`
+	Region               types.String `tfsdk:"region"`
+	TenantName           types.String `tfsdk:"tenant_name"`
+	Namespace            types.String `tfsdk:"namespace"`
+	SinkName             types.String `tfsdk:"sink_name"`
+	Archive              types.String `tfsdk:"archive"`
+	Topic                types.String `tfsdk:"topic"`
+	RetainOrdering       types.Bool   `tfsdk:"retain_ordering"`
+	ProcessingGuarantees types.String `tfsdk:"processing_guarantees"`
+	Parallelism          types.Int32  `tfsdk:"parallelism"`
+	SinkConfigs          types.String `tfsdk:"sink_configs"`
+	AutoAck              types.Bool   `tfsdk:"auto_ack"`
+	DeletionProtection   types.Bool   `tfsdk:"deletion_protection"`
+}
+
+// Metadata returns the data source type name.
+func (r *StreamingSinkResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_streaming_sink"
+}
+
+func (r *StreamingSinkResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "Creates a streaming sink which sends data from a topic to a target system.",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Description: "Unique ID in the form cluster_name/tenant_name/namespace/sink_name",
+				Computed:    true,
 			},
-			"topic": {
-				Description:  "Streaming tenant topic.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-			},
-			"pulsar_cluster": {
-				Description: "Name of the pulsar cluster in which to create the sink.  If left blank, the name will be inferred from the" +
-					"cloud provider and region",
-				Type:         schema.TypeString,
-				Optional:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-			},
-			"region": {
-				Description:  "cloud region",
-				Deprecated:   "use `pulsar_cluster` instead",
-				Type:         schema.TypeString,
-				Optional:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-			},
-			"cloud_provider": {
-				Description:  "Cloud provider",
-				Deprecated:   "use `pulsar_cluster` instead",
-				Type:         schema.TypeString,
-				Optional:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-			},
-			"sink_name": {
-				Description:  "Name of the sink.",
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-			},
-			"archive": {
-				Description:  "Name of the sink archive type to use. Defaults to the value of sink_name.  Must be formatted as a URL, e.g. 'builtin://jdbc-clickhouse",
-				Type:         schema.TypeString,
-				Optional:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringMatch(regexp.MustCompile("^.{2,}"), "name must be atleast 2 characters"),
-			},
-			"retain_ordering": {
-				Description: "Retain ordering.",
-				Type:        schema.TypeBool,
-				Required:    true,
-				ForceNew:    true,
-			},
-			"processing_guarantees": {
-				Description: "\"ATLEAST_ONCE\"\"ATMOST_ONCE\"\"EFFECTIVELY_ONCE\".",
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-			},
-			"parallelism": {
-				Description: "Parallelism for Pulsar sink",
-				Type:        schema.TypeInt,
-				Required:    true,
-				ForceNew:    true,
-			},
-			"namespace": {
-				Description: "Pulsar Namespace",
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-			},
-			"sink_configs": {
-				Description: "Sink Configs",
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-			},
-			"auto_ack": {
-				Description: "auto ack",
-				Type:        schema.TypeBool,
-				Required:    true,
-				ForceNew:    true,
-			},
-			// Optional
-			"deletion_protection": {
-				Description: "Whether or not to allow Terraform to destroy this streaming sink. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.",
-				Type:        schema.TypeBool,
+			"cluster": schema.StringAttribute{
+				Description: "Name of the pulsar cluster in which to create the sink. If left blank, the name will be inferred from the cloud provider and region.",
 				Optional:    true,
-				Default:     true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(2, 32),
+				},
+			},
+			"pulsar_cluster": schema.StringAttribute{
+				DeprecationMessage: "`cluster` should be used instead of `pulsar_cluster`.",
+				Description:        "Name of the pulsar cluster in which to create the sink. If left blank, the name will be inferred from the cloud provider and region.",
+				Optional:           true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(2, 32),
+				},
+			},
+			"cloud_provider": schema.StringAttribute{
+				DeprecationMessage: "`cluster` should be used instead of 'cloud_provider' and 'region'.",
+				Description:        "Cloud provider (deprecated, use `cluster` instead)",
+				Optional:           true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(2, 32),
+				},
+			},
+			"region": schema.StringAttribute{
+				DeprecationMessage: "`cluster` should be used instead of 'cloud_provider' and 'region'.",
+				Description:        "cloud region (deprecated, use `cluster` instead)",
+				Optional:           true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(2, 32),
+				},
+			},
+			"tenant_name": schema.StringAttribute{
+				Description: "Streaming tenant name.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(2, 64),
+				},
+			},
+			"namespace": schema.StringAttribute{
+				Description: "Pulsar Namespace",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(2, 64),
+				},
+			},
+			"sink_name": schema.StringAttribute{
+				Description: "Name of the sink.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"archive": schema.StringAttribute{
+				Description: "Name of the sink archive type to use. Defaults to the value of sink_name. Must be formatted as a URL, e.g. 'builtin://jdbc-clickhouse'",
+				Optional:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"topic": schema.StringAttribute{
+				Description: "Streaming tenant topic.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"retain_ordering": schema.BoolAttribute{
+				Description: "Retain ordering.",
+				Required:    true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.RequiresReplace(),
+				},
+			},
+			"processing_guarantees": schema.StringAttribute{
+				Description: "\"ATLEAST_ONCE\" \"ATMOST_ONCE\" \"EFFECTIVELY_ONCE\".",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"parallelism": schema.Int32Attribute{
+				Description: "Parallelism for Pulsar sink",
+				Required:    true,
+				PlanModifiers: []planmodifier.Int32{
+					int32planmodifier.RequiresReplace(),
+				},
+			},
+			"sink_configs": schema.StringAttribute{
+				Description: "Sink Configs",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"auto_ack": schema.BoolAttribute{
+				Description: "auto ack",
+				Required:    true,
+				// PlanModifiers: []planmodifier.Bool{
+				// 	boolplanmodifier.RequiresReplace(),
+				// },
+			},
+			"deletion_protection": schema.BoolAttribute{
+				Description: "Whether or not to allow Terraform to destroy this streaming sink. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
 			},
 		},
 	}
 }
 
-func resourceStreamingSinkUpdate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	// In-place update not supported. This is only here to support deletion_protection
-	return nil
+// Configure adds the provider configured client to the data source.
+func (r *StreamingSinkResource) Configure(_ context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+
+	r.clients = req.ProviderData.(*astraClients2)
 }
 
-func resourceStreamingSinkDelete(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	if protectedFromDelete(resourceData) {
-		return diag.Errorf("\"deletion_protection\" must be explicitly set to \"false\" in order to destroy astra_streaming_sink")
+func (r *StreamingSinkResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	plan := &StreamingSinkResourceModel{}
+	diags := req.Plan.Get(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	astraClient := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
+	astraClient := r.clients.astraClient
+	astraStreamingClient := r.clients.astraStreamingClient
 
-	tenantName := resourceData.Get("tenant_name").(string)
-	sinkName := resourceData.Get("sink_name").(string)
-	namespace := resourceData.Get("namespace").(string)
-
-	pulsarClusterFromConfig := resourceData.Get("pulsar_cluster").(string)
-	rawRegion := resourceData.Get("region").(string)
-	region := strings.ReplaceAll(rawRegion, "-", "")
-	cloudProvider := resourceData.Get("cloud_provider").(string)
-
-	if pulsarClusterFromConfig == "" {
-		if cloudProvider == "" || region == "" {
-			return diag.Errorf("failed to configure resource, pulsar_cluster or cloud_provider and region must be set")
-		}
-	}
-	pulsarCluster := getPulsarCluster(pulsarClusterFromConfig, cloudProvider, region, "")
-
-	orgResp, err := astraClient.GetCurrentOrganization(ctx)
+	orgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {
-		return diag.Errorf("failed to get current organization ID: %v", err)
+		resp.Diagnostics.AddError(
+			"failed to get current OrgID",
+			err.Error())
+		return
 	}
 
-	var org OrgId
-	if err := json.NewDecoder(orgResp.Body).Decode(&org); err != nil {
-		return diag.Errorf("failed to decode current organization ID: %v", err)
+	normalizedRegion := removeDashes(plan.Region.ValueString())
+	streamingClusterName := plan.Cluster.ValueString()
+	// handle deprecated cluster_name field
+	if streamingClusterName == "" {
+		streamingClusterName = plan.PulsarClusterName.ValueString()
 	}
-
-	deleteSinkParams := astrastreaming.DeleteSinkParams{
-		XDataStaxPulsarCluster: pulsarCluster,
-		Authorization:          meta.(astraClients).token,
+	if streamingClusterName == "" && (plan.CloudProvider.ValueString() == "" || normalizedRegion == "") {
+		resp.Diagnostics.AddError(
+			"missing required configuration",
+			"cluster_name or (cloud_provider and region) must be specified")
+		return
 	}
+	streamingClusterName = getPulsarCluster(streamingClusterName, plan.CloudProvider.ValueString(), normalizedRegion, "")
 
-	deleteSinkResponse, err := streamingClientv3.DeleteSinkWithResponse(ctx, tenantName, namespace, sinkName, &deleteSinkParams)
-	if err != nil {
-		diag.FromErr(err)
-	}
-	if !strings.HasPrefix(deleteSinkResponse.Status(), "2") {
-		return diag.Errorf("Error deleting sink %s", deleteSinkResponse.Body)
-	}
-
-	// Not found. Remove from state.
-	resourceData.SetId("")
-
-	return nil
-}
-
-type SinkResponse struct {
-	Tenant                       string                 `json:"tenant"`
-	Namespace                    string                 `json:"namespace"`
-	Name                         string                 `json:"name"`
-	ClassName                    string                 `json:"className"`
-	SourceSubscriptionName       interface{}            `json:"sourceSubscriptionName"`
-	SourceSubscriptionPosition   string                 `json:"sourceSubscriptionPosition"`
-	Inputs                       interface{}            `json:"inputs"`
-	TopicToSerdeClassName        interface{}            `json:"topicToSerdeClassName"`
-	TopicsPattern                interface{}            `json:"topicsPattern"`
-	TopicToSchemaType            interface{}            `json:"topicToSchemaType"`
-	TopicToSchemaProperties      interface{}            `json:"topicToSchemaProperties"`
-	MaxMessageRetries            interface{}            `json:"maxMessageRetries"`
-	DeadLetterTopic              interface{}            `json:"deadLetterTopic"`
-	Configs                      map[string]interface{} `json:"configs"`
-	Secrets                      interface{}            `json:"secrets"`
-	Parallelism                  int                    `json:"parallelism"`
-	ProcessingGuarantees         string                 `json:"processingGuarantees"`
-	RetainOrdering               bool                   `json:"retainOrdering"`
-	RetainKeyOrdering            bool                   `json:"retainKeyOrdering"`
-	Resources                    interface{}            `json:"resources"`
-	AutoAck                      bool                   `json:"autoAck"`
-	TimeoutMs                    interface{}            `json:"timeoutMs"`
-	NegativeAckRedeliveryDelayMs interface{}            `json:"negativeAckRedeliveryDelayMs"`
-	Archive                      string                 `json:"archive"`
-	CleanupSubscription          interface{}            `json:"cleanupSubscription"`
-	RuntimeFlags                 interface{}            `json:"runtimeFlags"`
-	CustomRuntimeOptions         interface{}            `json:"customRuntimeOptions"`
-}
-
-func resourceStreamingSinkRead(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	astraClient := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-
-	tenantName := resourceData.Get("tenant_name").(string)
-	sinkName := resourceData.Get("sink_name").(string)
-	topic := resourceData.Get("topic").(string)
-	namespace := resourceData.Get("namespace").(string)
-
-	pulsarClusterName := resourceData.Get("pulsar_cluster").(string)
-	rawRegion := resourceData.Get("region").(string)
-	region := strings.ReplaceAll(rawRegion, "-", "")
-	cloudProvider := resourceData.Get("cloud_provider").(string)
-
-	pulsarCluster := getPulsarCluster(pulsarClusterName, cloudProvider, region, "")
-
-	orgBody, err := astraClient.GetCurrentOrganization(ctx)
-	if err != nil {
-		return diag.Errorf("failed to get current organization ID: %v", err)
-	}
-
-	var org OrgId
-	if err = json.NewDecoder(orgBody.Body).Decode(&org); err != nil {
-		return diag.Errorf("failed to decode current organization ID: %v", err)
-	}
-
-	getSinksParams := astrastreaming.GetSinksParams{
-		XDataStaxPulsarCluster: pulsarCluster,
-		Authorization:          meta.(astraClients).token,
-	}
-
-	getSinkResponse, err := streamingClientv3.GetSinksWithResponse(ctx, tenantName, namespace, sinkName, &getSinksParams)
-	if err != nil {
-		diag.FromErr(err)
-	} else if getSinkResponse.StatusCode() == 404 {
-		// sink not found, remove it from the state
-		resourceData.SetId("")
-		return nil
-	} else if getSinkResponse.StatusCode() > 299 {
-		return diag.Errorf("failed to get sink, status code %d, message: %s", getSinkResponse.StatusCode(), getSinkResponse.Body)
-	}
-
-	var sinkResponse SinkResponse
-	if err := json.Unmarshal(getSinkResponse.Body, &sinkResponse); err != nil {
-		return diag.Errorf("failed to read sink response: %v", err)
-	}
-
-	setStreamingSinkData(resourceData, tenantName, topic)
-
-	return nil
-}
-
-func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	astraClient := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-	streamingClientv3 := meta.(astraClients).astraStreamingClient.(*astrastreaming.ClientWithResponses)
-
-	rawRegion := resourceData.Get("region").(string)
-	region := strings.ReplaceAll(rawRegion, "-", "")
-	cloudProvider := resourceData.Get("cloud_provider").(string)
-	tenantName := resourceData.Get("tenant_name").(string)
-	pulsarClusterName := resourceData.Get("pulsar_cluster").(string)
-
-	sinkName := resourceData.Get("sink_name").(string)
-	archive := resourceData.Get("archive").(string)
-	retainOrdering := resourceData.Get("retain_ordering").(bool)
-	processingGuarantees := resourceData.Get("processing_guarantees").(string)
-	parallelism := int32(resourceData.Get("parallelism").(int))
-	namespace := resourceData.Get("namespace").(string)
-	rawConfigs := resourceData.Get("sink_configs").(string)
-	topic := resourceData.Get("topic").(string)
-	autoAck := resourceData.Get("auto_ack").(bool)
-
-	if archive == "" {
-		archive = fmt.Sprintf("builtin://%s", sinkName)
-	}
-
-	orgResp, err := astraClient.GetCurrentOrganization(ctx)
-	if err != nil {
-		return diag.Errorf("failed to get current organization ID: %v", err)
-	}
-
-	var org OrgId
-	if err := json.NewDecoder(orgResp.Body).Decode(&org); err != nil {
-		return diag.Errorf("failed to decode current organization ID: %v", err)
-	}
-
-	streamingClustersResponse, err := streamingClientv3.GetPulsarClustersWithResponse(ctx, org.ID)
-	if err != nil {
-		return diag.FromErr(fmt.Errorf("failed to request pulsar clusters: %w", err))
-	}
-
-	if streamingClustersResponse.StatusCode() != http.StatusOK {
-		return diag.FromErr(fmt.Errorf("failed to read pulsar clusters. Status code: %s, msg:\n%s", streamingClustersResponse.Status(), string(streamingClustersResponse.Body)))
-	}
-
-	pulsarCluster := getPulsarCluster(pulsarClusterName, cloudProvider, region, "")
+	tenantName := plan.TenantName.ValueString()
+	namespace := plan.Namespace.ValueString()
+	sinkName := plan.SinkName.ValueString()
+	archive := plan.Archive.ValueString()
+	retainOrdering := plan.RetainOrdering.ValueBool()
+	processingGuarantees := plan.ProcessingGuarantees.ValueString()
+	parallelism := plan.Parallelism.ValueInt32()
+	topic := plan.Topic.ValueString()
+	autoAck := plan.AutoAck.ValueBool()
 
 	var configs map[string]interface{}
-	if err := json.Unmarshal([]byte(rawConfigs), &configs); err != nil {
-		return diag.Errorf("failed to unmarshal sink config: %v", err)
+	if err := json.Unmarshal([]byte(plan.SinkConfigs.ValueString()), &configs); err != nil {
+		resp.Diagnostics.AddError(
+			"invalid sink config",
+			err.Error())
+		return
 	}
 
 	createSinkParams := astrastreaming.CreateSinkJSONParams{
-		XDataStaxPulsarCluster: pulsarCluster,
-		XDataStaxCurrentOrg:    "",
-		Authorization:          meta.(astraClients).token,
+		XDataStaxPulsarCluster: streamingClusterName,
+		XDataStaxCurrentOrg:    orgID,
+		Authorization:          r.clients.token,
 	}
 
 	sinkInputs := []string{topic}
@@ -358,29 +298,224 @@ func resourceStreamingSinkCreate(ctx context.Context, resourceData *schema.Resou
 		TopicsPattern:                nil,
 	}
 
-	sinkCreationResponse, err := streamingClientv3.CreateSinkJSON(ctx, tenantName, namespace, sinkName, &createSinkParams, createSinkBody)
+	sinkCreationResponse, err := astraStreamingClient.CreateSinkJSON(ctx, tenantName, namespace, sinkName, &createSinkParams, createSinkBody)
 	if err != nil {
-		diag.FromErr(err)
-	}
-	if sinkCreationResponse.StatusCode > 299 {
-		bodyBuffer, _ := io.ReadAll(sinkCreationResponse.Body)
-		return diag.Errorf("failed to  create sink, status code: %d, message %s", sinkCreationResponse.StatusCode, bodyBuffer)
+		resp.Diagnostics.AddError(
+			"failed to create sink",
+			err.Error())
+		return
+	} else if sinkCreationResponse.StatusCode > 299 {
+		body, _ := io.ReadAll(sinkCreationResponse.Body)
+		errMsg := fmt.Sprintf("failed to create sink, status code: %d, message: %s", sinkCreationResponse.StatusCode, string(body))
+		resp.Diagnostics.AddError(
+			"failed to create sink",
+			errMsg)
+		return
 	}
 
-	setStreamingSinkData(resourceData, tenantName, topic)
-
-	return nil
+	plan.setID()
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
-func setStreamingSinkData(d *schema.ResourceData, tenantName string, topic string) error {
-	d.SetId(fmt.Sprintf("%s/%s", tenantName, topic))
+func (r *StreamingSinkResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 
-	if err := d.Set("tenant_name", tenantName); err != nil {
-		return err
-	}
-	if err := d.Set("topic", topic); err != nil {
-		return err
+	state := &StreamingSinkResourceModel{}
+	diags := req.State.Get(ctx, state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	return nil
+	// astraClient := r.clients.astraClient
+	astraStreamingClient := r.clients.astraStreamingClient
+
+	streamingClusterName := state.getClusterName()
+	tenantName := state.TenantName.ValueString()
+	namespace := state.Namespace.ValueString()
+	sinkName := state.SinkName.ValueString()
+
+	getSinksParams := astrastreaming.GetSinksParams{
+		XDataStaxPulsarCluster: streamingClusterName,
+		Authorization:          r.clients.token,
+	}
+
+	getSinkResponse, err := astraStreamingClient.GetSinksWithResponse(ctx, tenantName, namespace, sinkName, &getSinksParams)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get sink, error: %v", err)
+		resp.Diagnostics.AddError(
+			"failed to get sink",
+			errMsg)
+		return
+	} else if getSinkResponse.StatusCode() == 404 {
+		// sink not found, remove it from the state
+		resp.State.RemoveResource(ctx)
+		return
+	} else if getSinkResponse.StatusCode() > 299 {
+		errMsg := fmt.Sprintf("failed to get sink, status code: %d, message: %s", getSinkResponse.StatusCode(), getSinkResponse.Body)
+		resp.Diagnostics.AddError(
+			"failed to get sink",
+			errMsg)
+		return
+	}
+
+	var sinkResponseData SinkResponse
+	if err := json.Unmarshal(getSinkResponse.Body, &sinkResponseData); err != nil {
+		resp.Diagnostics.AddError(
+			"failed to unmarshal sink response",
+			err.Error())
+		return
+	}
+
+	setStreamingSinkData(sinkResponseData, state)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+
+}
+
+// Update currently only handles updating the deletion protection field.  TODO: add support for updating sink config.
+func (r *StreamingSinkResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	plan := &StreamingSinkResourceModel{}
+	diags := req.Plan.Get(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+
+	state := &StreamingSinkResourceModel{}
+	diags = req.State.Get(ctx, state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	state.DeletionProtection = plan.DeletionProtection
+	state.setID()
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+}
+
+func (r *StreamingSinkResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state StreamingSinkResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	astraStreamingClient := r.clients.astraStreamingClient
+
+	streamingClusterName := state.getClusterName()
+	if streamingClusterName == "" {
+		streamingClusterName = state.Cluster.ValueString()
+	}
+	tenantName := state.TenantName.ValueString()
+	namespace := state.Namespace.ValueString()
+	sinkName := state.SinkName.ValueString()
+
+	deleteSinkParams := astrastreaming.DeleteSinkParams{
+		XDataStaxPulsarCluster: streamingClusterName,
+		Authorization:          r.clients.token,
+	}
+
+	deleteSinkResponse, err := astraStreamingClient.DeleteSinkWithResponse(ctx, tenantName, namespace, sinkName, &deleteSinkParams)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get sink, error: %v", err)
+		resp.Diagnostics.AddError(
+			"failed to get sink",
+			errMsg)
+		return
+	} else if deleteSinkResponse.StatusCode() > 299 {
+		errMsg := fmt.Sprintf("failed to delete sink, status code: %d, message: %s", deleteSinkResponse.StatusCode(), deleteSinkResponse.Body)
+		resp.Diagnostics.AddError(
+			"failed to delete sink",
+			errMsg)
+		return
+	}
+
+	// Remove the resource from state
+	resp.State.RemoveResource(ctx)
+}
+
+type SinkResponse struct {
+	Tenant                       string                 `json:"tenant"`
+	Namespace                    string                 `json:"namespace"`
+	Name                         string                 `json:"name"`
+	ClassName                    string                 `json:"className"`
+	SourceSubscriptionName       interface{}            `json:"sourceSubscriptionName"`
+	SourceSubscriptionPosition   string                 `json:"sourceSubscriptionPosition"`
+	Inputs                       interface{}            `json:"inputs"`
+	TopicToSerdeClassName        interface{}            `json:"topicToSerdeClassName"`
+	TopicsPattern                interface{}            `json:"topicsPattern"`
+	TopicToSchemaType            interface{}            `json:"topicToSchemaType"`
+	TopicToSchemaProperties      interface{}            `json:"topicToSchemaProperties"`
+	MaxMessageRetries            interface{}            `json:"maxMessageRetries"`
+	DeadLetterTopic              interface{}            `json:"deadLetterTopic"`
+	Configs                      map[string]interface{} `json:"configs"`
+	Secrets                      interface{}            `json:"secrets"`
+	Parallelism                  int                    `json:"parallelism"`
+	ProcessingGuarantees         string                 `json:"processingGuarantees"`
+	RetainOrdering               bool                   `json:"retainOrdering"`
+	RetainKeyOrdering            bool                   `json:"retainKeyOrdering"`
+	Resources                    interface{}            `json:"resources"`
+	AutoAck                      bool                   `json:"autoAck"`
+	TimeoutMs                    interface{}            `json:"timeoutMs"`
+	NegativeAckRedeliveryDelayMs interface{}            `json:"negativeAckRedeliveryDelayMs"`
+	Archive                      string                 `json:"archive"`
+	CleanupSubscription          interface{}            `json:"cleanupSubscription"`
+	RuntimeFlags                 interface{}            `json:"runtimeFlags"`
+	CustomRuntimeOptions         interface{}            `json:"customRuntimeOptions"`
+}
+
+// setStreamingSinkData copies the data from the REST API endpoint response to the Terraform resource model.
+func setStreamingSinkData(sink SinkResponse, data *StreamingSinkResourceModel) {
+	data.TenantName = types.StringValue(sink.Tenant)
+	data.Namespace = types.StringValue(sink.Namespace)
+	data.SinkName = types.StringValue(sink.Name)
+	data.Archive = types.StringValue(sink.Archive)
+	data.RetainOrdering = types.BoolValue(sink.RetainOrdering)
+	data.ProcessingGuarantees = types.StringValue(string(sink.ProcessingGuarantees))
+	data.Parallelism = types.Int32Value(int32(sink.Parallelism))
+	jsonSinkConfig, err := json.Marshal(sink.Configs)
+	if err != nil {
+		data.SinkConfigs = types.StringNull()
+
+	}
+	data.SinkConfigs = types.StringValue(string(jsonSinkConfig))
+	data.AutoAck = types.BoolValue(sink.AutoAck)
+
+	data.setID()
+}
+
+func (m *StreamingSinkResourceModel) setID() {
+	clusterName := m.getClusterName()
+	m.ID = types.StringValue(clusterName + "/" + m.TenantName.ValueString() + "/" + m.Namespace.ValueString() + "/" + m.SinkName.ValueString())
+}
+
+const (
+	// sinkIDRegexPattern matches a sink ID in the format "cluster-name/tenant-name/namespace/sink-name".
+	sinkIDRegexPattern = `^[A-Za-z][\w-.]+\/[A-Za-z][\w-.]+\/[A-Za-z][\w-.]+\/[A-Za-z][\w-.]+$`
+	// oldSinkIDRegexPattern matches an old sink ID in the format "pgier-terraformtest-2/persistent://pgier-terraformtest-2/my-namespace/my-topic".
+	oldSinkIDRegexPattern = `^[A-Za-z][\w-.]+\/(non-)?persistent:\/\/[A-Za-z][\w-.]+\/[A-Za-z][\w-.]+\/[A-Za-z][\w-.]+$`
+)
+
+var (
+	sinkIDRegex    = regexp.MustCompile(sinkIDRegexPattern)
+	oldSinkIDRegex = regexp.MustCompile(oldSinkIDRegexPattern)
+)
+
+// getClusterNameFromSinkID Try to determine the cluster name based on
+// the fields in the model.
+func (m *StreamingSinkResourceModel) getClusterName() string {
+	if m.Cluster.ValueString() != "" {
+		return m.Cluster.ValueString()
+	}
+	if m.PulsarClusterName.ValueString() != "" {
+		return m.PulsarClusterName.ValueString()
+	}
+	if m.ID.ValueString() != "" {
+		if sinkIDRegex.MatchString(m.ID.ValueString()) {
+			// New format: cluster_name/tenant_name/namespace/sink_name
+			parts := strings.SplitN(m.ID.ValueString(), "/", 2)
+			if len(parts) > 0 {
+				return parts[0]
+			}
+		}
+	}
+	return getPulsarCluster("", m.CloudProvider.ValueString(), removeDashes(m.Region.ValueString()), "")
 }
