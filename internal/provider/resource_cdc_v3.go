@@ -39,18 +39,18 @@ func (r *CDCResource) Configure(_ context.Context, req resource.ConfigureRequest
 	r.clients = req.ProviderData.(*astraClients2)
 }
 
-// CDCResourceModel represents the resource data model
+// CDCResourceModel represents data used to configure CDC
 type CDCResourceModel struct {
 	DatabaseID   types.String               `tfsdk:"database_id"`
 	DatabaseName types.String               `tfsdk:"database_name"`
 	Tables       []KeyspaceTable            `tfsdk:"tables"`
 	Regions      []DatacenterToStreamingMap `tfsdk:"regions"`
+	DataTopics   types.Map                  `tfsdk:"data_topics"`
 }
 
 type KeyspaceTable struct {
-	Keyspace   types.String `tfsdk:"keyspace"`
-	Table      types.String `tfsdk:"table"`
-	DataTopics types.List   `tfsdk:"data_topics"`
+	Keyspace types.String `tfsdk:"keyspace"`
+	Table    types.String `tfsdk:"table"`
 }
 
 type DatacenterToStreamingMap struct {
@@ -58,20 +58,6 @@ type DatacenterToStreamingMap struct {
 	DatacenterID     types.String `tfsdk:"datacenter_id"`
 	StreamingCluster types.String `tfsdk:"streaming_cluster"`
 	StreamingTenant  types.String `tfsdk:"streaming_tenant"`
-}
-
-// setDataTopics updates the data topics field for each table based on caculateCDCDataTopicName.
-func (m *CDCResourceModel) setDataTopics() {
-
-	for i := range m.Tables {
-		dataTopics := []attr.Value{}
-
-		for _, region := range m.Regions {
-			topicFQDN := calculateCDCDataTopicName(region.StreamingTenant.ValueString(), m.DatabaseID.ValueString(), m.Tables[i].Keyspace.ValueString(), m.Tables[i].Table.ValueString())
-			dataTopics = append(dataTopics, types.StringValue(topicFQDN))
-		}
-		m.Tables[i].DataTopics, _ = types.ListValue(types.StringType, dataTopics)
-	}
 }
 
 func (r *CDCResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -93,7 +79,7 @@ func (r *CDCResource) Schema(_ context.Context, req resource.SchemaRequest, resp
 				Description: "Astra database name.",
 				Required:    true,
 			},
-			"tables": schema.ListNestedAttribute{
+			"tables": schema.SetNestedAttribute{
 				Description: "List of tables to enable CDC.  Must include at least 1.",
 				Required:    true,
 				NestedObject: schema.NestedAttributeObject{
@@ -104,17 +90,11 @@ func (r *CDCResource) Schema(_ context.Context, req resource.SchemaRequest, resp
 						"table": schema.StringAttribute{
 							Required: true,
 						},
-						"data_topics": schema.ListAttribute{
-							Description: "List of Pulsar topics to which CDC data is published.  " +
-								"One data topic per region, in the same order of regions.",
-							Computed:    true,
-							ElementType: types.StringType,
-						},
 					},
 				},
 			},
 
-			"regions": schema.ListNestedAttribute{
+			"regions": schema.SetNestedAttribute{
 				Description: "Mapping between datacenter regions and streaming tenants.",
 				Required:    true,
 				NestedObject: schema.NestedAttributeObject{
@@ -136,6 +116,14 @@ func (r *CDCResource) Schema(_ context.Context, req resource.SchemaRequest, resp
 							Required:    true,
 						},
 					},
+				},
+			},
+			"data_topics": schema.MapAttribute{
+				Description: "Map of CDC data topics for each table in each region. " +
+					"Key is the region in the format `<region>`, ",
+				Computed: true,
+				ElementType: types.MapType{
+					ElemType: types.StringType,
 				},
 			},
 		},
@@ -167,6 +155,7 @@ func (r *CDCResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	plan.setDataTopics()
+
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 }
@@ -194,7 +183,9 @@ func (r *CDCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
-	updateStateForCDCReadRequest(&state, cdcResponse.JSON200)
+	copyResponseDataToResourceState(&state, cdcResponse.JSON200)
+	state.setDataTopics()
+
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 }
@@ -287,7 +278,8 @@ func createEnableCDCRequestBody(tfData *CDCResourceModel) astra.EnableCDCJSONReq
 	return reqData
 }
 
-func updateStateForCDCReadRequest(tfData *CDCResourceModel, respData *astra.ListCDCResponse) {
+// copyResponseDataToResourceState copies the data from the REST endpoing response to the Terraform resource state model.
+func copyResponseDataToResourceState(tfData *CDCResourceModel, respData *astra.ListCDCResponse) {
 	tfData.DatabaseID = types.StringValue(respData.DatabaseID)
 	tfData.DatabaseName = types.StringValue(respData.DatabaseName)
 	var tables []KeyspaceTable
@@ -309,7 +301,6 @@ func updateStateForCDCReadRequest(tfData *CDCResourceModel, respData *astra.List
 		})
 	}
 	tfData.Regions = regions
-	tfData.setDataTopics()
 }
 
 func createDeleteCDCRequestBody(tfData *CDCResourceModel) astra.DeleteCDCJSONRequestBody {
@@ -332,4 +323,27 @@ const AstraCDCPulsarNamespace = "astracdc"
 // For example 'persistent://terraform-support1/astracdc/data-0d509b0f-d38a-4c8e-9680-fa7c752189b7-ks1.table1'
 func calculateCDCDataTopicName(streamingTenant, databaseID, keyspace, tableName string) string {
 	return fmt.Sprintf("persistent://%s/%s/data-%s-%s.%s", streamingTenant, AstraCDCPulsarNamespace, databaseID, keyspace, tableName)
+}
+
+// getDataTopicsList uses the region and table config to create the two dimensional (region and table) map of data topics.
+func (m *CDCResourceModel) setDataTopics() {
+
+	dataTopicsMap := map[string]attr.Value{}
+
+	for _, region := range m.Regions {
+		regionName := region.Region.ValueString()
+		regionDataTopics := make(map[string]attr.Value)
+
+		for _, table := range m.Tables {
+			keyspaceTable := fmt.Sprintf("%s.%s", table.Keyspace.ValueString(), table.Table.ValueString())
+			topicFQDN := calculateCDCDataTopicName(region.StreamingTenant.ValueString(), m.DatabaseID.ValueString(), table.Keyspace.ValueString(), table.Table.ValueString())
+			regionDataTopics[keyspaceTable] = types.StringValue(topicFQDN)
+		}
+		dataTopicsMap[regionName] = types.MapValueMust(
+			types.StringType,
+			regionDataTopics,
+		)
+	}
+
+	m.DataTopics = types.MapValueMust(types.MapType{ElemType: types.StringType}, dataTopicsMap)
 }
