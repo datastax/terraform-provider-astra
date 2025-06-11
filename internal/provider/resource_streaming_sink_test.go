@@ -137,3 +137,22 @@ resource "astra_streaming_sink" "streaming_sink-1" {
 }
 `, tenantName, "%s", "%s", "%s")
 }
+
+func TestSinkIDRegexp(t *testing.T) {
+	sinkIDExample := "pulsar-gcp-useast4-staging/mytenant-gcp/namespace/terraform-test-1234567890"
+	oldSinkIDExample := "pulsar-tenant1/non-persistent://tenant1/default/terraform-test-1234567890"
+
+	if !sinkIDRegex.MatchString(sinkIDExample) {
+		t.Errorf("Expected sink ID to match regex, but it did not: %s", sinkIDExample)
+	}
+	if oldSinkIDRegex.MatchString(sinkIDExample) {
+		t.Errorf("Expected old sink ID to NOT match regex, but it did: %s", sinkIDExample)
+	}
+
+	if !oldSinkIDRegex.MatchString(oldSinkIDExample) {
+		t.Errorf("Expected old sink ID to match regex, but it did not: %s", oldSinkIDExample)
+	}
+	if sinkIDRegex.MatchString(oldSinkIDExample) {
+		t.Errorf("Expected sink ID to NOT match regex, but it did: %s", oldSinkIDExample)
+	}
+}

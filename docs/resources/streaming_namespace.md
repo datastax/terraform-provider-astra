@@ -68,7 +68,7 @@ resource "astra_streaming_namespace" "streaming_namespace" {
 
 ### Required
 
-- `cluster` (String) Cluster where the tenant is located.
+- `cluster` (String) Name of the Pulsar cluster where the tenant is located.
 - `namespace` (String) Name of the Pulsar namespace.
 - `tenant` (String) Name of the tenant.
 

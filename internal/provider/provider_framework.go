@@ -108,9 +108,10 @@ func (p *astraProvider) DataSources(_ context.Context) []func() datasource.DataS
 func (p *astraProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewAstraCDCv3Resource,
-		NewStreamingTenantResource,
 		NewStreamingNamespaceResource,
 		NewStreamingPulsarTokenResource,
+		NewStreamingSinkResource,
+		NewStreamingTenantResource,
 		NewStreamingTopicResource,
 	}
 }

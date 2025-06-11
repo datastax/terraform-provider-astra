@@ -59,7 +59,7 @@ func (r *StreamingNamespaceResource) Schema(_ context.Context, _ resource.Schema
 				},
 			},
 			"cluster": schema.StringAttribute{
-				Description: "Cluster where the tenant is located.",
+				Description: "Name of the Pulsar cluster where the tenant is located.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
