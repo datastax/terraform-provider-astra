@@ -115,7 +115,7 @@ output "streaming_data_topic1" {
 
 ### Read-Only
 
-- `data_topics` (Map of Map of String) Map of CDC data topics for each table in each region. Key is the region in the format `<region>`,
+- `data_topics` (Map of Map of String) Map of CDC data topics for each table in each region. Use the region as the first key and the keyspace.table as the second key. For example, astra_cdc.mycdc.data_topics['us-east1']['ks1.table1'].
 
 <a id="nestedatt--regions"></a>
 ### Nested Schema for `regions`

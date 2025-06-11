@@ -120,7 +120,8 @@ func (r *CDCResource) Schema(_ context.Context, req resource.SchemaRequest, resp
 			},
 			"data_topics": schema.MapAttribute{
 				Description: "Map of CDC data topics for each table in each region. " +
-					"Key is the region in the format `<region>`, ",
+					"Use the region as the first key and the keyspace.table as the second key. " +
+					"For example, astra_cdc.mycdc.data_topics['us-east1']['ks1.table1'].",
 				Computed: true,
 				ElementType: types.MapType{
 					ElemType: types.StringType,
@@ -331,7 +332,6 @@ func (m *CDCResourceModel) setDataTopics() {
 	dataTopicsMap := map[string]attr.Value{}
 
 	for _, region := range m.Regions {
-		regionName := region.Region.ValueString()
 		regionDataTopics := make(map[string]attr.Value)
 
 		for _, table := range m.Tables {
@@ -339,10 +339,7 @@ func (m *CDCResourceModel) setDataTopics() {
 			topicFQDN := calculateCDCDataTopicName(region.StreamingTenant.ValueString(), m.DatabaseID.ValueString(), table.Keyspace.ValueString(), table.Table.ValueString())
 			regionDataTopics[keyspaceTable] = types.StringValue(topicFQDN)
 		}
-		dataTopicsMap[regionName] = types.MapValueMust(
-			types.StringType,
-			regionDataTopics,
-		)
+		dataTopicsMap[region.Region.ValueString()] = types.MapValueMust(types.StringType, regionDataTopics)
 	}
 
 	m.DataTopics = types.MapValueMust(types.MapType{ElemType: types.StringType}, dataTopicsMap)
