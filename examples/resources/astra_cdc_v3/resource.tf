@@ -24,7 +24,7 @@ resource "astra_streaming_tenant" "streaming_tenant2" {
 # Create a new database
 resource "astra_database" "db_database" {
   name                = "mydb"
-  keyspace            = "click_data"                # 48 characters max
+  keyspace            = "ks1"                       # 48 characters max
   cloud_provider      = "gcp"                       # this must match the cloud_provider of the streaming tenants
   regions             = ["us-central1", "us-east1"] # this must match the regions of the streaming tenants
   deletion_protection = false
@@ -35,7 +35,7 @@ resource "astra_table" "db_table1" {
   keyspace           = astra_database.db_database.keyspace
   database_id        = astra_database.db_database.id
   region             = astra_database.db_database.regions[0]
-  table              = "all_product_clicks"
+  table              = "table1"
   clustering_columns = "click_timestamp"
   partition_keys     = "visitor_id:click_url"
   column_definitions = [
@@ -69,16 +69,20 @@ resource "astra_cdc_v3" "db_cdc" {
   ]
   regions = [
     {
-      region            = "us-central-1"
+      region            = "us-central1"
       datacenter_id     = "${astra_database.db_database.id}-1"
       streaming_cluster = astra_streaming_tenant.streaming_tenant1.cluster_name
       streaming_tenant  = astra_streaming_tenant.streaming_tenant1.tenant_name
     },
     {
-      region            = "us-east-1"
+      region            = "us-east1"
       datacenter_id     = "${astra_database.db_database.id}-2"
       streaming_cluster = astra_streaming_tenant.streaming_tenant2.cluster_name
       streaming_tenant  = astra_streaming_tenant.streaming_tenant2.tenant_name
     },
   ]
+}
+
+output "streaming_data_topic1" {
+  value = astra_cdc_v3.example1.data_topics["us-east1"]["ks1.table1"]
 }

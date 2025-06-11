@@ -39,7 +39,7 @@ resource "astra_streaming_tenant" "streaming_tenant2" {
 # Create a new database
 resource "astra_database" "db_database" {
   name                = "mydb"
-  keyspace            = "click_data"                # 48 characters max
+  keyspace            = "ks1"                       # 48 characters max
   cloud_provider      = "gcp"                       # this must match the cloud_provider of the streaming tenants
   regions             = ["us-central1", "us-east1"] # this must match the regions of the streaming tenants
   deletion_protection = false
@@ -50,7 +50,7 @@ resource "astra_table" "db_table1" {
   keyspace           = astra_database.db_database.keyspace
   database_id        = astra_database.db_database.id
   region             = astra_database.db_database.regions[0]
-  table              = "all_product_clicks"
+  table              = "table1"
   clustering_columns = "click_timestamp"
   partition_keys     = "visitor_id:click_url"
   column_definitions = [
@@ -84,18 +84,22 @@ resource "astra_cdc_v3" "db_cdc" {
   ]
   regions = [
     {
-      region            = "us-central-1"
+      region            = "us-central1"
       datacenter_id     = "${astra_database.db_database.id}-1"
       streaming_cluster = astra_streaming_tenant.streaming_tenant1.cluster_name
       streaming_tenant  = astra_streaming_tenant.streaming_tenant1.tenant_name
     },
     {
-      region            = "us-east-1"
+      region            = "us-east1"
       datacenter_id     = "${astra_database.db_database.id}-2"
       streaming_cluster = astra_streaming_tenant.streaming_tenant2.cluster_name
       streaming_tenant  = astra_streaming_tenant.streaming_tenant2.tenant_name
     },
   ]
+}
+
+output "streaming_data_topic1" {
+  value = astra_cdc_v3.example1.data_topics["us-east1"]["ks1.table1"]
 }
 ```
 
@@ -106,8 +110,12 @@ resource "astra_cdc_v3" "db_cdc" {
 
 - `database_id` (String) Astra database to create the keyspace.
 - `database_name` (String) Astra database name.
-- `regions` (Attributes List) Mapping between datacenter regions and streaming tenants. (see [below for nested schema](#nestedatt--regions))
-- `tables` (Attributes List) List of tables to enable CDC.  Must include at least 1. (see [below for nested schema](#nestedatt--tables))
+- `regions` (Attributes Set) Mapping between datacenter regions and streaming tenants. (see [below for nested schema](#nestedatt--regions))
+- `tables` (Attributes Set) List of tables to enable CDC.  Must include at least 1. (see [below for nested schema](#nestedatt--tables))
+
+### Read-Only
+
+- `data_topics` (Map of Map of String) Map of CDC data topics for each table in each region. Key is the region in the format `<region>`,
 
 <a id="nestedatt--regions"></a>
 ### Nested Schema for `regions`
@@ -127,10 +135,6 @@ Required:
 
 - `keyspace` (String)
 - `table` (String)
-
-Read-Only:
-
-- `data_topics` (List of String) List of Pulsar topics to which CDC data is published.  One data topic per region, in the same order of regions.
 
 ## Import
 
