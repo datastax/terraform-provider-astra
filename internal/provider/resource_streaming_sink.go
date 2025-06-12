@@ -134,7 +134,7 @@ func (r *StreamingSinkResource) Schema(_ context.Context, _ resource.SchemaReque
 				},
 			},
 			"sink_name": schema.StringAttribute{
-				Description: "Name of the sink.",
+				Description: "Name of the sink. Note that the combination of tenant, namespace, and sink name must not exceed 47 characters.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
