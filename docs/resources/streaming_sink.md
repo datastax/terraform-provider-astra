@@ -82,7 +82,7 @@ resource "astra_streaming_sink" "streaming_sink" {
 - `processing_guarantees` (String) "ATLEAST_ONCE" "ATMOST_ONCE" "EFFECTIVELY_ONCE".
 - `retain_ordering` (Boolean) Retain ordering.
 - `sink_configs` (String) Sink Configs
-- `sink_name` (String) Name of the sink.
+- `sink_name` (String) Name of the sink. Note that the combination of tenant, namespace, and sink name must not exceed 47 characters.
 - `tenant_name` (String) Streaming tenant name.
 - `topic` (String) Streaming tenant topic.
 
