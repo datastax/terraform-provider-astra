@@ -31,16 +31,16 @@ resource "astra_streaming_topic" "streaming_topic" {
 #   https://docs.datastax.com/en/streaming/streaming-learning/pulsar-io/connectors/index.html
 resource "astra_streaming_sink" "streaming_sink" {
   # Required
+  cluster               = astra_streaming_tenant.streaming_tenant.cluster_name
   tenant_name           = astra_streaming_tenant.streaming_tenant.tenant_name
-  region                = "us-central1"
-  cloud_provider        = astra_streaming_tenant.streaming_tenant.cloud_provider
   namespace             = astra_streaming_namespace.streaming_namespace.namespace
+  sink_name             = "sink1"
+  archive               = "builtin://jdbc-clickhouse"
   topic                 = astra_streaming_topic.streaming_topic.topic_fqn
   auto_ack              = true
   parallelism           = 1
   retain_ordering       = false
   processing_guarantees = "ATLEAST_ONCE"
-  sink_name             = "jdbc-clickhouse"
   sink_configs = jsonencode({
     "userName" : "clickhouse",
     "password" : "password",

@@ -46,16 +46,16 @@ resource "astra_streaming_topic" "streaming_topic" {
 #   https://docs.datastax.com/en/streaming/streaming-learning/pulsar-io/connectors/index.html
 resource "astra_streaming_sink" "streaming_sink" {
   # Required
+  cluster               = astra_streaming_tenant.streaming_tenant.cluster_name
   tenant_name           = astra_streaming_tenant.streaming_tenant.tenant_name
-  region                = "us-central1"
-  cloud_provider        = astra_streaming_tenant.streaming_tenant.cloud_provider
   namespace             = astra_streaming_namespace.streaming_namespace.namespace
+  sink_name             = "sink1"
+  archive               = "builtin://jdbc-clickhouse"
   topic                 = astra_streaming_topic.streaming_topic.topic_fqn
   auto_ack              = true
   parallelism           = 1
   retain_ordering       = false
   processing_guarantees = "ATLEAST_ONCE"
-  sink_name             = "jdbc-clickhouse"
   sink_configs = jsonencode({
     "userName" : "clickhouse",
     "password" : "password",
@@ -88,7 +88,7 @@ resource "astra_streaming_sink" "streaming_sink" {
 
 ### Optional
 
-- `archive` (String) Name of the sink archive type to use. Defaults to the value of sink_name. Must be formatted as a URL, e.g. 'builtin://jdbc-clickhouse'
+- `archive` (String) Name of the sink archive type to use, e.g. 'builtin://kafka'. It is recommended to set this field even though it is marked optional. Defaults to the value of sink_name. Must be formatted as a URL, e.g. 'builtin://jdbc-clickhouse'
 - `cloud_provider` (String, Deprecated) Cloud provider (deprecated, use `cluster` instead)
 - `cluster` (String) Name of the pulsar cluster in which to create the sink. If left blank, the name will be inferred from the cloud provider and region.
 - `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy this streaming sink. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
