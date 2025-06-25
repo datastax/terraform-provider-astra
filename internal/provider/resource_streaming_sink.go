@@ -141,10 +141,12 @@ func (r *StreamingSinkResource) Schema(_ context.Context, _ resource.SchemaReque
 				},
 			},
 			"archive": schema.StringAttribute{
-				Description: "Name of the sink archive type to use. Defaults to the value of sink_name. Must be formatted as a URL, e.g. 'builtin://jdbc-clickhouse'",
-				Optional:    true,
+				Description: "Name of the sink archive type to use, e.g. 'builtin://kafka'. It is recommended to set this field even though it is marked optional. " +
+					"Defaults to the value of sink_name. Must be formatted as a URL, e.g. 'builtin://jdbc-clickhouse'",
+				Optional: true,
+				Computed: true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.RequiresReplaceIfConfigured(),
 				},
 			},
 			"topic": schema.StringAttribute{
@@ -244,12 +246,16 @@ func (r *StreamingSinkResource) Create(ctx context.Context, req resource.CreateR
 	tenantName := plan.TenantName.ValueString()
 	namespace := plan.Namespace.ValueString()
 	sinkName := plan.SinkName.ValueString()
-	archive := plan.Archive.ValueString()
-	retainOrdering := plan.RetainOrdering.ValueBool()
-	processingGuarantees := plan.ProcessingGuarantees.ValueString()
-	parallelism := plan.Parallelism.ValueInt32()
-	topic := plan.Topic.ValueString()
-	autoAck := plan.AutoAck.ValueBool()
+	if plan.Archive.ValueString() == "" {
+		// Use sink_name as archive value if not set
+		archive := fmt.Sprintf("builtin://%s", sinkName)
+		plan.Archive = types.StringValue(archive)
+		resp.Diagnostics.AddWarning(
+			"archive is not set",
+			fmt.Sprintf("Defaulting sink_name as archive value '%s'. It is recommended to set the 'archive'"+
+				" field explicitly to avoid issues with sink creation.", archive),
+		)
+	}
 
 	var configs map[string]interface{}
 	if err := json.Unmarshal([]byte(plan.SinkConfigs.ValueString()), &configs); err != nil {
@@ -265,10 +271,10 @@ func (r *StreamingSinkResource) Create(ctx context.Context, req resource.CreateR
 		Authorization:          r.clients.token,
 	}
 
-	sinkInputs := []string{topic}
+	sinkInputs := []string{plan.Topic.ValueString()}
 	createSinkBody := astrastreaming.CreateSinkJSONJSONRequestBody{
-		Archive:                      &archive,
-		AutoAck:                      &autoAck,
+		Archive:                      plan.Archive.ValueStringPointer(),
+		AutoAck:                      plan.AutoAck.ValueBoolPointer(),
 		ClassName:                    nil,
 		CleanupSubscription:          nil,
 		Configs:                      &configs,
@@ -280,11 +286,11 @@ func (r *StreamingSinkResource) Create(ctx context.Context, req resource.CreateR
 		Name:                         &sinkName,
 		Namespace:                    &namespace,
 		NegativeAckRedeliveryDelayMs: nil,
-		Parallelism:                  &parallelism,
-		ProcessingGuarantees:         (*astrastreaming.SinkConfigProcessingGuarantees)(&processingGuarantees),
+		Parallelism:                  plan.Parallelism.ValueInt32Pointer(),
+		ProcessingGuarantees:         (*astrastreaming.SinkConfigProcessingGuarantees)(plan.ProcessingGuarantees.ValueStringPointer()),
 		Resources:                    nil,
 		RetainKeyOrdering:            nil,
-		RetainOrdering:               &retainOrdering,
+		RetainOrdering:               plan.RetainOrdering.ValueBoolPointer(),
 		RuntimeFlags:                 nil,
 		Secrets:                      nil,
 		SinkType:                     nil,
@@ -398,6 +404,13 @@ func (r *StreamingSinkResource) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 
+	if state.DeletionProtection.ValueBool() {
+		resp.Diagnostics.AddError(
+			"failed to delete sink",
+			"deletion protection is enabled. Set `deletion_protection` to `false` to allow deletion of the sink resource.")
+		return
+	}
+
 	astraStreamingClient := r.clients.astraStreamingClient
 
 	streamingClusterName := state.getClusterName()
@@ -417,7 +430,7 @@ func (r *StreamingSinkResource) Delete(ctx context.Context, req resource.DeleteR
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to get sink, error: %v", err)
 		resp.Diagnostics.AddError(
-			"failed to get sink",
+			"failed to get current sink status",
 			errMsg)
 		return
 	} else if deleteSinkResponse.StatusCode() > 299 {
