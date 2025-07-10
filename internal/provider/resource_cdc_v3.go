@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -13,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 )
 
 type CDCResource struct {
@@ -155,6 +157,14 @@ func (r *CDCResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
+	// wait for the database to be active before after CDC
+	if err := waitForDatabaseActive(ctx, astraClient, plan.DatabaseID.ValueString()); err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("failed to wait for database '%s' to be active", plan.DatabaseID.ValueString()),
+			err.Error())
+		return
+	}
+
 	plan.setDataTopics()
 
 	diags = resp.State.Set(ctx, &plan)
@@ -192,8 +202,49 @@ func (r *CDCResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 }
 
 func (r *CDCResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// CDC resources are typically immutable, so this might not be implemented.
-	resp.Diagnostics.AddError("Not Implemented", "Update is not supported for CDC resources.")
+	var plan CDCResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	astraClient := r.clients.astraClient
+
+	// wait for the database to be active before updating CDC
+	if err := waitForDatabaseActive(ctx, astraClient, plan.DatabaseID.ValueString()); err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("failed to wait for database '%s' to be active", plan.DatabaseID.ValueString()),
+			err.Error())
+		return
+	}
+
+	cdcRequestBody := createUpdateCDCRequestBody(&plan)
+	cdcResponse, err := astraClient.UpdateCDCWithResponse(ctx, cdcRequestBody.DatabaseID, cdcRequestBody)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"failed to enable CDC",
+			err.Error())
+		return
+	} else if cdcResponse.StatusCode() != http.StatusNoContent {
+		errString := fmt.Sprintf("failed to update CDC for DB '%s' with status code '%v', message: '%s'",
+			plan.DatabaseID.ValueString(), cdcResponse.StatusCode(), string(cdcResponse.Body))
+		resp.Diagnostics.AddError("failed to update CDC", errString)
+		return
+	}
+
+	// wait for the database to be active before after CDC
+	if err := waitForDatabaseActive(ctx, astraClient, plan.DatabaseID.ValueString()); err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("failed to wait for database '%s' to be active", plan.DatabaseID.ValueString()),
+			err.Error())
+		return
+	}
+
+	plan.setDataTopics()
+
+	diags = resp.State.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r *CDCResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -257,6 +308,30 @@ type TableJSON struct {
 
 func createEnableCDCRequestBody(tfData *CDCResourceModel) astra.EnableCDCJSONRequestBody {
 	reqData := astra.EnableCDCJSONRequestBody{
+		DatabaseID:   tfData.DatabaseID.ValueString(),
+		DatabaseName: tfData.DatabaseName.ValueString(),
+	}
+	for _, table := range tfData.Tables {
+		nextTable := TableJSON{
+			KeyspaceName: table.Keyspace.ValueString(),
+			TableName:    table.Table.ValueString(),
+		}
+		reqData.Tables = append(reqData.Tables, nextTable)
+	}
+	for _, region := range tfData.Regions {
+		nextRegion := RegionJSON{
+			DatacenterRegion:     region.Region.ValueString(),
+			DatacenterID:         region.DatacenterID.ValueString(),
+			StreamingClusterName: region.StreamingCluster.ValueString(),
+			StreamingTenantName:  region.StreamingTenant.ValueString(),
+		}
+		reqData.Regions = append(reqData.Regions, nextRegion)
+	}
+	return reqData
+}
+
+func createUpdateCDCRequestBody(tfData *CDCResourceModel) astra.UpdateCDCJSONRequestBody {
+	reqData := astra.UpdateCDCJSONRequestBody{
 		DatabaseID:   tfData.DatabaseID.ValueString(),
 		DatabaseName: tfData.DatabaseName.ValueString(),
 	}
@@ -343,4 +418,39 @@ func (m *CDCResourceModel) setDataTopics() {
 	}
 
 	m.DataTopics = types.MapValueMust(types.MapType{ElemType: types.StringType}, dataTopicsMap)
+}
+
+var (
+	cdcUpdateTimeout = time.Duration(2 * time.Minute)
+)
+
+// waitForDatabaseActive waits for the database to reach the ACTIVE state.  Will return an error if the database reaches a terminal state (ERROR, TERMINATED, or TERMINATING),
+// or if the request returns an unexpected HTTP status code, or if the request times out.
+func waitForDatabaseActive(ctx context.Context, client *astra.ClientWithResponses, databaseID string) error {
+	return retry.RetryContext(ctx, cdcUpdateTimeout, func() *retry.RetryError {
+		res, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
+		// Errors sending request should be retried and are assumed to be transient
+		if err != nil || res.StatusCode() >= http.StatusInternalServerError {
+			return retry.RetryableError(fmt.Errorf("error getting database status: %s", string(res.Body)))
+		}
+
+		// don't retry on unexpected HTTP errors
+		if res.StatusCode() == http.StatusUnauthorized {
+			return retry.NonRetryableError(fmt.Errorf("user not authorized. Effective role must have 'View DB' permission on the database (or on all DBs in the current org)"))
+		} else if res.StatusCode() > http.StatusOK || res.JSON200 == nil {
+			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database, status code: %d, message %s", res.StatusCode(), string(res.Body)))
+		}
+
+		// Success fetching database
+		dbStatus := res.JSON200.Status
+		switch dbStatus {
+		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
+			// If the database reached a terminal state it will never become active
+			return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status='%s'", dbStatus))
+		case astra.ACTIVE:
+			return nil
+		default:
+			return retry.RetryableError(fmt.Errorf("waiting database to be active but is '%s'", dbStatus))
+		}
+	})
 }
