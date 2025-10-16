@@ -15,6 +15,7 @@ import (
 	"github.com/datastax/pulsar-admin-client-go/src/pulsaradmin"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -32,7 +33,8 @@ const (
 
 // Ensure the implementation satisfies the expected interfaces
 var (
-	_ provider.Provider = &astraProvider{}
+	_ provider.Provider              = &astraProvider{}
+	_ provider.ProviderWithFunctions = &astraProvider{}
 )
 
 // New creates an Astra terraform provider using the terraform-plugin-framework
@@ -101,7 +103,11 @@ func (p *astraProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp
 
 // DataSources defines the data sources implemented in this provider.
 func (p *astraProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return nil
+	return []func() datasource.DataSource{
+		NewPCUGroupsDataSource,
+		NewPCUGroupDataSource,
+		NewPCUGroupAssociationsDataSource,
+	}
 }
 
 // Resources defines the resources implemented in this provider.
@@ -113,6 +119,14 @@ func (p *astraProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewStreamingSinkResource,
 		NewStreamingTenantResource,
 		NewStreamingTopicResource,
+		NewPcuGroupAssociationResource,
+		NewPcuGroupResource,
+	}
+}
+
+func (p *astraProvider) Functions(_ context.Context) []func() function.Function {
+	return []func() function.Function{
+		NewResolveDatacenterFunction,
 	}
 }
 

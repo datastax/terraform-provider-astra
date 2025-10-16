@@ -444,11 +444,11 @@ func waitForDatabaseActive(ctx context.Context, client *astra.ClientWithResponse
 		// Success fetching database
 		dbStatus := res.JSON200.Status
 		switch dbStatus {
-		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
-			// If the database reached a terminal state it will never become active
-			return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status='%s'", dbStatus))
-		case astra.ACTIVE:
-			return nil
+		//case astra.ERROR, astra.TERMINATED, astra.TERMINATING: TODO uncomment
+		//	// If the database reached a terminal state it will never become active
+		//	return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status='%s'", dbStatus))
+		//case astra.ACTIVE:
+		//	return nil
 		default:
 			return retry.RetryableError(fmt.Errorf("waiting database to be active but is '%s'", dbStatus))
 		}

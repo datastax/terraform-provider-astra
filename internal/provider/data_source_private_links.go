@@ -109,9 +109,9 @@ func listPrivateLinks(ctx context.Context, client *astra.ClientWithResponses, da
 	}
 
 	// If the database is terminated then the private links have been deleted.
-	if db.Status == astra.TERMINATING || db.Status == astra.TERMINATED {
-		return nil, nil
-	}
+	//if db.Status == astra.TERMINATING || db.Status == astra.TERMINATED { TODO uncomment
+	//	return nil, nil
+	//}
 
 	plResponse, err := client.GetPrivateLinksForDatacenterWithResponse(ctx, databaseID, datacenterID)
 

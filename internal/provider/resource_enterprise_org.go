@@ -35,19 +35,19 @@ func resourceEnterpriseOrg() *schema.Resource {
 				ForceNew:    true,
 			},
 			"admin_user_id": {
-				Description: "UUID of the Astra user that will be the admin of the organization",
+				Description: "Id of the Astra user that will be the admin of the organization",
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 			},
 			// Computed
 			"enterprise_id": {
-				Description: "UUID of the Enterprise under which the organization is created",
+				Description: "Id of the Enterprise under which the organization is created",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"organization_id": {
-				Description: "The Astra organization ID (UUID) for the created Enterprise organization.",
+				Description: "The Astra organization ID (Id) for the created Enterprise organization.",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
@@ -57,7 +57,7 @@ func resourceEnterpriseOrg() *schema.Resource {
 				Computed:    true,
 			},
 			"organization_group_id": {
-				Description: "The group ID (UUID) of the organization.",
+				Description: "The group ID (Id) of the organization.",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
@@ -84,9 +84,9 @@ func resourceEnterpriseOrgCreate(ctx context.Context, d *schema.ResourceData, me
 	adminUid := d.Get("admin_user_id").(string)
 
 	orgReq := astra.CreateOrganizationInEnterpriseJSONRequestBody{
-		Name:         orgName,
-		Email:        orgEmail,
-		AdminUserID:  adminUid,
+		Name:        orgName,
+		Email:       orgEmail,
+		AdminUserID: adminUid,
 	}
 
 	resp, err := client.CreateOrganizationInEnterpriseWithResponse(ctx, orgReq)
@@ -110,7 +110,7 @@ func resourceEnterpriseOrgRead(ctx context.Context, d *schema.ResourceData, meta
 		diag.Diagnostic{
 			Severity: diag.Warning,
 			Summary:  "Read of Enterprise Organizations not supported",
-			Detail:  "Read of Enterprise Organizations not supported.",
+			Detail:   "Read of Enterprise Organizations not supported.",
 		},
 	}
 }
@@ -120,7 +120,7 @@ func resourceEnterpriseOrgDelete(ctx context.Context, d *schema.ResourceData, me
 		diag.Diagnostic{
 			Severity: diag.Warning,
 			Summary:  "Delete of Enterprise Organizations not supported",
-			Detail:  "Delete of Enterprise Organizations not supported.",
+			Detail:   "Delete of Enterprise Organizations not supported.",
 		},
 	}
 }

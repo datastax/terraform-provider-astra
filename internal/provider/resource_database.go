@@ -265,10 +265,10 @@ func resourceDatabaseRead(ctx context.Context, resourceData *schema.ResourceData
 		}
 
 		// If the database is TERMINATING or TERMINATED then remove it from the state
-		if db.Status == astra.TERMINATING || db.Status == astra.TERMINATED {
-			resourceData.SetId("")
-			return nil
-		}
+		//if db.Status == astra.TERMINATING || db.Status == astra.TERMINATED { TODO uncomment
+		//	resourceData.SetId("")
+		//	return nil
+		//}
 
 		// Add the database to state
 		if err := setDatabaseResourceData(resourceData, db); err != nil {
@@ -369,9 +369,9 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 
 		// Return when the database is in a TERMINATED state
 		db := res.JSON200
-		if db.Status == astra.TERMINATED {
-			return nil
-		}
+		//if db.Status == astra.TERMINATED { TODO uncomment
+		//	return nil
+		//}
 
 		// Continue until one of the expected conditions above are met
 		return retry.RetryableError(fmt.Errorf("expected database to be terminated but is %s", db.Status))
@@ -524,14 +524,14 @@ func waitForDatabaseAndUpdateResource(ctx context.Context, resourceData *schema.
 		// Success fetching database
 		db := res.JSON200
 		switch db.Status {
-		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
-			// If the database reached a terminal state it will never become active
-			return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
-		case astra.ACTIVE:
-			if err := setDatabaseResourceData(resourceData, db); err != nil {
-				return retry.NonRetryableError(err)
-			}
-			return nil
+		//case astra.ERROR, astra.TERMINATED, astra.TERMINATING: TODO uncomment
+		//	If the database reached a terminal state it will never become active
+		//return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
+		//case astra.ACTIVE:
+		//	if err := setDatabaseResourceData(resourceData, db); err != nil {
+		//		return retry.NonRetryableError(err)
+		//	}
+		//	return nil
 		default:
 			return retry.RetryableError(fmt.Errorf("expected database to be active but is %s", db.Status))
 		}

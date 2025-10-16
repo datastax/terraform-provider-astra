@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -92,6 +93,18 @@ func MergeTerraformObjects(old, new types.Object, attributeTypes map[string]attr
 	}
 
 	return basetypes.NewObjectValue(attributeTypes, attributes)
+}
+
+func MergeTerraformAttributes(atts ...map[string]schema.Attribute) map[string]schema.Attribute {
+	merged := map[string]schema.Attribute{}
+
+	for _, attMap := range atts {
+		for k, v := range attMap {
+			merged[k] = v
+		}
+	}
+
+	return merged
 }
 
 // HTTPResponseDiagErr takes an HTTP response and error and creates a Terraform Error Diagnostic if there is an error

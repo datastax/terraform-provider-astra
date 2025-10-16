@@ -224,7 +224,7 @@ func (r *StreamingSinkResource) Create(ctx context.Context, req resource.CreateR
 	orgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"failed to get current OrgID",
+			"failed to get current OrgId",
 			err.Error())
 		return
 	}

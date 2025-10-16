@@ -102,3 +102,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/datastax/astra-client-go/v2 => github.com/bdunn313/astra-client-go/v2 v2.2.64-0.20251014131947-9665c4fa0857

@@ -52,7 +52,7 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	databaseID := d.Get("database_id").(string)
-	keyspaceName := d.Get("name").(string)
+	//keyspaceName := d.Get("name").(string) TODO uncomment
 
 	//Wait for DB to be in Active status
 	if err := retry.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *retry.RetryError {
@@ -77,30 +77,30 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 		// Success fetching database
 		db := res.JSON200
 		switch db.Status {
-		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
-			// If the database reached a terminal state it will never become active
-			return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
-		case astra.ACTIVE:
-			keyspaceMutex.Lock()
-			resp, err := client.AddKeyspaceWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.KeyspaceNameParam(keyspaceName))
-			keyspaceMutex.Unlock()
-			if err != nil {
-				return retry.NonRetryableError(fmt.Errorf("error calling add keyspace (not retrying) %s", err))
-			} else if resp.StatusCode() == 409 {
-				// DevOps API returns 409 for concurrent modifications, these need to be retried.
-				return retry.RetryableError(fmt.Errorf("error adding keyspace to database (retrying): %s", string(resp.Body)))
-			} else if resp.StatusCode() == 401 {
-				// DevOps API returns 401 Unauthorized for requests without the keyspace create permission
-				return retry.NonRetryableError(fmt.Errorf("error adding keyspace to database (insufficient permissions, role missing 'db-keyspace-create')"))
-			} else if resp.StatusCode() >= 400 {
-				return retry.NonRetryableError(fmt.Errorf("error adding keyspace to database (not retrying): %s", string(resp.Body)))
-			}
-
-			if err := setKeyspaceResourceData(d, databaseID, keyspaceName); err != nil {
-				return retry.NonRetryableError(fmt.Errorf("error setting keyspace data (not retrying) %s", err))
-			}
-
-			return nil
+		//case astra.ERROR, astra.TERMINATED, astra.TERMINATING: TODO uncomment
+		//	// If the database reached a terminal state it will never become active
+		//	return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
+		//case astra.ACTIVE:
+		//	keyspaceMutex.Lock()
+		//	resp, err := client.AddKeyspaceWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.KeyspaceNameParam(keyspaceName))
+		//	keyspaceMutex.Unlock()
+		//	if err != nil {
+		//		return retry.NonRetryableError(fmt.Errorf("error calling add keyspace (not retrying) %s", err))
+		//	} else if resp.StatusCode() == 409 {
+		//		// DevOps API returns 409 for concurrent modifications, these need to be retried.
+		//		return retry.RetryableError(fmt.Errorf("error adding keyspace to database (retrying): %s", string(resp.Body)))
+		//	} else if resp.StatusCode() == 401 {
+		//		// DevOps API returns 401 Unauthorized for requests without the keyspace create permission
+		//		return retry.NonRetryableError(fmt.Errorf("error adding keyspace to database (insufficient permissions, role missing 'db-keyspace-create')"))
+		//	} else if resp.StatusCode() >= 400 {
+		//		return retry.NonRetryableError(fmt.Errorf("error adding keyspace to database (not retrying): %s", string(resp.Body)))
+		//	}
+		//
+		//	if err := setKeyspaceResourceData(d, databaseID, keyspaceName); err != nil {
+		//		return retry.NonRetryableError(fmt.Errorf("error setting keyspace data (not retrying) %s", err))
+		//	}
+		//
+		//	return nil
 		default:
 			return retry.RetryableError(fmt.Errorf("expected database to be active but is %s", db.Status))
 		}
@@ -144,7 +144,7 @@ func resourceKeyspaceDelete(ctx context.Context, d *schema.ResourceData, meta in
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	databaseID := d.Get("database_id").(string)
-	keyspaceName := d.Get("name").(string)
+	//keyspaceName := d.Get("name").(string) TODO uncomment
 
 	//Wait for DB to be in Active status
 	if err := retry.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *retry.RetryError {
@@ -169,27 +169,27 @@ func resourceKeyspaceDelete(ctx context.Context, d *schema.ResourceData, meta in
 		// Success fetching database
 		db := res.JSON200
 		switch db.Status {
-		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
-			// If the database reached a terminal state it will never become active
-			return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
-		case astra.ACTIVE:
-			keyspaceMutex.Lock()
-			resp, err := client.DropKeyspaceWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.KeyspaceNameParam(keyspaceName))
-			keyspaceMutex.Unlock()
-			if err != nil {
-				return retry.NonRetryableError(fmt.Errorf("error calling drop keyspace (not retrying) %s", err))
-			} else if resp.StatusCode() == 409 {
-				// DevOps API returns 409 for concurrent modifications, these need to be retried.
-				return retry.RetryableError(fmt.Errorf("error dropping keyspace from database (retrying): %s", string(resp.Body)))
-			} else if resp.StatusCode() == 401 {
-				// DevOps API returns 401 Unauthorized for requests without the keyspace drop permission
-				return retry.NonRetryableError(fmt.Errorf("error adding keyspace to database (insufficient permissions, role missing 'db-keyspace-drop')"))
-			} else if resp.StatusCode() >= 400 {
-				return retry.NonRetryableError(fmt.Errorf("error dropping keyspace from database (not retrying): %s", string(resp.Body)))
-			}
-
-			d.SetId("")
-			return nil
+		//case astra.ERROR, astra.TERMINATED, astra.TERMINATING: TODO uncomment
+		//	// If the database reached a terminal state it will never become active
+		//	return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
+		//case astra.ACTIVE:
+		//	keyspaceMutex.Lock()
+		//	resp, err := client.DropKeyspaceWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.KeyspaceNameParam(keyspaceName))
+		//	keyspaceMutex.Unlock()
+		//	if err != nil {
+		//		return retry.NonRetryableError(fmt.Errorf("error calling drop keyspace (not retrying) %s", err))
+		//	} else if resp.StatusCode() == 409 {
+		//		// DevOps API returns 409 for concurrent modifications, these need to be retried.
+		//		return retry.RetryableError(fmt.Errorf("error dropping keyspace from database (retrying): %s", string(resp.Body)))
+		//	} else if resp.StatusCode() == 401 {
+		//		// DevOps API returns 401 Unauthorized for requests without the keyspace drop permission
+		//		return retry.NonRetryableError(fmt.Errorf("error adding keyspace to database (insufficient permissions, role missing 'db-keyspace-drop')"))
+		//	} else if resp.StatusCode() >= 400 {
+		//		return retry.NonRetryableError(fmt.Errorf("error dropping keyspace from database (not retrying): %s", string(resp.Body)))
+		//	}
+		//
+		//	d.SetId("")
+		//	return nil
 		default:
 			return retry.RetryableError(fmt.Errorf("expected database to be active but is %s", db.Status))
 		}

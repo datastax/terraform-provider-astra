@@ -40,7 +40,7 @@ func dataSourceRole() *schema.Resource {
 				Computed:    true,
 			},
 			"resources": {
-				Description: "Resources for which role is applicable (format is \"drn:astra:org:<org UUID>\", followed by optional resource criteria. See example usage above).",
+				Description: "Resources for which role is applicable (format is \"drn:astra:org:<org Id>\", followed by optional resource criteria. See example usage above).",
 				Type:        schema.TypeList,
 				Computed:    true,
 				Elem: &schema.Schema{
