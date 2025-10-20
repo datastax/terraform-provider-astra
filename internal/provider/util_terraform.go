@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -29,6 +30,16 @@ func CompareTerraformAttrToString(attr attr.Value, s string) bool {
 		return sAttr.ValueString() == s
 	}
 	return false
+}
+
+func MergeMaps[K comparable, V any](maps ...map[K]V) map[K]V {
+	result := make(map[K]V)
+	for _, m := range maps {
+		for k, v := range m {
+			result[k] = v
+		}
+	}
+	return result
 }
 
 // MergeTerraformObjects combines two Terraform Objects replacing any null or unknown attribute values in `old` with
@@ -107,22 +118,75 @@ func MergeTerraformAttributes(atts ...map[string]schema.Attribute) map[string]sc
 	return merged
 }
 
-// HTTPResponseDiagErr takes an HTTP response and error and creates a Terraform Error Diagnostic if there is an error
-func HTTPResponseDiagErr(resp *http.Response, err error, errorSummary string) diag.Diagnostics {
+type responseWithStatus interface {
+	Status() string
+	StatusCode() int
+}
+
+func DiagErr(summary string, details string) diag.Diagnostics {
 	diags := diag.Diagnostics{}
+	diags.AddError(summary, details)
+	return diags
+}
+
+func ParsedHTTPResponseDiagErr(resp responseWithStatus, err error, summary string) diag.Diagnostics {
 	if err != nil {
-		diags.AddError(errorSummary, err.Error())
-	} else if resp.StatusCode >= 300 {
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			details := fmt.Sprintf("Received status code: '%v', with error: %s", resp.StatusCode, err.Error())
-			diags.AddError(errorSummary, details)
+		return DiagErr(summary, err.Error())
+	}
+
+	if resp.StatusCode() >= 300 {
+		body := extractBodyFromParsedResponse(resp)
+
+		if body != nil {
+			return DiagErr(summary, fmt.Sprintf("Received status code: '%v', with response: %s", resp.StatusCode(), string(body)))
 		} else {
-			details := fmt.Sprintf("Received status code: '%v', with message: %s", resp.StatusCode, string(bodyBytes))
-			diags.AddError(errorSummary, details)
+			return DiagErr(summary, fmt.Sprintf("Received status code: '%v'", resp.StatusCode()))
 		}
 	}
-	return diags
+
+	return diag.Diagnostics{}
+}
+
+func extractBodyFromParsedResponse(v any) []byte {
+	val := reflect.ValueOf(v)
+
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+
+	if val.Kind() != reflect.Struct {
+		return nil
+	}
+
+	field := val.FieldByName("Body")
+	if !field.IsValid() {
+		return nil
+	}
+
+	if field.Kind() == reflect.Slice && field.Type().Elem().Kind() == reflect.Uint8 {
+		return field.Bytes()
+	}
+
+	return nil
+}
+
+// HTTPResponseDiagErr takes an HTTP response and error and creates a Terraform Error Diagnostic if there is an error
+func HTTPResponseDiagErr(resp *http.Response, err error, errorSummary string) diag.Diagnostics {
+	if err != nil {
+		return DiagErr(errorSummary, err.Error())
+	}
+
+	if resp != nil && resp.StatusCode >= 300 {
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+
+		if readErr != nil {
+			return DiagErr(errorSummary, fmt.Sprintf("Received status code: '%v', with error: %s", resp.StatusCode, readErr.Error()))
+		} else {
+			return DiagErr(errorSummary, fmt.Sprintf("Received status code: '%v', with message: %s", resp.StatusCode, string(bodyBytes)))
+		}
+	}
+
+	return diag.Diagnostics{}
 }
 
 // HTTPResponseDiagErrWithBody takes an HTTP status code, body, and error and creates a Terraform Error Diagnostic if there is an error
@@ -178,61 +242,59 @@ func planModifierStringValueChanged() stringplanmodifier.RequiresReplaceIfFunc {
 	}
 }
 
+type stringPlanModifierImpl struct {
+	description string
+	modifyPlan  func(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse)
+}
+
+func MkStringPlanModifier(description string, modifyPlan func(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse)) planmodifier.String {
+	return &stringPlanModifierImpl{
+		description: description,
+		modifyPlan:  modifyPlan,
+	}
+}
+
+func (m *stringPlanModifierImpl) Description(_ context.Context) string {
+	return m.description
+}
+
+func (m *stringPlanModifierImpl) MarkdownDescription(_ context.Context) string {
+	return m.description
+}
+
+func (m *stringPlanModifierImpl) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	m.modifyPlan(ctx, req, resp)
+}
+
 // planModifierRemoveDashes returns the configured string with all dashes removed
 func planModifierRemoveDashes() planmodifier.String {
-	return removeDashesModifier{}
+	return MkStringPlanModifier("Remove dashes from a string value", func(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+		// Do nothing if there is no planned value.
+		if req.PlanValue.IsNull() || req.PlanValue.IsUnknown() {
+			return
+		}
+
+		// Do nothing if there is a no configuration value, otherwise interpolation gets messed up.
+		if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+			return
+		}
+
+		resp.PlanValue = types.StringValue(strings.ReplaceAll(req.PlanValue.ValueString(), "-", ""))
+	})
 }
 
-// removeDashesModifier implements the plan modifier.
-// TODO: maybe this can be replaced by the suppressDashesDiffModifier
-type removeDashesModifier struct{}
+func planModifierSuppressDashesDiff() planmodifier.String {
+	return MkStringPlanModifier("Suppress diffs if old and new values differ only in dashes", func(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+		if req.ConfigValue.IsNull() || req.StateValue.IsNull() {
+			return
+		}
 
-// Description returns a human-readable description of the plan modifier.
-func (m removeDashesModifier) Description(_ context.Context) string {
-	return "Remove dashes from a string value"
-}
+		oldVal := req.StateValue.ValueString()
+		newVal := req.ConfigValue.ValueString()
 
-// MarkdownDescription returns a markdown description of the plan modifier.
-func (m removeDashesModifier) MarkdownDescription(_ context.Context) string {
-	return "Remove dashes from a string value"
-}
-
-// PlanModifyString implements the plan modification logic.
-func (m removeDashesModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
-
-	// Do nothing if there is no planned value.
-	if req.PlanValue.IsNull() || req.PlanValue.IsUnknown() {
-		return
-	}
-
-	// Do nothing if there is a no configuration value, otherwise interpolation gets messed up.
-	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
-		return
-	}
-
-	resp.PlanValue = types.StringValue(strings.ReplaceAll(req.PlanValue.ValueString(), "-", ""))
-}
-
-type suppressDashesDiffModifier struct{}
-
-func (m suppressDashesDiffModifier) Description(ctx context.Context) string {
-	return "Suppresses diffs if old and new values differ only in dashes"
-}
-
-func (m suppressDashesDiffModifier) MarkdownDescription(ctx context.Context) string {
-	return "Suppresses diffs if old and new values differ only in dashes"
-}
-
-func (m suppressDashesDiffModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
-	if req.ConfigValue.IsNull() || req.StateValue.IsNull() {
-		return
-	}
-
-	oldVal := req.StateValue.ValueString()
-	newVal := req.ConfigValue.ValueString()
-
-	if removeDashes(oldVal) == removeDashes(newVal) {
-		// Suppress the diff by keeping the existing state value
-		resp.PlanValue = req.StateValue
-	}
+		if removeDashes(oldVal) == removeDashes(newVal) {
+			// Suppress the diff by keeping the existing state value
+			resp.PlanValue = req.StateValue
+		}
+	})
 }

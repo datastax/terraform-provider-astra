@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -32,83 +33,36 @@ func (d *pcuGroupDataSource) Metadata(_ context.Context, req datasource.Metadata
 
 func (d *pcuGroupDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, res *datasource.SchemaResponse) {
 	res.Schema = schema.Schema{
-		Attributes: map[string]schema.Attribute{
-			"pcu_group_id": schema.StringAttribute{
-				Required: true,
+		Attributes: MergeMaps(
+			map[string]schema.Attribute{
+				PcuAttrGroupId: schema.StringAttribute{
+					Required: true,
+				},
 			},
-			"id": schema.StringAttribute{ // TODO should we bother taking id out since it's the same as pcu_group_id?
-				Computed: true,
-			},
-			"org_id": schema.StringAttribute{
-				Computed: true,
-			},
-			"title": schema.StringAttribute{
-				Computed: true,
-			},
-			"cloud_provider": schema.StringAttribute{
-				Computed: true,
-			},
-			"region": schema.StringAttribute{
-				Computed: true,
-			},
-			"cache_type": schema.StringAttribute{
-				Computed: true,
-			},
-			"provision_type": schema.StringAttribute{
-				Computed: true,
-			},
-			"min_capacity": schema.Int64Attribute{
-				Computed: true,
-			},
-			"max_capacity": schema.Int64Attribute{
-				Computed: true,
-			},
-			"reserved_capacity": schema.Int64Attribute{
-				Computed: true,
-			},
-			"description": schema.StringAttribute{
-				Computed: true,
-			},
-			"created_at": schema.StringAttribute{
-				Computed: true,
-			},
-			"updated_at": schema.StringAttribute{
-				Computed: true,
-			},
-			"created_by": schema.StringAttribute{
-				Computed: true,
-			},
-			"updated_by": schema.StringAttribute{
-				Computed: true,
-			},
-			"status": schema.StringAttribute{
-				Computed: true,
-			},
-		},
+			MkPcuGroupDataSourceAttributes(),
+		),
 	}
 }
 
 func (d *pcuGroupDataSource) Read(ctx context.Context, req datasource.ReadRequest, res *datasource.ReadResponse) {
 	var data pcuGroupDataSourceModel
 
-	res.Diagnostics.Append(req.Config.Get(ctx, &data)...)
-	if res.Diagnostics.HasError() {
+	diags := req.Config.Get(ctx, &data)
+	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
 
-	pcuGroup, status, err := GetPcuGroup(d.client, ctx, data.PCUGroupId)
-
-	if status == 404 {
-		res.Diagnostics.AddError("PCU Group Not Found", "No PCU Group found with the given ID")
+	group, diags := GetPcuGroup(d.client, ctx, data.PCUGroupId)
+	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
 
-	if err != nil {
-		res.Diagnostics.AddError("Unable to Read PCU Group", err.Error())
+	if group == nil {
+		res.Diagnostics.AddError("Could not find PCU Group", fmt.Sprintf("PCU Group with ID %s was not found", data.PCUGroupId.ValueString()))
 		return
 	}
 
-	data.PcuGroupModel = *pcuGroup
+	data.PcuGroupModel = *group
 
 	res.Diagnostics.Append(res.State.Set(ctx, &data)...)
 }

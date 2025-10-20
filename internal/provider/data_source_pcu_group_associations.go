@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -34,29 +33,29 @@ func (d *pcuGroupAssociationsDataSource) Metadata(_ context.Context, req datasou
 func (d *pcuGroupAssociationsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, res *datasource.SchemaResponse) {
 	res.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"pcu_group_id": schema.StringAttribute{
+			PcuAttrGroupId: schema.StringAttribute{
 				Required: true,
 			},
-			"associations": schema.ListNestedAttribute{
+			"results": schema.ListNestedAttribute{ // using "results" here to be consistent with other data sources
 				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"datacenter_id": schema.StringAttribute{
+						PcuAssocAttrDatacenterId: schema.StringAttribute{
 							Computed: true,
 						},
-						"provisioning_status": schema.StringAttribute{
+						PcuAssocAttrProvisioningStatus: schema.StringAttribute{
 							Computed: true,
 						},
-						"created_at": schema.StringAttribute{
+						PcuAssocAttrCreatedAt: schema.StringAttribute{
 							Computed: true,
 						},
-						"updated_at": schema.StringAttribute{
+						PcuAssocAttrUpdatedAt: schema.StringAttribute{
 							Computed: true,
 						},
-						"created_by": schema.StringAttribute{
+						PcuAssocAttrCreatedBy: schema.StringAttribute{
 							Computed: true,
 						},
-						"updated_by": schema.StringAttribute{
+						PcuAssocAttrUpdatedBy: schema.StringAttribute{
 							Computed: true,
 						},
 					},
@@ -69,20 +68,13 @@ func (d *pcuGroupAssociationsDataSource) Schema(_ context.Context, _ datasource.
 func (d *pcuGroupAssociationsDataSource) Read(ctx context.Context, req datasource.ReadRequest, res *datasource.ReadResponse) {
 	var data pcuGroupAssociationsDataSourceModel
 
-	res.Diagnostics.Append(req.Config.Get(ctx, &data)...)
-	if res.Diagnostics.HasError() {
+	diags := req.Config.Get(ctx, &data)
+	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
 
-	associations, status, err := GetPcuGroupAssociations(d.client, ctx, data.PCUGroupId.ValueString())
-
-	if status == http.StatusNotFound {
-		res.Diagnostics.AddError("PCU Group Not Found", "The specified PCU Group could not be found.")
-		return
-	}
-
-	if err != nil {
-		res.Diagnostics.AddError("Error Reading PCU Group Associations", err.Error())
+	associations, diags := GetPcuGroupAssociations(d.client, ctx, data.PCUGroupId.ValueString())
+	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
 
