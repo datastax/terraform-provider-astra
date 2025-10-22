@@ -83,7 +83,7 @@ func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				PcuAttrCacheType: schema.StringAttribute{
 					Optional: true,
 					Computed: true,
-					Default:  stringdefault.StaticString(string(astra.InstanceTypeStandard)), // TODO do we validate the enum? Or let any string go?
+					Default:  stringdefault.StaticString(string(astra.PcuInstanceTypeStandard)), // TODO do we validate the enum? Or let any string go?
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 						stringplanmodifier.RequiresReplace(),
@@ -92,7 +92,7 @@ func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				PcuAttrProvisionType: schema.StringAttribute{
 					Optional: true,
 					Computed: true,
-					Default:  stringdefault.StaticString(string(astra.Shared)), // TODO do we validate the enum? Or let any string go?
+					Default:  stringdefault.StaticString(string(astra.PcuProvisionTypeShared)), // TODO do we validate the enum? Or let any string go?
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 						stringplanmodifier.RequiresReplace(),
@@ -136,7 +136,7 @@ func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				PcuAttrStatus: schema.StringAttribute{
 					Computed: true,
 					PlanModifiers: []planmodifier.String{
-						mkPcuStatusOnlyActiveOrParkedPlanModifier(),
+						inferPcuGroupStatusPlanModifier(),
 					},
 				},
 				"park": schema.BoolAttribute{ // This should technically be a WriteOnly param but that requires TF 1.12+
@@ -148,7 +148,7 @@ func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					},
 				},
 			},
-			MkPcuResourceCreatedUpdatedAttributes(mkPcuUpdateFieldsOnlyUnknownWhenChangesOccurPlanModifier()),
+			MkPcuResourceCreatedUpdatedAttributes(mkPcuUpdateFieldsKnownIfNoChangesOccurPlanModifier()),
 			MkPcuResourceProtectionAttribute("deletion"),
 			MkPcuResourceProtectionAttribute("rcu"),
 		),
@@ -175,9 +175,11 @@ func (r *pcuGroupResource) Create(ctx context.Context, req resource.CreateReques
 		}
 	}
 
-	plan.updateGroupModel(created)
-
-	res.Diagnostics.Append(res.State.Set(ctx, &plan)...)
+	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupResourceModel(
+		*created,
+		plan.DeletionProtection,
+		plan.RCUProtection,
+	))...)
 }
 
 func (r *pcuGroupResource) Read(ctx context.Context, req resource.ReadRequest, res *resource.ReadResponse) {
@@ -198,12 +200,11 @@ func (r *pcuGroupResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	state.updateGroupModel(group)
-
-	state.DeletionProtection = ElvisTF(&state.DeletionProtection, types.BoolValue(true))
-	state.RCUProtection = ElvisTF(&state.RCUProtection, types.BoolValue(true))
-
-	res.Diagnostics.Append(res.State.Set(ctx, &state)...)
+	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupResourceModel(
+		*group,
+		state.DeletionProtection,
+		state.RCUProtection,
+	))...)
 }
 
 func (r *pcuGroupResource) Update(ctx context.Context, req resource.UpdateRequest, res *resource.UpdateResponse) {
@@ -221,11 +222,11 @@ func (r *pcuGroupResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	updated := &plan.PcuGroupModel
+	updated := &state.PcuGroupModel
 	diags := diag.Diagnostics{}
 
 	if shouldUpdatePcuGroup(state, plan) {
-		updated, diags = r.groups.Update(ctx, plan.PcuGroupSpecModel)
+		updated, diags = r.groups.Update(ctx, plan.Id, plan.PcuGroupSpecModel)
 
 		if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 			return
@@ -244,9 +245,11 @@ func (r *pcuGroupResource) Update(ctx context.Context, req resource.UpdateReques
 		}
 	}
 
-	plan.updateGroupModel(updated)
-
-	res.Diagnostics.Append(res.State.Set(ctx, plan)...)
+	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupResourceModel(
+		*updated,
+		plan.DeletionProtection,
+		plan.RCUProtection,
+	))...)
 }
 
 func (r *pcuGroupResource) Delete(ctx context.Context, req resource.DeleteRequest, res *resource.DeleteResponse) {
@@ -270,31 +273,29 @@ func (r *pcuGroupResource) ImportState(ctx context.Context, req resource.ImportS
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, res)
 }
 
-func mkPcuStatusOnlyActiveOrParkedPlanModifier() planmodifier.String {
+func inferPcuGroupStatusPlanModifier() planmodifier.String {
 	return MkStringPlanModifier(
 		"The status will always be 'ACTIVE' or 'PARKED', given no major errors occurred during provisioning/unprovisioning.",
 		func(ctx context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
-			//var data *pcuGroupResourceModel
-			//
-			//diags := req.Plan.Get(ctx, &data)
-			//if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
-			//	return
-			//}
-			//
-			//if data == nil {
-			//	return
-			//}
-			//
-			//if data.Parked.ValueBool() {
-			//	res.PlanValue = types.StringValue(string(astra.PCUGroupStatusPARKED))
-			//} else {
-			//	res.PlanValue = types.StringValue(string(astra.PCUGroupStatusACTIVE))
-			//}
+			var curr, plan *pcuGroupResourceModel
+
+			res.Diagnostics.Append(req.State.Get(ctx, &curr)...)
+			res.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+
+			if res.Diagnostics.HasError() {
+				return
+			}
+
+			if curr != nil && !shouldUpdatePcuGroup(*curr, *plan) {
+				res.PlanValue = req.StateValue
+			} else if plan.Parked.ValueBool() {
+				res.PlanValue = types.StringValue(string(astra.PCUGroupStatusPARKED))
+			}
 		},
 	)
 }
 
-func mkPcuUpdateFieldsOnlyUnknownWhenChangesOccurPlanModifier() planmodifier.String {
+func mkPcuUpdateFieldsKnownIfNoChangesOccurPlanModifier() planmodifier.String {
 	return MkStringPlanModifier(
 		"The updated_[by|at] fields only change when properties of the PCU do.",
 		func(ctx context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
@@ -322,7 +323,11 @@ func shouldUpdatePcuGroup(curr, plan pcuGroupResourceModel) bool {
 		!curr.Description.Equal(plan.Description)
 }
 
-func (model *pcuGroupResourceModel) updateGroupModel(group *PcuGroupModel) {
-	model.PcuGroupModel = *group
-	model.Parked = types.BoolValue(group.Status.ValueString() == string(astra.PCUGroupStatusPARKED))
+func mkPcuGroupResourceModel(group PcuGroupModel, deletionProt, rcuProt types.Bool) pcuGroupResourceModel {
+	return pcuGroupResourceModel{
+		PcuGroupModel:      group,
+		Parked:             types.BoolValue(group.Status.ValueString() == string(astra.PCUGroupStatusPARKED)),
+		DeletionProtection: ElvisTF(&deletionProt, types.BoolValue(true)),
+		RCUProtection:      ElvisTF(&rcuProt, types.BoolValue(true)),
+	}
 }

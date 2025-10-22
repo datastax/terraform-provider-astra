@@ -95,7 +95,7 @@ func listAccessList(ctx context.Context, client *astra.ClientWithResponses, data
 	}
 
 	// If the database is terminated then the access list has been deleted.
-	if db.Status == astra.StatusEnumTERMINATING || db.Status == astra.StatusEnumTERMINATED {
+	if db.Status == astra.TERMINATING || db.Status == astra.TERMINATED {
 		return nil, nil
 	}
 

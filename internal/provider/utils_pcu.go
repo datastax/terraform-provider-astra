@@ -52,7 +52,7 @@ type PcuGroupsService interface {
 	Create(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics)
 	FindOne(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
 	FindMany(ctx context.Context, ids []types.String) (*[]PcuGroupModel, diag.Diagnostics)
-	Update(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics)
+	Update(ctx context.Context, id types.String, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics)
 	Park(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
 	Unpark(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
 	Delete(ctx context.Context, id types.String) diag.Diagnostics
@@ -76,23 +76,20 @@ type PcuGroupAssociationsServiceImpl struct {
 }
 
 func (s *PcuGroupsServiceImpl) Create(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics) {
-	cp := astra.CloudProvider(strings.ToUpper(spec.CloudProvider.ValueString()))
-	it := astra.InstanceType(spec.InstanceType.ValueString())
-	pt := astra.ProvisionType(spec.ProvisionType.ValueString())
+	it := astra.InstanceType(spec.InstanceType.ValueString())   // todo should be optional
+	pt := astra.ProvisionType(spec.ProvisionType.ValueString()) // todo should be optional
 
-	minCap := int(spec.Min.ValueInt32())
-	maxCap := int(spec.Max.ValueInt32())
-	reservedCap := int(spec.Reserved.ValueInt32())
+	reservedCap := int(spec.Reserved.ValueInt32()) // todo should be optional
 
 	body := astra.PCUGroupCreateRequest{
-		Title:         spec.Title.ValueStringPointer(),
-		CloudProvider: &cp,
-		Region:        spec.Region.ValueStringPointer(),
-		InstanceType:  &it,
-		ProvisionType: &pt,
-		Min:           &minCap,
-		Max:           &maxCap,
-		Reserved:      &reservedCap,
+		Title:         spec.Title.ValueString(),
+		CloudProvider: astra.CloudProvider(strings.ToUpper(spec.CloudProvider.ValueString())),
+		Region:        spec.Region.ValueString(),
+		InstanceType:  it,
+		ProvisionType: pt,
+		Min:           int(spec.Min.ValueInt32()),
+		Max:           int(spec.Max.ValueInt32()),
+		Reserved:      reservedCap,
 		Description:   spec.Description.ValueStringPointer(),
 	}
 
@@ -149,19 +146,18 @@ func (s *PcuGroupsServiceImpl) FindMany(ctx context.Context, ids []types.String)
 	return &pcuGroups, nil
 }
 
-func (s *PcuGroupsServiceImpl) Update(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics) {
-	minCap := int(spec.Min.ValueInt32())
-	maxCap := int(spec.Max.ValueInt32())
-	reservedCap := int(spec.Reserved.ValueInt32())
-
+func (s *PcuGroupsServiceImpl) Update(ctx context.Context, id types.String, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics) {
 	// TODO what if the PCU group doesn't exist in the first place? (what does the API return?)
 	res, err := s.client.PcuUpdateWithResponse(ctx, astra.PcuUpdateJSONRequestBody{
 		astra.PCUGroupUpdateRequest{
-			Title:       spec.Title.ValueStringPointer(), // TODO provide ALL the fields lest we lose them forevermore to the void
-			Min:         &minCap,
-			Max:         &maxCap,
-			Reserved:    &reservedCap,
-			Description: spec.Description.ValueStringPointer(),
+			PcuGroupUUID:  id.ValueString(),
+			Title:         spec.Title.ValueString(),
+			Description:   spec.Description.ValueStringPointer(),
+			Min:           int(spec.Min.ValueInt32()),
+			Max:           int(spec.Max.ValueInt32()),
+			Reserved:      int(spec.Reserved.ValueInt32()),
+			InstanceType:  astra.InstanceType(spec.InstanceType.ValueString()),
+			ProvisionType: astra.ProvisionType(spec.ProvisionType.ValueString()),
 		},
 	})
 

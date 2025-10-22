@@ -81,8 +81,8 @@ github.com/aws/aws-sdk-go v1.25.3/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN
 github.com/aws/aws-sdk-go v1.31.9/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
 github.com/aws/aws-sdk-go v1.38.67 h1:OCeXMKiiM8X7HAKPCE5yD+t+sEsRaj8EwDs2tlgvX2c=
 github.com/aws/aws-sdk-go v1.38.67/go.mod h1:hcU610XS61/+aQV88ixoOzUoG7v3b31pl2zKMmprdro=
-github.com/bdunn313/astra-client-go/v2 v2.2.64-0.20251014131947-9665c4fa0857 h1:isVQFmmNsi+zo0FPGiKugP7QPXfe8JIi64XYEYUH0CQ=
-github.com/bdunn313/astra-client-go/v2 v2.2.64-0.20251014131947-9665c4fa0857/go.mod h1:piBMy3fnDcLN8+MDQfvjZr8ejcP2oh+CXkQYwNy8blA=
+github.com/bdunn313/astra-client-go/v2 v2.2.64-0.20251021175718-3845575ecf48 h1:PtyhHp3Lsq5BKgCp7j/Ns78sFzLt2mdKq9wyyS21MBI=
+github.com/bdunn313/astra-client-go/v2 v2.2.64-0.20251021175718-3845575ecf48/go.mod h1:piBMy3fnDcLN8+MDQfvjZr8ejcP2oh+CXkQYwNy8blA=
 github.com/beevik/etree v1.1.0 h1:T0xke/WvNtMoCqgzPhkX2r4rjY3GDZFi+FjpRZY2Jbs=
 github.com/beevik/etree v1.1.0/go.mod h1:r8Aw8JqVegEf0w2fDnATrX9VpkMcyFeM0FhwO62wh+A=
 github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d/go.mod h1:6QX/PXZ00z/TKoufEY6K/a0k6AhaJrQKdFe6OfVXsa4=

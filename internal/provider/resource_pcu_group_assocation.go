@@ -34,6 +34,7 @@ type pcuGroupAssociationResource struct {
 type pcuGroupAssociationResourceModel struct {
 	PCUGroupId         types.String `tfsdk:"pcu_group_id"`
 	DeletionProtection types.Bool   `tfsdk:"deletion_protection"`
+	TransferProtection types.Bool   `tfsdk:"transfer_protection"`
 	PcuGroupAssociationModel
 }
 
@@ -64,8 +65,9 @@ func (r *pcuGroupAssociationResource) Schema(_ context.Context, _ resource.Schem
 					},
 				},
 			},
-			MkPcuResourceCreatedUpdatedAttributes(mkPcuAssociationUpdateFieldsOnlyUnknownWhenTransferOccursPlanModifier()),
+			MkPcuResourceCreatedUpdatedAttributes(inferPcuGroupAssociationStatusPlanModifier()),
 			MkPcuResourceProtectionAttribute("deletion"),
+			MkPcuResourceProtectionAttribute("transfer"),
 		),
 	}
 }
@@ -96,8 +98,12 @@ func (r *pcuGroupAssociationResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
-	plan.PcuGroupAssociationModel = *created
-	res.Diagnostics.Append(req.Plan.Set(ctx, &plan)...)
+	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupAssociationResourceModel(
+		plan.PCUGroupId,
+		*created,
+		plan.DeletionProtection,
+		plan.TransferProtection,
+	))...)
 }
 
 func (r *pcuGroupAssociationResource) Read(ctx context.Context, req resource.ReadRequest, res *resource.ReadResponse) {
@@ -118,8 +124,12 @@ func (r *pcuGroupAssociationResource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
-	state.PcuGroupAssociationModel = *association
-	res.Diagnostics.Append(res.State.Set(ctx, state)...)
+	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupAssociationResourceModel(
+		state.PCUGroupId,
+		*association,
+		state.DeletionProtection,
+		state.TransferProtection,
+	))...)
 }
 
 func (r *pcuGroupAssociationResource) Update(ctx context.Context, req resource.UpdateRequest, res *resource.UpdateResponse) {
@@ -133,6 +143,11 @@ func (r *pcuGroupAssociationResource) Update(ctx context.Context, req resource.U
 	}
 
 	if !state.PCUGroupId.Equal(plan.PCUGroupId) {
+		if plan.TransferProtection.ValueBool() {
+			res.Diagnostics.AddError("Error transferring PCU Group Association", "PCU Group Association has transfer protection enabled, cannot transfer.")
+			return
+		}
+
 		diags := r.associations.Transfer(ctx, state.PCUGroupId, plan.PCUGroupId, state.DatacenterId)
 
 		if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
@@ -152,8 +167,12 @@ func (r *pcuGroupAssociationResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	plan.PcuGroupAssociationModel = *association
-	res.Diagnostics.Append(res.State.Set(ctx, plan)...)
+	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupAssociationResourceModel(
+		plan.PCUGroupId,
+		*association,
+		plan.DeletionProtection,
+		plan.TransferProtection,
+	))...)
 }
 
 func (r *pcuGroupAssociationResource) Delete(ctx context.Context, req resource.DeleteRequest, res *resource.DeleteResponse) {
@@ -196,7 +215,7 @@ func mkPcuStatusOnlyActivePlanModifier() planmodifier.String {
 	)
 }
 
-func mkPcuAssociationUpdateFieldsOnlyUnknownWhenTransferOccursPlanModifier() planmodifier.String {
+func inferPcuGroupAssociationStatusPlanModifier() planmodifier.String {
 	return MkStringPlanModifier(
 		"The updated_[by|at] fields only change when the PCU association is transferred.", // TODO is this true?
 		func(ctx context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
@@ -250,15 +269,24 @@ func awaitDbActiveStatus(ctx context.Context, client *astra.ClientWithResponses,
 		}
 
 		switch resp.JSON200.Status {
-		case astra.StatusEnumACTIVE:
+		case astra.ACTIVE:
 			tflog.Debug(ctx, fmt.Sprintf("DB %s reached status ACTIVE", databaseId))
 			return nil
-		case "ASSOCIATING", astra.StatusEnumINITIALIZING, astra.StatusEnumPENDING:
+		case "ASSOCIATING", astra.INITIALIZING, astra.PENDING:
 			tflog.Debug(ctx, fmt.Sprintf("Waiting for DB %s to reach status ACTIVE (attempt %d, currently %s)", databaseId, attempts, resp.JSON200.Status))
 		default:
 			return DiagErr("Error waiting for database to become ACTIVE", fmt.Sprintf("Database %s reached unexpected status %s", databaseId, resp.JSON200.Status))
 		}
 
 		<-ticker.C
+	}
+}
+
+func mkPcuGroupAssociationResourceModel(pcuGroupId types.String, association PcuGroupAssociationModel, deletionProt, transferProt types.Bool) pcuGroupAssociationResourceModel {
+	return pcuGroupAssociationResourceModel{
+		PCUGroupId:               pcuGroupId,
+		PcuGroupAssociationModel: association,
+		DeletionProtection:       ElvisTF(&deletionProt, types.BoolValue(true)),
+		TransferProtection:       ElvisTF(&transferProt, types.BoolValue(true)),
 	}
 }

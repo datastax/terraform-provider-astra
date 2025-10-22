@@ -77,10 +77,10 @@ func resourceKeyspaceCreate(ctx context.Context, d *schema.ResourceData, meta in
 		// Success fetching database
 		db := res.JSON200
 		switch db.Status {
-		case astra.StatusEnumERROR, astra.StatusEnumTERMINATED, astra.StatusEnumTERMINATING:
+		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
 			// If the database reached a terminal state it will never become active
 			return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
-		case astra.StatusEnumACTIVE:
+		case astra.ACTIVE:
 			keyspaceMutex.Lock()
 			resp, err := client.AddKeyspaceWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.KeyspaceNameParam(keyspaceName))
 			keyspaceMutex.Unlock()
@@ -169,10 +169,10 @@ func resourceKeyspaceDelete(ctx context.Context, d *schema.ResourceData, meta in
 		// Success fetching database
 		db := res.JSON200
 		switch db.Status {
-		case astra.StatusEnumERROR, astra.StatusEnumTERMINATED, astra.StatusEnumTERMINATING:
+		case astra.ERROR, astra.TERMINATED, astra.TERMINATING:
 			// If the database reached a terminal state it will never become active
 			return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
-		case astra.StatusEnumACTIVE:
+		case astra.ACTIVE:
 			keyspaceMutex.Lock()
 			resp, err := client.DropKeyspaceWithResponse(ctx, astra.DatabaseIdParam(databaseID), astra.KeyspaceNameParam(keyspaceName))
 			keyspaceMutex.Unlock()
