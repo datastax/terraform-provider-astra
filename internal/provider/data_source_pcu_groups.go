@@ -22,7 +22,7 @@ type pcuGroupsDataSource struct {
 }
 
 type pcuGroupsDataSourceModel struct {
-	PCUGroupIds []types.String  `tfsdk:"pcu_group_ids"` // TODO take another ibuprofen to make up for the fact that go doesn't allow constants in struct tags (three cheers for simplicity!)
+	PCUGroupIds []types.String  `tfsdk:"pcu_group_ids"`
 	PCUGroups   []PcuGroupModel `tfsdk:"pcu_groups"`
 }
 
@@ -55,7 +55,7 @@ func (d *pcuGroupsDataSource) Read(ctx context.Context, req datasource.ReadReque
 		return
 	}
 
-	groups, diags := GetPcuGroups(d.client, ctx, data.PCUGroupIds)
+	groups, diags := d.groups.FindMany(ctx, data.PCUGroupIds)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}

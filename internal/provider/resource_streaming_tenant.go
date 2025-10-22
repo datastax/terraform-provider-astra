@@ -147,7 +147,7 @@ func (r *StreamingTenantResource) Schema(_ context.Context, _ resource.SchemaReq
 				Computed:    true,
 			},
 			"tenant_id": schema.StringAttribute{
-				Description: "Id for the tenant.",
+				Description: "UUID for the tenant.",
 				Computed:    true,
 			},
 		},
@@ -211,7 +211,7 @@ func (r *StreamingTenantResource) Create(ctx context.Context, req resource.Creat
 	orgID, err := getCurrentOrgID(ctx, astraClient)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"failed to get current OrgId",
+			"failed to get current OrgID",
 			err.Error())
 		return
 	}
@@ -398,7 +398,6 @@ func setStreamingTenantData(data *StreamingTenantResourceModel, tenantResponse *
 }
 
 // requiresReplaceIfClusterChange only require replace if the cluster name, cloud provider, or region has changed.
-
 func requiresReplaceIfClusterChange() planmodifier.String {
 	return stringplanmodifier.RequiresReplaceIf(
 		func(ctx context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {

@@ -35,7 +35,7 @@ func resourceToken() *schema.Resource {
 			},
 			// Optional
 			"org_id": {
-				Description: "The Id of the organization under which the token will be created. If not provided, the token will be created under the organization/enterprise of the token making the request.",
+				Description: "The UUID of the organization under which the token will be created. If not provided, the token will be created under the organization/enterprise of the token making the request.",
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,

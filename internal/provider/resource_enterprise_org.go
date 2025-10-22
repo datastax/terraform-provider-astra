@@ -35,19 +35,19 @@ func resourceEnterpriseOrg() *schema.Resource {
 				ForceNew:    true,
 			},
 			"admin_user_id": {
-				Description: "Id of the Astra user that will be the admin of the organization",
+				Description: "UUID of the Astra user that will be the admin of the organization",
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 			},
 			// Computed
 			"enterprise_id": {
-				Description: "Id of the Enterprise under which the organization is created",
+				Description: "UUID of the Enterprise under which the organization is created",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
 			"organization_id": {
-				Description: "The Astra organization ID (Id) for the created Enterprise organization.",
+				Description: "The Astra organization ID (UUID) for the created Enterprise organization.",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
@@ -57,7 +57,7 @@ func resourceEnterpriseOrg() *schema.Resource {
 				Computed:    true,
 			},
 			"organization_group_id": {
-				Description: "The group ID (Id) of the organization.",
+				Description: "The group ID (UUID) of the organization.",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},

@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 var (
@@ -70,9 +71,12 @@ func (r *pcuGroupAssociationResource) Schema(_ context.Context, _ resource.Schem
 }
 
 // TODO what error is thrown if the association already exists (if any?) (do we need to manually check for this?)
+
 // TODO what if it's already associated with another PCU group which Terraform doesn't know about?
 // TODO basically we need to either notify the user if the association already exists without Terraform's knowledge,
 // TODO or we need to execute a secret transfer request to move it to the new PCU group (which may be kinda shady)
+
+// TODO should this wait for both the db and pcu group to become active??? is it even the job of this resource???
 
 func (r *pcuGroupAssociationResource) Create(ctx context.Context, req resource.CreateRequest, res *resource.CreateResponse) {
 	var plan pcuGroupAssociationResourceModel
@@ -82,23 +86,29 @@ func (r *pcuGroupAssociationResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
-	diags = createPcuGroupAssociation(r.client, ctx, plan.PCUGroupId.ValueString(), plan.DatacenterId.ValueString(), &plan.PcuGroupAssociationModel)
+	created, diags := r.associations.Create(ctx, plan.PCUGroupId, plan.DatacenterId)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
 
+	diags = awaitDbAndPcuGroupActiveStatus(ctx, r.BasePCUResource, plan.PCUGroupId, plan.DatacenterId)
+	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
+		return
+	}
+
+	plan.PcuGroupAssociationModel = *created
 	res.Diagnostics.Append(req.Plan.Set(ctx, &plan)...)
 }
 
 func (r *pcuGroupAssociationResource) Read(ctx context.Context, req resource.ReadRequest, res *resource.ReadResponse) {
-	var data pcuGroupAssociationResourceModel
+	var state pcuGroupAssociationResourceModel
 
-	diags := req.State.Get(ctx, &data)
+	diags := req.State.Get(ctx, &state)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
 
-	association, diags := getPcuGroupAssociation(r.client, ctx, data.PCUGroupId.ValueString(), data.DatacenterId.ValueString())
+	association, diags := r.associations.FindOne(ctx, state.PCUGroupId, state.DatacenterId)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
@@ -108,8 +118,8 @@ func (r *pcuGroupAssociationResource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
-	data.PcuGroupAssociationModel = *association
-	res.Diagnostics.Append(res.State.Set(ctx, data)...)
+	state.PcuGroupAssociationModel = *association
+	res.Diagnostics.Append(res.State.Set(ctx, state)...)
 }
 
 func (r *pcuGroupAssociationResource) Update(ctx context.Context, req resource.UpdateRequest, res *resource.UpdateResponse) {
@@ -122,17 +132,21 @@ func (r *pcuGroupAssociationResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	// TODO do I really need this if statement (isn't it guaranteed by the plan modifier?)
 	if !state.PCUGroupId.Equal(plan.PCUGroupId) {
-		diags := transferPcuGroupAssociation(r.client, ctx, state.PCUGroupId.ValueString(), plan.PCUGroupId.ValueString(), state.DatacenterId.ValueString())
+		diags := r.associations.Transfer(ctx, state.PCUGroupId, plan.PCUGroupId, state.DatacenterId)
+
+		if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
+			return
+		}
+
+		diags = awaitDbAndPcuGroupActiveStatus(ctx, r.BasePCUResource, plan.PCUGroupId, plan.DatacenterId)
 
 		if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 			return
 		}
 	}
 
-	// TODO do we need to use awaitPcuAssociationStatusCreated? (I don't think so but can't test right now)
-	association, diags := getPcuGroupAssociation(r.client, ctx, plan.PCUGroupId.ValueString(), plan.DatacenterId.ValueString())
+	association, diags := r.associations.FindOne(ctx, plan.PCUGroupId, plan.DatacenterId)
 
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
@@ -155,7 +169,7 @@ func (r *pcuGroupAssociationResource) Delete(ctx context.Context, req resource.D
 		return
 	}
 
-	res.Diagnostics.Append(deletePcuGroupAssociation(r.client, ctx, data.PCUGroupId.ValueString(), data.DatacenterId.ValueString())...)
+	res.Diagnostics.Append(r.associations.Delete(ctx, data.PCUGroupId, data.DatacenterId)...)
 }
 
 func (r *pcuGroupAssociationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, res *resource.ImportStateResponse) {
@@ -173,99 +187,11 @@ func (r *pcuGroupAssociationResource) ImportState(ctx context.Context, req resou
 	res.Diagnostics.Append(res.State.SetAttribute(ctx, path.Root("datacenter_id"), idParts[1])...)
 }
 
-func createPcuGroupAssociation(client *astra.ClientWithResponses, ctx context.Context, pcuGroupId string, datacenterId string, out *PcuGroupAssociationModel) diag.Diagnostics {
-	res, err := client.PcuAssociationCreate(ctx, pcuGroupId, datacenterId)
-
-	if diags := HTTPResponseDiagErr(res, err, "error creating PCU group association"); diags.HasError() {
-		return diags
-	}
-
-	association, diags := awaitPcuAssociationStatusCreated(client, ctx, pcuGroupId, datacenterId)
-
-	*out = *association
-	return diags
-}
-
-func getPcuGroupAssociation(client *astra.ClientWithResponses, ctx context.Context, pcuGroupId string, datacenterId string) (*PcuGroupAssociationModel, diag.Diagnostics) {
-	associations, diags := GetPcuGroupAssociations(client, ctx, pcuGroupId)
-
-	if diags.HasError() {
-		return nil, diags
-	}
-
-	for _, assoc := range *associations {
-		if assoc.DatacenterId.ValueString() == datacenterId {
-			return &assoc, nil
-		}
-	}
-
-	return nil, diags
-}
-
-// TODO: should deletion_protection also stop moving the association?
-// TODO: what's returned if the association didn't exist in the first place?
-func transferPcuGroupAssociation(client *astra.ClientWithResponses, ctx context.Context, fromPcuGroupId string, toPcuGroupId, datacenterId string) diag.Diagnostics {
-	res, err := client.PcuAssociationTransfer(ctx, astra.PcuAssociationTransferJSONRequestBody{
-		FromPCUGroupUUID: &fromPcuGroupId,
-		ToPCUGroupUUID:   &toPcuGroupId,
-		DatacenterUUID:   &datacenterId,
-	})
-
-	if diags := HTTPResponseDiagErr(res, err, "error transferring PCU group association"); diags.HasError() {
-		return diags
-	}
-
-	return nil
-}
-
-func deletePcuGroupAssociation(client *astra.ClientWithResponses, ctx context.Context, pcuGroupId string, datacenterId string) diag.Diagnostics {
-	res, err := client.PcuAssociationDelete(ctx, pcuGroupId, datacenterId)
-
-	// TODO does it really return 404 lol
-	if res != nil && res.StatusCode == 404 {
-		return nil // whatever
-	}
-
-	if diags := HTTPResponseDiagErr(res, err, "error deleting PCU group association"); diags.HasError() {
-		return diags
-	}
-
-	return nil
-}
-
-// TODO: Are the two values REALLY just "accepted" and "created"?
-// TODO: handle timeouts + how long does an association usually take to be created?
-func awaitPcuAssociationStatusCreated(client *astra.ClientWithResponses, ctx context.Context, pcuGroupId string, datacenterId string) (*PcuGroupAssociationModel, diag.Diagnostics) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		association, diags := getPcuGroupAssociation(client, ctx, pcuGroupId, datacenterId)
-
-		if diags.HasError() {
-			return nil, diags
-		}
-
-		if association.ProvisioningStatus.ValueString() == string(astra.PCUAssociationStatusCreated) {
-			return association, nil
-		}
-
-		<-ticker.C
-	}
-}
-
 func mkPcuStatusOnlyActivePlanModifier() planmodifier.String {
 	return MkStringPlanModifier(
 		fmt.Sprintf("The status will always be '%s', given no major errors occurred during provisioning/unprovisioning.", astra.PCUAssociationStatusCreated),
 		func(ctx context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
-			var data pcuGroupAssociationResourceModel
-
-			diags := req.State.Get(ctx, &data)
-			if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
-				return
-			}
-
-			res.PlanValue = types.StringValue(string(astra.PCUAssociationStatusCreated))
+			//res.PlanValue = types.StringValue(string(astra.PCUAssociationStatusCreated))
 		},
 	)
 }
@@ -288,4 +214,51 @@ func mkPcuAssociationUpdateFieldsOnlyUnknownWhenTransferOccursPlanModifier() pla
 			}
 		},
 	)
+}
+
+func awaitDbAndPcuGroupActiveStatus(ctx context.Context, r BasePCUResource, pcuGroupId, datacenterId types.String) diag.Diagnostics {
+	if _, diags := r.groups.AwaitStatus(ctx, pcuGroupId, astra.PCUGroupStatusACTIVE); diags.HasError() {
+		return diags
+	}
+
+	return awaitDbActiveStatus(ctx, r.client, datacenterId)
+}
+
+func awaitDbActiveStatus(ctx context.Context, client *astra.ClientWithResponses, datacenterId types.String) diag.Diagnostics {
+	idParts := strings.Split(datacenterId.ValueString(), "-")
+
+	if len(idParts) < 6 {
+		return DiagErr("Invalid datacenter ID", fmt.Sprintf("Expected format <uuid>-<number>; got: %s", datacenterId.ValueString()))
+	}
+
+	databaseId := strings.Join(idParts[:5], "-")
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	attempts := 0
+
+	tflog.Debug(ctx, fmt.Sprintf("Waiting for DB %s to reach status ACTIVE (attempt 0)", databaseId))
+
+	for {
+		attempts += 1
+
+		resp, err := client.GetDatabaseWithResponse(ctx, databaseId)
+
+		if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving database status"); diags.HasError() {
+			return diags
+		}
+
+		switch resp.JSON200.Status {
+		case astra.StatusEnumACTIVE:
+			tflog.Debug(ctx, fmt.Sprintf("DB %s reached status ACTIVE", databaseId))
+			return nil
+		case "ASSOCIATING", astra.StatusEnumINITIALIZING, astra.StatusEnumPENDING:
+			tflog.Debug(ctx, fmt.Sprintf("Waiting for DB %s to reach status ACTIVE (attempt %d, currently %s)", databaseId, attempts, resp.JSON200.Status))
+		default:
+			return DiagErr("Error waiting for database to become ACTIVE", fmt.Sprintf("Database %s reached unexpected status %s", databaseId, resp.JSON200.Status))
+		}
+
+		<-ticker.C
+	}
 }

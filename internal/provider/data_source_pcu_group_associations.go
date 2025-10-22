@@ -73,7 +73,7 @@ func (d *pcuGroupAssociationsDataSource) Read(ctx context.Context, req datasourc
 		return
 	}
 
-	associations, diags := GetPcuGroupAssociations(d.client, ctx, data.PCUGroupId.ValueString())
+	associations, diags := d.associations.FindMany(ctx, data.PCUGroupId)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}

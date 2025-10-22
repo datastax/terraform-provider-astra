@@ -52,7 +52,7 @@ func (d *pcuGroupDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	group, diags := GetPcuGroup(d.client, ctx, data.PCUGroupId)
+	group, diags := d.groups.FindOne(ctx, data.PCUGroupId)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}

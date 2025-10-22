@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
@@ -37,13 +36,15 @@ type pcuGroupResource struct {
 type pcuGroupResourceModel struct {
 	DeletionProtection types.Bool `tfsdk:"deletion_protection"`
 	RCUProtection      types.Bool `tfsdk:"rcu_protection"` // TODO use this name? or 'reserved_protection' or something?
-	Park               types.Bool `tfsdk:"park"`
+	Parked             types.Bool `tfsdk:"park"`
 	PcuGroupModel
 }
 
 func (r *pcuGroupResource) Metadata(_ context.Context, req resource.MetadataRequest, res *resource.MetadataResponse) {
-	res.TypeName = req.ProviderTypeName + "_pcu_group"
+	res.TypeName = req.ProviderTypeName + "_pcu_group" // TODO we probably need to set MutableIdentity: true
 }
+
+// server should have title, min, max be required
 
 func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, res *resource.SchemaResponse) {
 	res.Schema = schema.Schema{
@@ -58,11 +59,11 @@ func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				PcuAttrOrgId: schema.StringAttribute{
 					Computed: true,
 					PlanModifiers: []planmodifier.String{
-						stringplanmodifier.UseStateForUnknown(), // TODO it's not possible for this to change... right?
+						stringplanmodifier.UseStateForUnknown(),
 					},
 				},
 				PcuAttrTitle: schema.StringAttribute{
-					Optional: true,
+					Required: true,
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 					},
@@ -82,7 +83,7 @@ func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				PcuAttrCacheType: schema.StringAttribute{
 					Optional: true,
 					Computed: true,
-					Default:  stringdefault.StaticString(string(astra.InstanceTypeStandard)), // TODO is 'InstanceType' too generic a name for the astra-go-client? (clashing possibility)
+					Default:  stringdefault.StaticString(string(astra.InstanceTypeStandard)), // TODO do we validate the enum? Or let any string go?
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 						stringplanmodifier.RequiresReplace(),
@@ -91,13 +92,13 @@ func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				PcuAttrProvisionType: schema.StringAttribute{
 					Optional: true,
 					Computed: true,
-					Default:  stringdefault.StaticString(string(astra.Shared)), // TODO 'Shared' should probably be ProvisionTypeShared
+					Default:  stringdefault.StaticString(string(astra.Shared)), // TODO do we validate the enum? Or let any string go?
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 						stringplanmodifier.RequiresReplace(),
 					},
 				},
-				PcuAttrMinCapacity: schema.Int32Attribute{ // TODO these are technically required then, right? b/c you get "error validating request: min must be greater than or equal to 1" if both aren't set
+				PcuAttrMinCapacity: schema.Int32Attribute{
 					Required: true,
 					Validators: []validator.Int32{
 						int32validator.AtLeast(1),
@@ -138,7 +139,7 @@ func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 						mkPcuStatusOnlyActiveOrParkedPlanModifier(),
 					},
 				},
-				"park": schema.BoolAttribute{
+				"park": schema.BoolAttribute{ // This should technically be a WriteOnly param but that requires TF 1.12+
 					Optional: true,
 					Computed: true,
 					Default:  booldefault.StaticBool(false),
@@ -158,34 +159,36 @@ func (r *pcuGroupResource) Create(ctx context.Context, req resource.CreateReques
 	var plan pcuGroupResourceModel
 
 	diags := req.Plan.Get(ctx, &plan)
+	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() { // remind me to forcefully add algebraic effects to go
+		return
+	}
+
+	created, diags := r.groups.Create(ctx, plan.PcuGroupSpecModel)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
 
-	diags = createPcuGroup(r.client, ctx, plan, &plan.PcuGroupModel)
-	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
-		return
-	}
-
-	if plan.Park.ValueBool() {
-		diags = parkPcuGroup(r.client, ctx, plan.Id, &plan.PcuGroupModel)
+	if plan.Parked.ValueBool() {
+		created, diags = r.groups.Park(ctx, plan.Id)
 		if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 			return
 		}
 	}
 
-	res.Diagnostics.Append(res.State.Set(ctx, plan)...)
+	plan.updateGroupModel(created)
+
+	res.Diagnostics.Append(res.State.Set(ctx, &plan)...)
 }
 
 func (r *pcuGroupResource) Read(ctx context.Context, req resource.ReadRequest, res *resource.ReadResponse) {
-	var data pcuGroupResourceModel
+	var state pcuGroupResourceModel
 
-	diags := req.State.Get(ctx, &data)
+	diags := req.State.Get(ctx, &state)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
 
-	group, diags := GetPcuGroup(r.client, ctx, data.Id)
+	group, diags := r.groups.FindOne(ctx, state.Id)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
@@ -195,19 +198,12 @@ func (r *pcuGroupResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	data.PcuGroupModel = *group
+	state.updateGroupModel(group)
 
-	data.Park = types.BoolValue(group.Status.ValueString() == string(astra.PCUGroupStatusPARKED))
+	state.DeletionProtection = ElvisTF(&state.DeletionProtection, types.BoolValue(true))
+	state.RCUProtection = ElvisTF(&state.RCUProtection, types.BoolValue(true))
 
-	if data.DeletionProtection.IsNull() || data.DeletionProtection.IsUnknown() {
-		data.DeletionProtection = types.BoolValue(true)
-	}
-
-	if data.RCUProtection.IsNull() || data.RCUProtection.IsUnknown() {
-		data.RCUProtection = types.BoolValue(true)
-	}
-
-	res.Diagnostics.Append(res.State.Set(ctx, data)...)
+	res.Diagnostics.Append(res.State.Set(ctx, &state)...)
 }
 
 func (r *pcuGroupResource) Update(ctx context.Context, req resource.UpdateRequest, res *resource.UpdateResponse) {
@@ -225,25 +221,30 @@ func (r *pcuGroupResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
+	updated := &plan.PcuGroupModel
+	diags := diag.Diagnostics{}
+
 	if shouldUpdatePcuGroup(state, plan) {
-		diags := updatePcuGroup(r.client, ctx, plan, &plan.PcuGroupModel)
+		updated, diags = r.groups.Update(ctx, plan.PcuGroupSpecModel)
 
 		if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 			return
 		}
 	}
 
-	if state.Park.ValueBool() != plan.Park.ValueBool() {
-		if plan.Park.ValueBool() {
-			res.Diagnostics.Append(parkPcuGroup(r.client, ctx, plan.Id, &plan.PcuGroupModel)...)
+	if state.Parked.ValueBool() != plan.Parked.ValueBool() {
+		if plan.Parked.ValueBool() {
+			updated, diags = r.groups.Park(ctx, plan.Id)
 		} else {
-			res.Diagnostics.Append(unparkPcuGroup(r.client, ctx, plan.Id, &plan.PcuGroupModel)...)
+			updated, diags = r.groups.Unpark(ctx, plan.Id)
 		}
 
-		if res.Diagnostics.HasError() {
+		if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 			return
 		}
 	}
+
+	plan.updateGroupModel(updated)
 
 	res.Diagnostics.Append(res.State.Set(ctx, plan)...)
 }
@@ -262,155 +263,33 @@ func (r *pcuGroupResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	// TODO any more validations? (need to check docs)
-	res.Diagnostics.Append(deletePcuGroup(r.client, ctx, data.Id)...)
+	res.Diagnostics.Append(r.groups.Delete(ctx, data.Id)...)
 }
 
 func (r *pcuGroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, res *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, res)
 }
 
-func createPcuGroup(client *astra.ClientWithResponses, ctx context.Context, spec pcuGroupResourceModel, out *PcuGroupModel) diag.Diagnostics {
-	cp := astra.CloudProvider(spec.CloudProvider.ValueString())
-	it := astra.InstanceType(spec.InstanceType.ValueString())
-	pt := astra.ProvisionType(spec.ProvisionType.ValueString())
-
-	minCap := int(spec.Min.ValueInt32())
-	maxCap := int(spec.Max.ValueInt32())
-	reservedCap := int(spec.Reserved.ValueInt32())
-
-	res, err := client.PcuCreateWithResponse(ctx, astra.PcuCreateJSONRequestBody{
-		astra.PCUGroupCreateRequest{
-			Title:         spec.Title.ValueStringPointer(),
-			CloudProvider: &cp,
-			Region:        spec.Region.ValueStringPointer(),
-			InstanceType:  &it,
-			ProvisionType: &pt,
-			Min:           &minCap, // TODO can we make these just take values instead of references
-			Max:           &maxCap,
-			Reserved:      &reservedCap,
-			Description:   spec.Description.ValueStringPointer(),
-		},
-	})
-
-	if diags := ParsedHTTPResponseDiagErr(res, err, "failed to create PCU group"); diags.HasError() {
-		return diags
-	}
-
-	awaitedPcuGroup, diags := awaitPcuStatus(client, ctx, types.StringValue(*(*res.JSON201)[0].Uuid), astra.PCUGroupStatusACTIVE)
-
-	*out = *awaitedPcuGroup
-	return diags
-}
-
-func shouldUpdatePcuGroup(state, plan pcuGroupResourceModel) bool {
-	return !state.Title.Equal(plan.Title) ||
-		!state.Min.Equal(plan.Min) ||
-		!state.Max.Equal(plan.Max) ||
-		!state.Reserved.Equal(plan.Reserved) ||
-		!state.Description.Equal(plan.Description)
-}
-
-// TODO what if the PCU group doesn't exist in the first place? (what does the API return?)
-func updatePcuGroup(client *astra.ClientWithResponses, ctx context.Context, spec pcuGroupResourceModel, out *PcuGroupModel) diag.Diagnostics {
-	minCap := int(spec.Min.ValueInt32())
-	maxCap := int(spec.Max.ValueInt32())
-	reservedCap := int(spec.Reserved.ValueInt32())
-
-	res, err := client.PcuUpdateWithResponse(ctx, astra.PcuUpdateJSONRequestBody{
-		astra.PCUGroupUpdateRequest{
-			Title:       spec.Title.ValueStringPointer(), // TODO can you really update instance and provision type? Also do we still lose them if they're not provided?
-			Min:         &minCap,
-			Max:         &maxCap,
-			Reserved:    &reservedCap,
-			Description: spec.Description.ValueStringPointer(),
-		},
-	})
-
-	if diags := ParsedHTTPResponseDiagErr(res, err, "failed to update PCU group"); diags.HasError() {
-		return diags
-	}
-
-	// TODO is it reliable to depend on the response from updating the PCU? Or is it better to do a GET after?
-	*out = DeserializePcuGroupFromAPI((*res.JSON200)[0])
-	return nil
-}
-
-func parkPcuGroup(client *astra.ClientWithResponses, ctx context.Context, id types.String, out *PcuGroupModel) diag.Diagnostics {
-	res, err := client.PcuGroupPark(ctx, id.ValueString())
-
-	if diags := HTTPResponseDiagErr(res, err, "error parking pcu group"); diags.HasError() {
-		return diags
-	}
-
-	awaitedPcuGroup, diags := awaitPcuStatus(client, ctx, id, astra.PCUGroupStatusPARKED)
-
-	*out = *awaitedPcuGroup
-	return diags
-}
-
-func unparkPcuGroup(client *astra.ClientWithResponses, ctx context.Context, id types.String, out *PcuGroupModel) diag.Diagnostics {
-	res, err := client.PcuGroupUnpark(ctx, id.ValueString())
-
-	if diags := HTTPResponseDiagErr(res, err, "error unparking pcu group"); diags.HasError() {
-		return diags
-	}
-
-	awaitedPcuGroup, diags := awaitPcuStatus(client, ctx, id, astra.PCUGroupStatusACTIVE)
-
-	*out = *awaitedPcuGroup
-	return diags
-}
-
-func deletePcuGroup(client *astra.ClientWithResponses, ctx context.Context, id types.String) diag.Diagnostics {
-	res, err := client.PcuDelete(ctx, id.ValueString())
-
-	if res != nil && res.StatusCode == 404 {
-		return nil // whatever
-	}
-
-	if diags := HTTPResponseDiagErr(res, err, "error deleting PCU group"); diags.HasError() {
-		return diags
-	}
-
-	return nil
-}
-
-func awaitPcuStatus(client *astra.ClientWithResponses, ctx context.Context, pcuGroupId types.String, target astra.PCUGroupStatus) (*PcuGroupModel, diag.Diagnostics) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		group, diags := GetPcuGroup(client, ctx, pcuGroupId)
-
-		if diags.HasError() {
-			return nil, diags
-		}
-
-		if group.Status.ValueString() == string(target) {
-			return group, nil
-		}
-
-		<-ticker.C
-	}
-}
-
 func mkPcuStatusOnlyActiveOrParkedPlanModifier() planmodifier.String {
 	return MkStringPlanModifier(
 		"The status will always be 'ACTIVE' or 'PARKED', given no major errors occurred during provisioning/unprovisioning.",
 		func(ctx context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
-			var data pcuGroupResourceModel
-
-			diags := req.Plan.Get(ctx, &data)
-			if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
-				return
-			}
-
-			if data.Park.ValueBool() {
-				res.PlanValue = types.StringValue(string(astra.PCUGroupStatusPARKED))
-			} else {
-				res.PlanValue = types.StringValue(string(astra.PCUGroupStatusACTIVE))
-			}
+			//var data *pcuGroupResourceModel
+			//
+			//diags := req.Plan.Get(ctx, &data)
+			//if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
+			//	return
+			//}
+			//
+			//if data == nil {
+			//	return
+			//}
+			//
+			//if data.Parked.ValueBool() {
+			//	res.PlanValue = types.StringValue(string(astra.PCUGroupStatusPARKED))
+			//} else {
+			//	res.PlanValue = types.StringValue(string(astra.PCUGroupStatusACTIVE))
+			//}
 		},
 	)
 }
@@ -433,4 +312,17 @@ func mkPcuUpdateFieldsOnlyUnknownWhenChangesOccurPlanModifier() planmodifier.Str
 			}
 		},
 	)
+}
+
+func shouldUpdatePcuGroup(curr, plan pcuGroupResourceModel) bool {
+	return !curr.Title.Equal(plan.Title) ||
+		!curr.Min.Equal(plan.Min) ||
+		!curr.Max.Equal(plan.Max) ||
+		!curr.Reserved.Equal(plan.Reserved) ||
+		!curr.Description.Equal(plan.Description)
+}
+
+func (model *pcuGroupResourceModel) updateGroupModel(group *PcuGroupModel) {
+	model.PcuGroupModel = *group
+	model.Parked = types.BoolValue(group.Status.ValueString() == string(astra.PCUGroupStatusPARKED))
 }

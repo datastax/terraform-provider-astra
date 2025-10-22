@@ -17,6 +17,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
+func ElvisTF[T attr.Value](val *T, orElse T) T {
+	if val == nil || (*val).IsNull() || (*val).IsUnknown() {
+		return orElse
+	}
+	return *val
+}
+
 // UpdateTerraformObjectWithAttr adds an Attribute to a Terraform object
 func UpdateTerraformObjectWithAttr(ctx context.Context, obj types.Object, key string, value attr.Value) (types.Object, diag.Diagnostics) {
 	attrTypes := obj.AttributeTypes(ctx)
@@ -30,16 +37,6 @@ func CompareTerraformAttrToString(attr attr.Value, s string) bool {
 		return sAttr.ValueString() == s
 	}
 	return false
-}
-
-func MergeMaps[K comparable, V any](maps ...map[K]V) map[K]V {
-	result := make(map[K]V)
-	for _, m := range maps {
-		for k, v := range m {
-			result[k] = v
-		}
-	}
-	return result
 }
 
 // MergeTerraformObjects combines two Terraform Objects replacing any null or unknown attribute values in `old` with

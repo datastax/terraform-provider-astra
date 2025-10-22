@@ -2,16 +2,22 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 type BasePCUConstruct struct {
-	client *astra.ClientWithResponses
+	client       *astra.ClientWithResponses
+	groups       PcuGroupsService
+	associations PcuGroupAssociationsService
 }
 
 type BasePCUDataSource struct {
@@ -34,35 +40,79 @@ func (b *BasePCUConstruct) configure(providerData any) {
 	if providerData == nil {
 		return
 	}
-	b.client = providerData.(*astraClients2).astraClient
+
+	client := providerData.(*astraClients2).astraClient
+
+	b.client = client
+	b.groups = &PcuGroupsServiceImpl{client}
+	b.associations = &PcuGroupAssociationsServiceImpl{client}
 }
 
-func GetPcuGroups(client *astra.ClientWithResponses, ctx context.Context, rawIds []types.String) (*[]PcuGroupModel, diag.Diagnostics) {
-	ids := make([]string, len(rawIds))
+type PcuGroupsService interface {
+	Create(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics)
+	FindOne(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
+	FindMany(ctx context.Context, ids []types.String) (*[]PcuGroupModel, diag.Diagnostics)
+	Update(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics)
+	Park(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
+	Unpark(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
+	Delete(ctx context.Context, id types.String) diag.Diagnostics
+	AwaitStatus(ctx context.Context, id types.String, target astra.PCUGroupStatus) (*PcuGroupModel, diag.Diagnostics)
+}
 
-	for i, id := range rawIds {
-		ids[i] = id.ValueString()
+type PcuGroupAssociationsService interface {
+	Create(ctx context.Context, groupId types.String, datacenterId types.String) (*PcuGroupAssociationModel, diag.Diagnostics)
+	FindOne(ctx context.Context, groupId types.String, datacenterId types.String) (*PcuGroupAssociationModel, diag.Diagnostics)
+	FindMany(ctx context.Context, groupId types.String) (*[]PcuGroupAssociationModel, diag.Diagnostics)
+	Transfer(ctx context.Context, fromGroupId, toGroupId types.String, datacenterId types.String) diag.Diagnostics
+	Delete(ctx context.Context, groupId types.String, datacenterId types.String) diag.Diagnostics
+}
+
+type PcuGroupsServiceImpl struct {
+	client *astra.ClientWithResponses
+}
+
+type PcuGroupAssociationsServiceImpl struct {
+	client *astra.ClientWithResponses
+}
+
+func (s *PcuGroupsServiceImpl) Create(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics) {
+	cp := astra.CloudProvider(strings.ToUpper(spec.CloudProvider.ValueString()))
+	it := astra.InstanceType(spec.InstanceType.ValueString())
+	pt := astra.ProvisionType(spec.ProvisionType.ValueString())
+
+	minCap := int(spec.Min.ValueInt32())
+	maxCap := int(spec.Max.ValueInt32())
+	reservedCap := int(spec.Reserved.ValueInt32())
+
+	body := astra.PCUGroupCreateRequest{
+		Title:         spec.Title.ValueStringPointer(),
+		CloudProvider: &cp,
+		Region:        spec.Region.ValueStringPointer(),
+		InstanceType:  &it,
+		ProvisionType: &pt,
+		Min:           &minCap,
+		Max:           &maxCap,
+		Reserved:      &reservedCap,
+		Description:   spec.Description.ValueStringPointer(),
 	}
 
-	resp, err := client.PcuGetWithResponse(ctx, astra.PCUGroupGetRequest{
-		PcuGroupUUIDs: &ids,
-	})
+	tflog.Debug(ctx, "Creating PCU group", map[string]interface{}{"body": body})
 
-	if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving PCU groups"); diags.HasError() {
+	res, err := s.client.PcuCreateWithResponse(ctx, astra.PcuCreateJSONRequestBody{body})
+
+	if diags := ParsedHTTPResponseDiagErr(res, err, "failed to create PCU group"); diags.HasError() {
 		return nil, diags
 	}
 
-	pcuGroups := make([]PcuGroupModel, 0) // don't want to return a nil b/c terraform should serialize it as [] and not null
+	id := (*res.JSON201)[0].Uuid
 
-	for _, rawPCU := range *resp.JSON200 {
-		pcuGroups = append(pcuGroups, DeserializePcuGroupFromAPI(rawPCU))
-	}
+	tflog.Debug(ctx, fmt.Sprintf("Created PCU group with ID: %s", *id))
 
-	return &pcuGroups, nil
+	return s.AwaitStatus(ctx, types.StringPointerValue(id), astra.PCUGroupStatusCREATED)
 }
 
-func GetPcuGroup(client *astra.ClientWithResponses, ctx context.Context, rawId types.String) (*PcuGroupModel, diag.Diagnostics) {
-	groups, diags := GetPcuGroups(client, ctx, []types.String{rawId})
+func (s *PcuGroupsServiceImpl) FindOne(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics) {
+	groups, diags := s.FindMany(ctx, []types.String{id})
 
 	if diags.HasError() {
 		return nil, diags
@@ -75,32 +125,157 @@ func GetPcuGroup(client *astra.ClientWithResponses, ctx context.Context, rawId t
 	return &(*groups)[0], diags
 }
 
-func DeserializePcuGroupFromAPI(rawPCU astra.PCUGroup) PcuGroupModel {
-	return PcuGroupModel{
-		Id:        types.StringPointerValue(rawPCU.Uuid),
-		OrgId:     types.StringPointerValue(rawPCU.OrgId),
-		CreatedAt: types.StringPointerValue(rawPCU.CreatedAt),
-		UpdatedAt: types.StringPointerValue(rawPCU.UpdatedAt),
-		CreatedBy: types.StringPointerValue(rawPCU.CreatedBy),
-		UpdatedBy: types.StringPointerValue(rawPCU.UpdatedBy),
-		Status:    stringEnumPtrToStrPtr(rawPCU.Status),
-		PcuGroupSpecModel: PcuGroupSpecModel{
-			Title:         types.StringPointerValue(rawPCU.Title),
-			CloudProvider: stringEnumPtrToStrPtr(rawPCU.CloudProvider),
-			Region:        types.StringPointerValue(rawPCU.Region),
-			InstanceType:  stringEnumPtrToStrPtr(rawPCU.InstanceType),
-			ProvisionType: stringEnumPtrToStrPtr(rawPCU.ProvisionType),
-			Min:           intPtrToTypeInt32Ptr(rawPCU.Min),
-			Max:           intPtrToTypeInt32Ptr(rawPCU.Max),
-			Reserved:      intPtrToTypeInt32Ptr(rawPCU.Reserved),
-			Description:   types.StringPointerValue(rawPCU.Description),
+func (s *PcuGroupsServiceImpl) FindMany(ctx context.Context, ids []types.String) (*[]PcuGroupModel, diag.Diagnostics) {
+	nativeStrIds := make([]string, len(ids))
+
+	for i, id := range ids {
+		nativeStrIds[i] = id.ValueString()
+	}
+
+	resp, err := s.client.PcuGetWithResponse(ctx, astra.PCUGroupGetRequest{
+		PcuGroupUUIDs: &nativeStrIds,
+	})
+
+	if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving PCU groups"); diags.HasError() {
+		return nil, diags
+	}
+
+	pcuGroups := make([]PcuGroupModel, 0) // don't want to return a nil b/c terraform should serialize it as [] and not null
+
+	for _, rawPCU := range *resp.JSON200 {
+		pcuGroups = append(pcuGroups, deserializePcuGroupFromAPI(rawPCU))
+	}
+
+	return &pcuGroups, nil
+}
+
+func (s *PcuGroupsServiceImpl) Update(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics) {
+	minCap := int(spec.Min.ValueInt32())
+	maxCap := int(spec.Max.ValueInt32())
+	reservedCap := int(spec.Reserved.ValueInt32())
+
+	// TODO what if the PCU group doesn't exist in the first place? (what does the API return?)
+	res, err := s.client.PcuUpdateWithResponse(ctx, astra.PcuUpdateJSONRequestBody{
+		astra.PCUGroupUpdateRequest{
+			Title:       spec.Title.ValueStringPointer(), // TODO provide ALL the fields lest we lose them forevermore to the void
+			Min:         &minCap,
+			Max:         &maxCap,
+			Reserved:    &reservedCap,
+			Description: spec.Description.ValueStringPointer(),
 		},
+	})
+
+	if diags := ParsedHTTPResponseDiagErr(res, err, "failed to update PCU group"); diags.HasError() {
+		return nil, diags
+	}
+
+	deserialized := deserializePcuGroupFromAPI((*res.JSON200)[0])
+	return &deserialized, nil
+}
+
+func (s *PcuGroupsServiceImpl) Park(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics) {
+	tflog.Debug(ctx, fmt.Sprintf("Parking PCU group %s", id.ValueString()))
+
+	res, err := s.client.PcuGroupPark(ctx, id.ValueString())
+
+	if diags := HTTPResponseDiagErr(res, err, "error parking pcu group"); diags.HasError() {
+		return nil, diags
+	}
+
+	tflog.Debug(ctx, fmt.Sprintf("Parked request for PCU group %s accepted", id.ValueString()))
+
+	return s.AwaitStatus(ctx, id, astra.PCUGroupStatusPARKED)
+}
+
+func (s *PcuGroupsServiceImpl) Unpark(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics) {
+	tflog.Debug(ctx, fmt.Sprintf("Unparking PCU group %s", id.ValueString()))
+
+	res, err := s.client.PcuGroupUnpark(ctx, id.ValueString())
+
+	if diags := HTTPResponseDiagErr(res, err, "error unparking pcu group"); diags.HasError() {
+		return nil, diags
+	}
+
+	tflog.Debug(ctx, fmt.Sprintf("Unpark request for PCU group %s accepted", id.ValueString()))
+
+	return s.AwaitStatus(ctx, id, astra.PCUGroupStatusCREATED)
+}
+
+func (s *PcuGroupsServiceImpl) Delete(ctx context.Context, id types.String) diag.Diagnostics {
+	tflog.Debug(ctx, fmt.Sprintf("Deleting PCU group %s", id.ValueString()))
+
+	res, err := s.client.PcuDelete(ctx, id.ValueString())
+
+	if res != nil && res.StatusCode == 404 {
+		return nil // whatever
+	}
+
+	if diags := HTTPResponseDiagErr(res, err, "error deleting PCU group"); diags.HasError() {
+		return diags
+	}
+
+	tflog.Debug(ctx, fmt.Sprintf("PCU group %s deleted", id.ValueString()))
+
+	return nil
+}
+
+func (s *PcuGroupsServiceImpl) AwaitStatus(ctx context.Context, id types.String, target astra.PCUGroupStatus) (*PcuGroupModel, diag.Diagnostics) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	attempts := 0
+
+	tflog.Debug(ctx, fmt.Sprintf("Waiting for PCU group %s to reach status %s (attempt 0)", id.ValueString(), target))
+
+	for {
+		attempts += 1
+
+		group, diags := s.FindOne(ctx, id)
+
+		if diags.HasError() {
+			return nil, diags
+		}
+
+		if group.Status.ValueString() == string(target) {
+			tflog.Debug(ctx, fmt.Sprintf("PCU group %s reached status %s", id.ValueString(), target))
+			return group, nil
+		}
+
+		tflog.Debug(ctx, fmt.Sprintf("Waiting for PCU group %s to reach status %s (attempt %d, currently %s)", id.ValueString(), target, attempts, group.Status.ValueString()))
+
+		<-ticker.C
 	}
 }
 
-// GetPcuGroupAssociations TODO what's returned if the PCU group isn't found?
-func GetPcuGroupAssociations(client *astra.ClientWithResponses, ctx context.Context, pcuGroupId string) (*[]PcuGroupAssociationModel, diag.Diagnostics) {
-	resp, err := client.PcuAssociationGetWithResponse(ctx, pcuGroupId)
+func (s *PcuGroupAssociationsServiceImpl) Create(ctx context.Context, groupId types.String, datacenterId types.String) (*PcuGroupAssociationModel, diag.Diagnostics) {
+	res, err := s.client.PcuAssociationCreate(ctx, groupId.ValueString(), datacenterId.ValueString())
+
+	if diags := HTTPResponseDiagErr(res, err, "error creating PCU group association"); diags.HasError() {
+		return nil, diags
+	}
+
+	return s.FindOne(ctx, groupId, datacenterId)
+}
+
+func (s *PcuGroupAssociationsServiceImpl) FindOne(ctx context.Context, groupId types.String, datacenterId types.String) (*PcuGroupAssociationModel, diag.Diagnostics) {
+	associations, diags := s.FindMany(ctx, groupId)
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	for _, assoc := range *associations {
+		if assoc.DatacenterId.Equal(datacenterId) {
+			return &assoc, nil
+		}
+	}
+
+	return nil, diags
+}
+
+// FindMany TODO what's returned if the PCU group isn't found?
+func (s *PcuGroupAssociationsServiceImpl) FindMany(ctx context.Context, groupId types.String) (*[]PcuGroupAssociationModel, diag.Diagnostics) {
+	resp, err := s.client.PcuAssociationGetWithResponse(ctx, groupId.ValueString())
 
 	if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving PCU groups"); diags.HasError() {
 		return nil, diags
@@ -109,73 +284,66 @@ func GetPcuGroupAssociations(client *astra.ClientWithResponses, ctx context.Cont
 	associations := make([]PcuGroupAssociationModel, 0) // don't want to return a nil b/c terraform should serialize it as [] and not null
 
 	for _, rawAssociation := range *resp.JSON200 {
-		associations = append(associations, deserializePcuGroupAssociation(rawAssociation))
+		associations = append(associations, deserializePcuGroupAssociationFromAPI(rawAssociation))
 	}
 
 	return &associations, nil
 }
 
-//func MergePcuGroupModels(base PcuGroupModel, override PcuGroupModel) PcuGroupModel {
-//	baseCopy := PcuGroupModel{
-//		Id:        base.Id,
-//		OrgId:     base.OrgId,
-//		CreatedAt: base.CreatedAt,
-//		UpdatedAt: base.UpdatedAt,
-//		CreatedBy: base.CreatedBy,
-//		UpdatedBy: base.UpdatedBy,
-//		Status:    base.Status,
-//		PcuGroupSpecModel: PcuGroupSpecModel{
-//			Title:         base.Title,
-//			CloudProvider: base.CloudProvider,
-//			Region:        base.Region,
-//			InstanceType:  base.InstanceType,
-//			ProvisionType: base.ProvisionType,
-//			Min:           base.Min,
-//			Max:           base.Max,
-//			Reserved:      base.Reserved,
-//			Description:   base.Description,
-//		},
-//	}
-//
-//	if !override.Title.IsNull() {
-//		baseCopy.Title = override.Title
-//	}
-//
-//	if !override.Description.IsNull() {
-//		baseCopy.Description = override.Description
-//	}
-//
-//	if !override.InstanceType.IsNull() {
-//		baseCopy.InstanceType = override.InstanceType
-//	}
-//
-//	if !override.ProvisionType.IsNull() {
-//		baseCopy.ProvisionType = override.ProvisionType
-//	}
-//
-//	return baseCopy
-//}
+// TODO: should deletion_protection also stop transferring the association?
+// TODO: what's returned if the association didn't exist in the first place? (transferring is like deleting and recreating)
+// TODO: what's the difference between transfer and delete+recreate?
 
-func stringEnumPtrToStrPtr[E ~string](value *E) types.String {
-	if value == nil {
-		return types.StringNull()
-	}
-	return types.StringValue(string(*value))
+func (s *PcuGroupAssociationsServiceImpl) Transfer(ctx context.Context, fromGroupId, toGroupId types.String, datacenterId types.String) diag.Diagnostics {
+	res, err := s.client.PcuAssociationTransfer(ctx, astra.PcuAssociationTransferJSONRequestBody{
+		FromPCUGroupUUID: fromGroupId.ValueStringPointer(),
+		ToPCUGroupUUID:   toGroupId.ValueStringPointer(),
+		DatacenterUUID:   datacenterId.ValueStringPointer(),
+	})
+
+	return HTTPResponseDiagErr(res, err, "error transferring PCU group association")
 }
 
-func intPtrToTypeInt32Ptr(value *int) types.Int32 {
-	if value == nil {
-		return types.Int32Null()
+func (s *PcuGroupAssociationsServiceImpl) Delete(ctx context.Context, groupId types.String, datacenterId types.String) diag.Diagnostics {
+	res, err := s.client.PcuAssociationDelete(ctx, groupId.ValueString(), datacenterId.ValueString())
+
+	// TODO does it really return 404 lol
+	if res != nil && res.StatusCode == 404 {
+		return nil // whatever
 	}
-	return types.Int32Value(int32(*value))
+
+	return HTTPResponseDiagErr(res, err, "error deleting PCU group association")
 }
 
-func deserializePcuGroupAssociation(rawAssociation astra.PCUAssociation) PcuGroupAssociationModel {
+func deserializePcuGroupFromAPI(rawPCU astra.PCUGroup) PcuGroupModel {
+	return PcuGroupModel{
+		Id:        types.StringPointerValue(rawPCU.Uuid),
+		OrgId:     types.StringPointerValue(rawPCU.OrgId),
+		CreatedAt: types.StringPointerValue(rawPCU.CreatedAt),
+		UpdatedAt: types.StringPointerValue(rawPCU.UpdatedAt),
+		CreatedBy: types.StringPointerValue(rawPCU.CreatedBy),
+		UpdatedBy: types.StringPointerValue(rawPCU.UpdatedBy),
+		Status:    StringEnumPtrToStrPtr(rawPCU.Status),
+		PcuGroupSpecModel: PcuGroupSpecModel{
+			Title:         types.StringPointerValue(rawPCU.Title),
+			CloudProvider: StringEnumPtrToStrPtr(rawPCU.CloudProvider),
+			Region:        types.StringPointerValue(rawPCU.Region),
+			InstanceType:  StringEnumPtrToStrPtr(rawPCU.InstanceType),
+			ProvisionType: StringEnumPtrToStrPtr(rawPCU.ProvisionType),
+			Min:           IntPtrToTypeInt32Ptr(rawPCU.Min),
+			Max:           IntPtrToTypeInt32Ptr(rawPCU.Max),
+			Reserved:      IntPtrToTypeInt32Ptr(rawPCU.Reserved),
+			Description:   types.StringPointerValue(rawPCU.Description),
+		},
+	}
+}
+
+func deserializePcuGroupAssociationFromAPI(rawAssociation astra.PCUAssociation) PcuGroupAssociationModel {
 	return PcuGroupAssociationModel{
-		DatacenterId:       types.StringValue(*rawAssociation.DatacenterUUID),
-		ProvisioningStatus: types.StringValue(string(*rawAssociation.ProvisioningStatus)),
-		CreatedAt:          types.StringValue(*rawAssociation.CreatedAt),
-		UpdatedAt:          types.StringValue(*rawAssociation.UpdatedAt),
-		CreatedBy:          types.StringValue(*rawAssociation.CreatedBy),
+		DatacenterId:       types.StringPointerValue(rawAssociation.DatacenterUUID),
+		ProvisioningStatus: StringEnumPtrToStrPtr(rawAssociation.ProvisioningStatus),
+		CreatedAt:          types.StringPointerValue(rawAssociation.CreatedAt),
+		UpdatedAt:          types.StringPointerValue(rawAssociation.UpdatedAt),
+		CreatedBy:          types.StringPointerValue(rawAssociation.CreatedBy),
 	}
 }

@@ -265,10 +265,10 @@ func resourceDatabaseRead(ctx context.Context, resourceData *schema.ResourceData
 		}
 
 		// If the database is TERMINATING or TERMINATED then remove it from the state
-		//if db.Status == astra.TERMINATING || db.Status == astra.TERMINATED { TODO uncomment
-		//	resourceData.SetId("")
-		//	return nil
-		//}
+		if db.Status == astra.StatusEnumTERMINATING || db.Status == astra.StatusEnumTERMINATED {
+			resourceData.SetId("")
+			return nil
+		}
 
 		// Add the database to state
 		if err := setDatabaseResourceData(resourceData, db); err != nil {
@@ -328,7 +328,7 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 			return retry.RetryableError(fmt.Errorf("Unable to terminate database %s. %s", databaseID, string(resp.Body)))
 		}
 
-		// All other 4XX status codes are NOT retried
+		// FindById other 4XX status codes are NOT retried
 		if resp.StatusCode() >= http.StatusBadRequest {
 			return retry.NonRetryableError(fmt.Errorf("unexpected response attempting to terminate database. Status code: %d, message = %s", resp.StatusCode(), string(resp.Body)))
 		}
@@ -362,16 +362,16 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 			return nil
 		}
 
-		// All other status codes > 200 NOT retried
+		// FindById other status codes > 200 NOT retried
 		if res.StatusCode() > http.StatusOK || res.JSON200 == nil {
 			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database, status code: %d, message %s", res.StatusCode(), string(res.Body)))
 		}
 
 		// Return when the database is in a TERMINATED state
 		db := res.JSON200
-		//if db.Status == astra.TERMINATED { TODO uncomment
-		//	return nil
-		//}
+		if db.Status == astra.StatusEnumTERMINATED {
+			return nil
+		}
 
 		// Continue until one of the expected conditions above are met
 		return retry.RetryableError(fmt.Errorf("expected database to be terminated but is %s", db.Status))
@@ -524,14 +524,14 @@ func waitForDatabaseAndUpdateResource(ctx context.Context, resourceData *schema.
 		// Success fetching database
 		db := res.JSON200
 		switch db.Status {
-		//case astra.ERROR, astra.TERMINATED, astra.TERMINATING: TODO uncomment
-		//	If the database reached a terminal state it will never become active
-		//return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
-		//case astra.ACTIVE:
-		//	if err := setDatabaseResourceData(resourceData, db); err != nil {
-		//		return retry.NonRetryableError(err)
-		//	}
-		//	return nil
+		case astra.StatusEnumERROR, astra.StatusEnumTERMINATED, astra.StatusEnumTERMINATING:
+			// If the database reached a terminal state it will never become active
+			return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
+		case astra.StatusEnumACTIVE:
+			if err := setDatabaseResourceData(resourceData, db); err != nil {
+				return retry.NonRetryableError(err)
+			}
+			return nil
 		default:
 			return retry.RetryableError(fmt.Errorf("expected database to be active but is %s", db.Status))
 		}
