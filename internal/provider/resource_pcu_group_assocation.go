@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -31,10 +32,10 @@ type pcuGroupAssociationResource struct {
 	BasePCUResource
 }
 
+// TODO should I add back deletion and transfer protection???
 type pcuGroupAssociationResourceModel struct {
-	PCUGroupId         types.String `tfsdk:"pcu_group_id"`
-	DeletionProtection types.Bool   `tfsdk:"deletion_protection"`
-	TransferProtection types.Bool   `tfsdk:"transfer_protection"`
+	PCUGroupId types.String   `tfsdk:"pcu_group_id"`
+	Timeouts   timeouts.Value `tfsdk:"timeouts"`
 	PcuGroupAssociationModel
 }
 
@@ -42,7 +43,7 @@ func (r *pcuGroupAssociationResource) Metadata(_ context.Context, req resource.M
 	res.TypeName = req.ProviderTypeName + "_pcu_group_association"
 }
 
-func (r *pcuGroupAssociationResource) Schema(_ context.Context, _ resource.SchemaRequest, res *resource.SchemaResponse) {
+func (r *pcuGroupAssociationResource) Schema(ctx context.Context, _ resource.SchemaRequest, res *resource.SchemaResponse) {
 	res.Schema = schema.Schema{
 		Attributes: MergeMaps(
 			map[string]schema.Attribute{
@@ -55,7 +56,7 @@ func (r *pcuGroupAssociationResource) Schema(_ context.Context, _ resource.Schem
 				PcuAssocAttrDatacenterId: schema.StringAttribute{
 					Required: true,
 					PlanModifiers: []planmodifier.String{
-						stringplanmodifier.RequiresReplace(), // TODO check we need anything fancier than this
+						stringplanmodifier.RequiresReplace(),
 					},
 				},
 				PcuAssocAttrProvisioningStatus: schema.StringAttribute{
@@ -65,10 +66,14 @@ func (r *pcuGroupAssociationResource) Schema(_ context.Context, _ resource.Schem
 					},
 				},
 			},
-			MkPcuResourceCreatedUpdatedAttributes(inferPcuGroupAssociationStatusPlanModifier()),
-			MkPcuResourceProtectionAttribute("deletion"),
-			MkPcuResourceProtectionAttribute("transfer"),
+			//MkPcuResourceCreatedUpdatedAttributes(inferPcuGroupAssociationStatusPlanModifier()), TODO what is going on here
 		),
+		Blocks: map[string]schema.Block{
+			"timeouts": timeouts.Block(ctx, timeouts.Opts{
+				Create: true,
+				Update: true,
+			}),
+		},
 	}
 }
 
@@ -78,8 +83,6 @@ func (r *pcuGroupAssociationResource) Schema(_ context.Context, _ resource.Schem
 // TODO basically we need to either notify the user if the association already exists without Terraform's knowledge,
 // TODO or we need to execute a secret transfer request to move it to the new PCU group (which may be kinda shady)
 
-// TODO should this wait for both the db and pcu group to become active??? is it even the job of this resource???
-
 func (r *pcuGroupAssociationResource) Create(ctx context.Context, req resource.CreateRequest, res *resource.CreateResponse) {
 	var plan pcuGroupAssociationResourceModel
 
@@ -87,6 +90,14 @@ func (r *pcuGroupAssociationResource) Create(ctx context.Context, req resource.C
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
 	}
+
+	createTimeout, diags := plan.Timeouts.Create(ctx, 40*time.Minute)
+	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
 
 	created, diags := r.associations.Create(ctx, plan.PCUGroupId, plan.DatacenterId)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
@@ -98,11 +109,9 @@ func (r *pcuGroupAssociationResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
-	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupAssociationResourceModel(
+	res.Diagnostics.Append(res.State.Set(ctx, plan.updated(
 		plan.PCUGroupId,
 		*created,
-		plan.DeletionProtection,
-		plan.TransferProtection,
 	))...)
 }
 
@@ -124,11 +133,9 @@ func (r *pcuGroupAssociationResource) Read(ctx context.Context, req resource.Rea
 		return
 	}
 
-	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupAssociationResourceModel(
+	res.Diagnostics.Append(res.State.Set(ctx, state.updated(
 		state.PCUGroupId,
 		*association,
-		state.DeletionProtection,
-		state.TransferProtection,
 	))...)
 }
 
@@ -142,12 +149,15 @@ func (r *pcuGroupAssociationResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	if !state.PCUGroupId.Equal(plan.PCUGroupId) {
-		if plan.TransferProtection.ValueBool() {
-			res.Diagnostics.AddError("Error transferring PCU Group Association", "PCU Group Association has transfer protection enabled, cannot transfer.")
-			return
-		}
+	updateTimeout, diags := plan.Timeouts.Update(ctx, 40*time.Minute)
+	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
+		return
+	}
 
+	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
+	defer cancel()
+
+	if !state.PCUGroupId.Equal(plan.PCUGroupId) {
 		diags := r.associations.Transfer(ctx, state.PCUGroupId, plan.PCUGroupId, state.DatacenterId)
 
 		if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
@@ -167,24 +177,19 @@ func (r *pcuGroupAssociationResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupAssociationResourceModel(
+	res.Diagnostics.Append(res.State.Set(ctx, plan.updated(
 		plan.PCUGroupId,
 		*association,
-		plan.DeletionProtection,
-		plan.TransferProtection,
 	))...)
 }
+
+// TODO is deleting an association instantaneous?
 
 func (r *pcuGroupAssociationResource) Delete(ctx context.Context, req resource.DeleteRequest, res *resource.DeleteResponse) {
 	var data pcuGroupAssociationResourceModel
 
 	diags := req.State.Get(ctx, &data)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
-		return
-	}
-
-	if data.DeletionProtection.ValueBool() {
-		res.Diagnostics.AddError("Error deleting PCU Group Association", "PCU Group Association has deletion protection enabled, cannot delete.")
 		return
 	}
 
@@ -217,7 +222,7 @@ func mkPcuStatusOnlyActivePlanModifier() planmodifier.String {
 
 func inferPcuGroupAssociationStatusPlanModifier() planmodifier.String {
 	return MkStringPlanModifier(
-		"The updated_[by|at] fields only change when the PCU association is transferred.", // TODO is this true?
+		"The updated_[by|at] fields only change when the PCU association is transferred.",
 		func(ctx context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
 			var curr, plan *pcuGroupAssociationResourceModel
 
@@ -260,33 +265,36 @@ func awaitDbActiveStatus(ctx context.Context, client *astra.ClientWithResponses,
 	tflog.Debug(ctx, fmt.Sprintf("Waiting for DB %s to reach status ACTIVE (attempt 0)", databaseId))
 
 	for {
-		attempts += 1
+		select {
+		case <-ctx.Done():
+			// Respect context timeout or cancellation
+			return DiagErr("Timeout while waiting for database to become ACTIVE", ctx.Err().Error())
 
-		resp, err := client.GetDatabaseWithResponse(ctx, databaseId)
+		case <-ticker.C:
+			attempts++
 
-		if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving database status"); diags.HasError() {
-			return diags
+			resp, err := client.GetDatabaseWithResponse(ctx, databaseId)
+			if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving database status"); diags.HasError() {
+				return diags
+			}
+
+			switch resp.JSON200.Status {
+			case astra.ACTIVE:
+				tflog.Debug(ctx, fmt.Sprintf("DB %s reached status ACTIVE", databaseId))
+				return nil
+			case "ASSOCIATING", astra.INITIALIZING, astra.PENDING:
+				tflog.Debug(ctx, fmt.Sprintf("Waiting for DB %s to reach status ACTIVE (attempt %d, currently %s)", databaseId, attempts, resp.JSON200.Status))
+			default:
+				return DiagErr("Error waiting for database to become ACTIVE", fmt.Sprintf("Database %s reached unexpected status %s", databaseId, resp.JSON200.Status))
+			}
 		}
-
-		switch resp.JSON200.Status {
-		case astra.ACTIVE:
-			tflog.Debug(ctx, fmt.Sprintf("DB %s reached status ACTIVE", databaseId))
-			return nil
-		case "ASSOCIATING", astra.INITIALIZING, astra.PENDING:
-			tflog.Debug(ctx, fmt.Sprintf("Waiting for DB %s to reach status ACTIVE (attempt %d, currently %s)", databaseId, attempts, resp.JSON200.Status))
-		default:
-			return DiagErr("Error waiting for database to become ACTIVE", fmt.Sprintf("Database %s reached unexpected status %s", databaseId, resp.JSON200.Status))
-		}
-
-		<-ticker.C
 	}
 }
 
-func mkPcuGroupAssociationResourceModel(pcuGroupId types.String, association PcuGroupAssociationModel, deletionProt, transferProt types.Bool) pcuGroupAssociationResourceModel {
+func (m pcuGroupAssociationResourceModel) updated(pcuGroupId types.String, association PcuGroupAssociationModel) pcuGroupAssociationResourceModel {
 	return pcuGroupAssociationResourceModel{
 		PCUGroupId:               pcuGroupId,
 		PcuGroupAssociationModel: association,
-		DeletionProtection:       ElvisTF(&deletionProt, types.BoolValue(true)),
-		TransferProtection:       ElvisTF(&transferProt, types.BoolValue(true)),
+		Timeouts:                 m.Timeouts,
 	}
 }

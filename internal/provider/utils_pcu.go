@@ -109,29 +109,36 @@ func (s *PcuGroupsServiceImpl) Create(ctx context.Context, spec PcuGroupSpecMode
 }
 
 func (s *PcuGroupsServiceImpl) FindOne(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics) {
-	groups, diags := s.FindMany(ctx, []types.String{id})
+	resp, err := s.client.PcuGetWithResponse(ctx, astra.PCUGroupGetRequest{
+		PcuGroupUUIDs: &[]string{id.ValueString()},
+	})
 
-	if diags.HasError() {
+	if err == nil && resp.StatusCode() == 404 {
+		return nil, nil
+	}
+
+	if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving PCU group"); diags.HasError() {
 		return nil, diags
 	}
 
-	if len(*groups) == 0 {
-		return nil, diags
-	}
-
-	return &(*groups)[0], diags
+	deserialized := deserializePcuGroupFromAPI((*resp.JSON200)[0])
+	return &deserialized, nil
 }
 
 func (s *PcuGroupsServiceImpl) FindMany(ctx context.Context, ids []types.String) (*[]PcuGroupModel, diag.Diagnostics) {
-	nativeStrIds := make([]string, len(ids))
+	body := astra.PCUGroupGetRequest{}
 
-	for i, id := range ids {
-		nativeStrIds[i] = id.ValueString()
+	if len(ids) > 0 {
+		nativeStrIds := make([]string, len(ids))
+
+		for i, id := range ids {
+			nativeStrIds[i] = id.ValueString()
+		}
+
+		body.PcuGroupUUIDs = &nativeStrIds
 	}
 
-	resp, err := s.client.PcuGetWithResponse(ctx, astra.PCUGroupGetRequest{
-		PcuGroupUUIDs: &nativeStrIds,
-	})
+	resp, err := s.client.PcuGetWithResponse(ctx, body)
 
 	if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving PCU groups"); diags.HasError() {
 		return nil, diags
@@ -224,22 +231,29 @@ func (s *PcuGroupsServiceImpl) AwaitStatus(ctx context.Context, id types.String,
 	tflog.Debug(ctx, fmt.Sprintf("Waiting for PCU group %s to reach status %s (attempt 0)", id.ValueString(), target))
 
 	for {
-		attempts += 1
+		select {
+		case <-ctx.Done():
+			return nil, DiagErr("Timeout while waiting for PCU group to reach target status", ctx.Err().Error())
 
-		group, diags := s.FindOne(ctx, id)
+		case <-ticker.C:
+			attempts++
 
-		if diags.HasError() {
-			return nil, diags
+			group, diags := s.FindOne(ctx, id)
+			if diags.HasError() {
+				return nil, diags
+			}
+
+			if group == nil {
+				return nil, DiagErr("PCU group not found", fmt.Sprintf("PCU group with ID %s was not found while awaiting status %s", id.ValueString(), target))
+			}
+
+			if group.Status.ValueString() == string(target) {
+				tflog.Debug(ctx, fmt.Sprintf("PCU group %s reached status %s", id.ValueString(), target))
+				return group, nil
+			}
+
+			tflog.Debug(ctx, fmt.Sprintf("Waiting for PCU group %s to reach status %s (attempt %d, currently %s)", id.ValueString(), target, attempts, group.Status.ValueString()))
 		}
-
-		if group.Status.ValueString() == string(target) {
-			tflog.Debug(ctx, fmt.Sprintf("PCU group %s reached status %s", id.ValueString(), target))
-			return group, nil
-		}
-
-		tflog.Debug(ctx, fmt.Sprintf("Waiting for PCU group %s to reach status %s (attempt %d, currently %s)", id.ValueString(), target, attempts, group.Status.ValueString()))
-
-		<-ticker.C
 	}
 }
 
@@ -269,7 +283,6 @@ func (s *PcuGroupAssociationsServiceImpl) FindOne(ctx context.Context, groupId t
 	return nil, diags
 }
 
-// FindMany TODO what's returned if the PCU group isn't found?
 func (s *PcuGroupAssociationsServiceImpl) FindMany(ctx context.Context, groupId types.String) (*[]PcuGroupAssociationModel, diag.Diagnostics) {
 	resp, err := s.client.PcuAssociationGetWithResponse(ctx, groupId.ValueString())
 
@@ -286,24 +299,30 @@ func (s *PcuGroupAssociationsServiceImpl) FindMany(ctx context.Context, groupId 
 	return &associations, nil
 }
 
-// TODO: should deletion_protection also stop transferring the association?
 // TODO: what's returned if the association didn't exist in the first place? (transferring is like deleting and recreating)
 // TODO: what's the difference between transfer and delete+recreate?
 
 func (s *PcuGroupAssociationsServiceImpl) Transfer(ctx context.Context, fromGroupId, toGroupId types.String, datacenterId types.String) diag.Diagnostics {
+	tflog.Debug(ctx, fmt.Sprintf("Transferring PCU group association from %s to %s for datacenter %s", fromGroupId.ValueString(), toGroupId.ValueString(), datacenterId.ValueString()))
+
 	res, err := s.client.PcuAssociationTransfer(ctx, astra.PcuAssociationTransferJSONRequestBody{
 		FromPCUGroupUUID: fromGroupId.ValueStringPointer(),
 		ToPCUGroupUUID:   toGroupId.ValueStringPointer(),
 		DatacenterUUID:   datacenterId.ValueStringPointer(),
 	})
 
-	return HTTPResponseDiagErr(res, err, "error transferring PCU group association")
+	if diags := HTTPResponseDiagErr(res, err, "error transferring PCU group association"); diags.HasError() {
+		return diags
+	}
+
+	tflog.Debug(ctx, fmt.Sprintf("Transferred PCU group association from %s to %s for datacenter %s", fromGroupId.ValueString(), toGroupId.ValueString(), datacenterId.ValueString()))
+
+	return nil
 }
 
 func (s *PcuGroupAssociationsServiceImpl) Delete(ctx context.Context, groupId types.String, datacenterId types.String) diag.Diagnostics {
 	res, err := s.client.PcuAssociationDelete(ctx, groupId.ValueString(), datacenterId.ValueString())
 
-	// TODO does it really return 404 lol
 	if res != nil && res.StatusCode == 404 {
 		return nil // whatever
 	}
@@ -338,8 +357,8 @@ func deserializePcuGroupAssociationFromAPI(rawAssociation astra.PCUAssociation) 
 	return PcuGroupAssociationModel{
 		DatacenterId:       types.StringPointerValue(rawAssociation.DatacenterUUID),
 		ProvisioningStatus: StringEnumPtrToStrPtr(rawAssociation.ProvisioningStatus),
-		CreatedAt:          types.StringPointerValue(rawAssociation.CreatedAt),
-		UpdatedAt:          types.StringPointerValue(rawAssociation.UpdatedAt),
-		CreatedBy:          types.StringPointerValue(rawAssociation.CreatedBy),
+		//CreatedAt:          types.StringPointerValue(rawAssociation.CreatedAt), TODO what is going on here
+		//UpdatedAt:          types.StringPointerValue(rawAssociation.UpdatedAt),
+		//CreatedBy:          types.StringPointerValue(rawAssociation.CreatedBy),
 	}
 }

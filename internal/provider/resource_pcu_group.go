@@ -2,8 +2,10 @@ package provider
 
 import (
 	"context"
+	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -34,19 +36,20 @@ type pcuGroupResource struct {
 }
 
 type pcuGroupResourceModel struct {
-	DeletionProtection types.Bool `tfsdk:"deletion_protection"`
-	RCUProtection      types.Bool `tfsdk:"rcu_protection"` // TODO use this name? or 'reserved_protection' or something?
-	Parked             types.Bool `tfsdk:"park"`
+	DeletionProtection types.Bool     `tfsdk:"deletion_protection"`
+	ReservedProtection types.Bool     `tfsdk:"reserved_protection"`
+	Parked             types.Bool     `tfsdk:"park"`
+	Timeouts           timeouts.Value `tfsdk:"timeouts"`
 	PcuGroupModel
 }
 
 func (r *pcuGroupResource) Metadata(_ context.Context, req resource.MetadataRequest, res *resource.MetadataResponse) {
-	res.TypeName = req.ProviderTypeName + "_pcu_group" // TODO we probably need to set MutableIdentity: true
+	res.TypeName = req.ProviderTypeName + "_pcu_group"
 }
 
 // server should have title, min, max be required
 
-func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, res *resource.SchemaResponse) {
+func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest, res *resource.SchemaResponse) {
 	res.Schema = schema.Schema{
 		Attributes: MergeMaps(
 			map[string]schema.Attribute{
@@ -83,7 +86,7 @@ func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				PcuAttrCacheType: schema.StringAttribute{
 					Optional: true,
 					Computed: true,
-					Default:  stringdefault.StaticString(string(astra.PcuInstanceTypeStandard)), // TODO do we validate the enum? Or let any string go?
+					Default:  stringdefault.StaticString(string(astra.PcuInstanceTypeStandard)), // TODO what's the default when the types change? Should we even have a default for this?
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 						stringplanmodifier.RequiresReplace(),
@@ -144,14 +147,20 @@ func (r *pcuGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					Computed: true,
 					Default:  booldefault.StaticBool(false),
 					PlanModifiers: []planmodifier.Bool{
-						boolplanmodifier.UseStateForUnknown(), // TODO is this necessary here?
+						boolplanmodifier.UseStateForUnknown(),
 					},
 				},
 			},
 			MkPcuResourceCreatedUpdatedAttributes(mkPcuUpdateFieldsKnownIfNoChangesOccurPlanModifier()),
 			MkPcuResourceProtectionAttribute("deletion"),
-			MkPcuResourceProtectionAttribute("rcu"),
+			MkPcuResourceProtectionAttribute("reserved"),
 		),
+		Blocks: map[string]schema.Block{
+			"timeouts": timeouts.Block(ctx, timeouts.Opts{
+				Create: true,
+				Update: true,
+			}),
+		},
 	}
 }
 
@@ -162,6 +171,14 @@ func (r *pcuGroupResource) Create(ctx context.Context, req resource.CreateReques
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() { // remind me to forcefully add algebraic effects to go
 		return
 	}
+
+	createTimeout, diags := plan.Timeouts.Create(ctx, 20*time.Minute)
+	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
 
 	created, diags := r.groups.Create(ctx, plan.PcuGroupSpecModel)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
@@ -175,10 +192,10 @@ func (r *pcuGroupResource) Create(ctx context.Context, req resource.CreateReques
 		}
 	}
 
-	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupResourceModel(
+	res.Diagnostics.Append(res.State.Set(ctx, plan.updated(
 		*created,
 		plan.DeletionProtection,
-		plan.RCUProtection,
+		plan.ReservedProtection,
 	))...)
 }
 
@@ -200,10 +217,10 @@ func (r *pcuGroupResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupResourceModel(
+	res.Diagnostics.Append(res.State.Set(ctx, state.updated(
 		*group,
 		state.DeletionProtection,
-		state.RCUProtection,
+		state.ReservedProtection,
 	))...)
 }
 
@@ -217,13 +234,21 @@ func (r *pcuGroupResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	if state.Reserved.ValueInt32() != plan.Reserved.ValueInt32() && plan.RCUProtection.ValueBool() {
+	if state.Reserved.ValueInt32() != plan.Reserved.ValueInt32() && plan.ReservedProtection.ValueBool() {
 		res.Diagnostics.AddError("Error Updating PCU Group", "Cannot change reserved capacity when RCU protection is enabled.")
 		return
 	}
 
 	updated := &state.PcuGroupModel
 	diags := diag.Diagnostics{}
+
+	updateTimeout, diags := plan.Timeouts.Update(ctx, 20*time.Minute)
+	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
+	defer cancel()
 
 	if shouldUpdatePcuGroup(state, plan) {
 		updated, diags = r.groups.Update(ctx, plan.Id, plan.PcuGroupSpecModel)
@@ -245,10 +270,10 @@ func (r *pcuGroupResource) Update(ctx context.Context, req resource.UpdateReques
 		}
 	}
 
-	res.Diagnostics.Append(res.State.Set(ctx, mkPcuGroupResourceModel(
+	res.Diagnostics.Append(res.State.Set(ctx, plan.updated(
 		*updated,
 		plan.DeletionProtection,
-		plan.RCUProtection,
+		plan.ReservedProtection,
 	))...)
 }
 
@@ -323,11 +348,12 @@ func shouldUpdatePcuGroup(curr, plan pcuGroupResourceModel) bool {
 		!curr.Description.Equal(plan.Description)
 }
 
-func mkPcuGroupResourceModel(group PcuGroupModel, deletionProt, rcuProt types.Bool) pcuGroupResourceModel {
+func (m pcuGroupResourceModel) updated(group PcuGroupModel, deletionProt, rcuProt types.Bool) pcuGroupResourceModel {
 	return pcuGroupResourceModel{
 		PcuGroupModel:      group,
 		Parked:             types.BoolValue(group.Status.ValueString() == string(astra.PCUGroupStatusPARKED)),
 		DeletionProtection: ElvisTF(&deletionProt, types.BoolValue(true)),
-		RCUProtection:      ElvisTF(&rcuProt, types.BoolValue(true)),
+		ReservedProtection: ElvisTF(&rcuProt, types.BoolValue(true)),
+		Timeouts:           m.Timeouts,
 	}
 }

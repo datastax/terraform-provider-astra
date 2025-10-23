@@ -37,10 +37,10 @@ type PcuGroupModel struct {
 type PcuGroupAssociationModel struct {
 	DatacenterId       types.String `tfsdk:"datacenter_id"`
 	ProvisioningStatus types.String `tfsdk:"provisioning_status"`
-	CreatedAt          types.String `tfsdk:"created_at"`
-	UpdatedAt          types.String `tfsdk:"updated_at"`
-	CreatedBy          types.String `tfsdk:"created_by"`
-	UpdatedBy          types.String `tfsdk:"updated_by"`
+	//CreatedAt          types.String `tfsdk:"created_at"` TODO what is going on here
+	//UpdatedAt          types.String `tfsdk:"updated_at"`
+	//CreatedBy          types.String `tfsdk:"created_by"`
+	//UpdatedBy          types.String `tfsdk:"updated_by"`
 }
 
 var (
@@ -165,7 +165,7 @@ func MkPcuResourceProtectionAttribute(thing string) map[string]resourceSchema.At
 			Computed: true,
 			Default:  booldefault.StaticBool(true),
 			PlanModifiers: []planmodifier.Bool{
-				boolplanmodifier.UseStateForUnknown(), // TODO is this necessary here?
+				boolplanmodifier.UseStateForUnknown(),
 			},
 		},
 	}
