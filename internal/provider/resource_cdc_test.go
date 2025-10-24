@@ -24,13 +24,13 @@ func testAstraCDCConfig() string {
 	return `
 
 resource "astra_cdc" "cdc-1" {
-  database_id        = "de76e588-761f-4e74-afed-1d2092aaaa84"
+  database_id        = "cfdf8243-4ea5-453f-8800-ed6f7eb125a4"
   database_name      = "terraform-cdc-test"
   keyspace           = "ks1"
-  table              = "tbl1"
+  table              = "tbl2"
   topic_partitions   = 3
-  pulsar_cluster     = "pulsar-gcp-useast1-staging"
-  tenant_name        = "terraform-tests1"
+  pulsar_cluster     = "pulsar-azure-westus2-staging"
+  tenant_name        = "pgier-terraformtest"
 }`
 }
 
