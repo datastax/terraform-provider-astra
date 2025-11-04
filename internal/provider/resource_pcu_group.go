@@ -147,7 +147,7 @@ func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 					Computed: true,
 					Default:  booldefault.StaticBool(false),
 					PlanModifiers: []planmodifier.Bool{
-						boolplanmodifier.UseStateForUnknown(),
+						boolplanmodifier.UseStateForUnknown(), // TODO should it also wait for the dbs to become hibernated/active? or will the PCU group itself wait?
 					},
 				},
 			},

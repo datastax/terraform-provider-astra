@@ -274,6 +274,10 @@ func (s *PcuGroupAssociationsServiceImpl) FindOne(ctx context.Context, groupId t
 		return nil, diags
 	}
 
+	if associations == nil {
+		return nil, nil
+	}
+
 	for _, assoc := range *associations {
 		if assoc.DatacenterId.Equal(datacenterId) {
 			return &assoc, nil
@@ -286,12 +290,17 @@ func (s *PcuGroupAssociationsServiceImpl) FindOne(ctx context.Context, groupId t
 func (s *PcuGroupAssociationsServiceImpl) FindMany(ctx context.Context, groupId types.String) (*[]PcuGroupAssociationModel, diag.Diagnostics) {
 	resp, err := s.client.PcuAssociationGetWithResponse(ctx, groupId.ValueString())
 
+	if resp != nil && resp.StatusCode() == 404 {
+		return nil, nil
+	}
+
 	if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving PCU groups"); diags.HasError() {
 		return nil, diags
 	}
 
 	associations := make([]PcuGroupAssociationModel, 0) // don't want to return a nil b/c terraform should serialize it as [] and not null
 
+	//goland:noinspection GoMaybeNil
 	for _, rawAssociation := range *resp.JSON200 {
 		associations = append(associations, deserializePcuGroupAssociationFromAPI(rawAssociation))
 	}

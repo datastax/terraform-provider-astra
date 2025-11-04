@@ -78,6 +78,11 @@ func (d *pcuGroupAssociationsDataSource) Read(ctx context.Context, req datasourc
 		return
 	}
 
+	if associations == nil {
+		res.Diagnostics.AddError("PCU Group Associations Not Found", "No associations found for the given PCU Group ID.")
+		return
+	}
+
 	data.Associations = *associations
 
 	res.Diagnostics.Append(res.State.Set(ctx, &data)...)

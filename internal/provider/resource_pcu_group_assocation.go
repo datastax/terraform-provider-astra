@@ -83,6 +83,8 @@ func (r *pcuGroupAssociationResource) Schema(ctx context.Context, _ resource.Sch
 // TODO basically we need to either notify the user if the association already exists without Terraform's knowledge,
 // TODO or we need to execute a secret transfer request to move it to the new PCU group (which may be kinda shady)
 
+// TODO error creating or transferring association to non CREATED or ACTIVE or INITIALIZING pcu group
+
 func (r *pcuGroupAssociationResource) Create(ctx context.Context, req resource.CreateRequest, res *resource.CreateResponse) {
 	var plan pcuGroupAssociationResourceModel
 
@@ -174,6 +176,11 @@ func (r *pcuGroupAssociationResource) Update(ctx context.Context, req resource.U
 	association, diags := r.associations.FindOne(ctx, plan.PCUGroupId, plan.DatacenterId)
 
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
+		return
+	}
+
+	if association == nil {
+		res.Diagnostics.AddError("Could not find PCU Group Association after update", "The PCU Group Association could not be found after transfer under the PCU Group ID "+plan.PCUGroupId.ValueString())
 		return
 	}
 
