@@ -92,7 +92,7 @@ func MkPcuGroupDataSourceAttributes() map[string]datasourceSchema.Attribute {
 		},
 		PcuAttrCloudProvider: datasourceSchema.StringAttribute{
 			Computed:    true,
-			Description: "The cloud provider where the PCU group is provisioned (e.g., AWS, GCP, Azure).",
+			Description: "The cloud provider where the PCU group is provisioned (e.g., AWS, GCP, AZURE).",
 		},
 		PcuAttrRegion: datasourceSchema.StringAttribute{
 			Computed:    true,

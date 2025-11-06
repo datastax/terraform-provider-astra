@@ -14,6 +14,7 @@ Creates and manages a PCU (Provisioned Capacity Units) group. PCU groups provide
 
 ```terraform
 # Create a basic PCU group
+# NOTE: This creates a committed reserved-capacity group! Make sure this is what you want!
 resource "astra_pcu_group" "example" {
   title             = "production-pcu-group"
   cloud_provider    = "AWS"
@@ -22,6 +23,9 @@ resource "astra_pcu_group" "example" {
   max_capacity      = 10
   reserved_capacity = 2
   description       = "PCU group for production databases"
+  # You can uncomment the line below to park the group
+  # The group must be created first as a resource before parking can be performed successfully
+  # parked = true
 }
 
 # Create a PCU group with custom settings
@@ -42,21 +46,6 @@ resource "astra_pcu_group" "custom" {
   reserved_protection = true
 }
 
-# Create a parked PCU group
-resource "astra_pcu_group" "parked" {
-  title          = "staging-pcu-group"
-  cloud_provider = "Azure"
-  region         = "eastus"
-  min_capacity   = 1
-  max_capacity   = 3
-  park           = true
-
-  timeouts {
-    create = "30m"
-    update = "30m"
-  }
-}
-
 output "pcu_group_id" {
   value = astra_pcu_group.example.id
 }
@@ -71,7 +60,7 @@ output "pcu_group_status" {
 
 ### Required
 
-- `cloud_provider` (String) The cloud provider where the PCU group will be provisioned (e.g., AWS, GCP, Azure). This cannot be changed after creation.
+- `cloud_provider` (String) The cloud provider where the PCU group will be provisioned (e.g., AWS, GCP, AZURE). This cannot be changed after creation.
 - `max_capacity` (Number) The maximum capacity units the PCU group may scale to. Must be at least 1 and greater than or equal to min_capacity.
 - `min_capacity` (Number) The minimum capacity units the PCU must be scaled to. Must be at least 1 and greater than or equal to reserved_capacity.
 - `region` (String) The cloud region where the PCU group will be provisioned. This cannot be changed after creation.

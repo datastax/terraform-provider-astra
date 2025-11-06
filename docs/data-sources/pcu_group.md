@@ -39,7 +39,7 @@ output "pcu_group_info" {
 ### Read-Only
 
 - `cache_type` (String) The instance type/cache type for the PCU group.
-- `cloud_provider` (String) The cloud provider where the PCU group is provisioned (e.g., AWS, GCP, Azure).
+- `cloud_provider` (String) The cloud provider where the PCU group is provisioned (e.g., AWS, GCP, AZURE).
 - `created_at` (String) Timestamp when the PCU group was created.
 - `created_by` (String) The user who created the PCU group.
 - `description` (String) The user-defined description of the PCU group.

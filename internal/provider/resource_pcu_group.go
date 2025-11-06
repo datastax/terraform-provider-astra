@@ -77,7 +77,7 @@ func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 				},
 				PcuAttrCloudProvider: schema.StringAttribute{
 					Required:    true,
-					Description: "The cloud provider where the PCU group will be provisioned (e.g., AWS, GCP, Azure). This cannot be changed after creation.",
+					Description: "The cloud provider where the PCU group will be provisioned (e.g., AWS, GCP, AZURE). This cannot be changed after creation.",
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 					},
