@@ -72,8 +72,8 @@ output "pcu_group_status" {
 ### Required
 
 - `cloud_provider` (String) The cloud provider where the PCU group will be provisioned (e.g., AWS, GCP, Azure). This cannot be changed after creation.
-- `max_capacity` (Number) The maximum capacity in PCUs for the group. Must be at least 1 and greater than or equal to min_capacity.
-- `min_capacity` (Number) The minimum capacity in PCUs for the group. Must be at least 1 and greater than or equal to reserved_capacity.
+- `max_capacity` (Number) The maximum capacity units the PCU group may scale to. Must be at least 1 and greater than or equal to min_capacity.
+- `min_capacity` (Number) The minimum capacity units the PCU must be scaled to. Must be at least 1 and greater than or equal to reserved_capacity.
 - `region` (String) The cloud region where the PCU group will be provisioned. This cannot be changed after creation.
 - `title` (String) The user-defined title/name of the PCU group.
 
@@ -84,8 +84,8 @@ output "pcu_group_status" {
 - `description` (String) A user-defined description for the PCU group.
 - `park` (Boolean) When set to true, parks the PCU group and any associated databases, reducing costs. When set to false, unparks the group. Defaults to false.
 - `provision_type` (String) The provisioning type for the PCU group (e.g., SHARED, DEDICATED). Defaults to 'SHARED'. Changing this value requires replacement.
-- `reserved_capacity` (Number) The reserved capacity in PCUs for the group. Must be at least 0. Changing this value when reserved_protection is enabled will result in an error.
-- `reserved_protection` (Boolean) When enabled, prevents accidental reserved of the PCU group. Defaults to true.
+- `reserved_capacity` (Number) The reserved (committed) capacity units for the PCU group. Must be at least 0. Changing this value when reserved_protection is enabled will result in an error.
+- `reserved_protection` (Boolean) When enabled, prevents accidental reserved capacity unit increases. Defaults to true.
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only

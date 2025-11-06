@@ -111,7 +111,7 @@ func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 				},
 				PcuAttrMinCapacity: schema.Int32Attribute{
 					Required:    true,
-					Description: "The minimum capacity in PCUs for the group. Must be at least 1 and greater than or equal to reserved_capacity.",
+					Description: "The minimum capacity units the PCU must be scaled to. Must be at least 1 and greater than or equal to reserved_capacity.",
 					Validators: []validator.Int32{
 						int32validator.AtLeast(1),
 						Int32IsGTE(path.Root("reserved_capacity")),
@@ -122,7 +122,7 @@ func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 				},
 				PcuAttrMaxCapacity: schema.Int32Attribute{
 					Required:    true,
-					Description: "The maximum capacity in PCUs for the group. Must be at least 1 and greater than or equal to min_capacity.",
+					Description: "The maximum capacity units the PCU group may scale to. Must be at least 1 and greater than or equal to min_capacity.",
 					Validators: []validator.Int32{
 						int32validator.AtLeast(1),
 						Int32IsGTE(path.Root("min_capacity")),
@@ -133,7 +133,7 @@ func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 				},
 				PcuAttrReservedCapacity: schema.Int32Attribute{
 					Optional:    true,
-					Description: "The reserved capacity in PCUs for the group. Must be at least 0. Changing this value when reserved_protection is enabled will result in an error.",
+					Description: "The reserved (committed) capacity units for the PCU group. Must be at least 0. Changing this value when reserved_protection is enabled will result in an error.",
 					Validators: []validator.Int32{
 						int32validator.AtLeast(0),
 					},
@@ -166,8 +166,8 @@ func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 				},
 			},
 			MkPcuResourceCreatedUpdatedAttributes(mkPcuUpdateFieldsKnownIfNoChangesOccurPlanModifier()),
-			MkPcuResourceProtectionAttribute("deletion"),
-			MkPcuResourceProtectionAttribute("reserved"),
+			MkPcuResourceProtectionAttribute("deletion", "When enabled, prevents accidental deletion of the PCU group."),
+			MkPcuResourceProtectionAttribute("reserved", "When enabled, prevents accidental reserved capacity unit increases."),
 		),
 		Blocks: map[string]schema.Block{
 			"timeouts": timeouts.Block(ctx, timeouts.Opts{

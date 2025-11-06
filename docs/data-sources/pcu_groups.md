@@ -63,13 +63,13 @@ Read-Only:
 - `created_by` (String) The user who created the PCU group.
 - `description` (String) The user-defined description of the PCU group.
 - `id` (String) The unique identifier of the PCU group.
-- `max_capacity` (Number) The maximum capacity in PCUs for the group.
-- `min_capacity` (Number) The minimum capacity in PCUs for the group.
+- `max_capacity` (Number) The maximum capacity units the PCU group may scale to.
+- `min_capacity` (Number) The minimum capacity units the PCU must be scaled to.
 - `org_id` (String) The organization ID that owns this PCU group.
-- `provision_type` (String) The provisioning type for the PCU group (e.g., PROVISIONED, ON_DEMAND).
+- `provision_type` (String) The provisioning type for the PCU group (i.e., SHARED, DEDICATED).
 - `region` (String) The cloud region where the PCU group is provisioned.
-- `reserved_capacity` (Number) The reserved capacity in PCUs for the group.
-- `status` (String) The current status of the PCU group (e.g., ACTIVE, CREATING, TERMINATING).
+- `reserved_capacity` (Number) The reserved (committed) capacity units for the PCU group.
+- `status` (String) The current status of the PCU group (e.g., ACTIVE, CREATED, INITIALIZING).
 - `title` (String) The user-defined title/name of the PCU group.
 - `updated_at` (String) Timestamp when the PCU group was last updated.
 - `updated_by` (String) The user who last updated the PCU group.

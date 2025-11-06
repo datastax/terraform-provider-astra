@@ -104,19 +104,19 @@ func MkPcuGroupDataSourceAttributes() map[string]datasourceSchema.Attribute {
 		},
 		PcuAttrProvisionType: datasourceSchema.StringAttribute{
 			Computed:    true,
-			Description: "The provisioning type for the PCU group (e.g., PROVISIONED, ON_DEMAND).",
+			Description: "The provisioning type for the PCU group (i.e., SHARED, DEDICATED).",
 		},
 		PcuAttrMinCapacity: datasourceSchema.Int32Attribute{
 			Computed:    true,
-			Description: "The minimum capacity in PCUs for the group.",
+			Description: "The minimum capacity units the PCU must be scaled to.",
 		},
 		PcuAttrMaxCapacity: datasourceSchema.Int32Attribute{
 			Computed:    true,
-			Description: "The maximum capacity in PCUs for the group.",
+			Description: "The maximum capacity units the PCU group may scale to.",
 		},
 		PcuAttrReservedCapacity: datasourceSchema.Int32Attribute{
 			Computed:    true,
-			Description: "The reserved capacity in PCUs for the group.",
+			Description: "The reserved (committed) capacity units for the PCU group.",
 		},
 		PcuAttrDescription: datasourceSchema.StringAttribute{
 			Computed:    true,
@@ -140,7 +140,7 @@ func MkPcuGroupDataSourceAttributes() map[string]datasourceSchema.Attribute {
 		},
 		PcuAttrStatus: datasourceSchema.StringAttribute{
 			Computed:    true,
-			Description: "The current status of the PCU group (e.g., ACTIVE, CREATING, TERMINATING).",
+			Description: "The current status of the PCU group (e.g., ACTIVE, CREATED, INITIALIZING).",
 		},
 	}
 }
@@ -178,13 +178,13 @@ func MkPcuResourceCreatedUpdatedAttributes(updatePlanModifier planmodifier.Strin
 	}
 }
 
-func MkPcuResourceProtectionAttribute(thing string) map[string]resourceSchema.Attribute {
+func MkPcuResourceProtectionAttribute(thing string, description string) map[string]resourceSchema.Attribute {
 	return map[string]resourceSchema.Attribute{
 		thing + "_protection": resourceSchema.BoolAttribute{
 			Optional:    true,
 			Computed:    true,
 			Default:     booldefault.StaticBool(true),
-			Description: "When enabled, prevents accidental " + thing + " of the PCU group. Defaults to true.",
+			Description: description + " Defaults to true.",
 			PlanModifiers: []planmodifier.Bool{
 				boolplanmodifier.UseStateForUnknown(),
 			},
