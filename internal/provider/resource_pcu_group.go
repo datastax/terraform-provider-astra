@@ -172,6 +172,11 @@ func (r *pcuGroupResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
+	if plan.Parked.ValueBool() {
+		res.Diagnostics.AddError("Error Creating PCU Group", "PCU Groups cannot be created in a parked state, as they can only be parked after an association has been made. If you want to create a PCU Group and park it, please create it unparked first, then update the resource to be parked afterwards.")
+		return
+	}
+
 	createTimeout, diags := plan.Timeouts.Create(ctx, 20*time.Minute)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
@@ -183,13 +188,6 @@ func (r *pcuGroupResource) Create(ctx context.Context, req resource.CreateReques
 	created, diags := r.groups.Create(ctx, plan.PcuGroupSpecModel)
 	if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
 		return
-	}
-
-	if plan.Parked.ValueBool() {
-		created, diags = r.groups.Park(ctx, plan.Id)
-		if res.Diagnostics.Append(diags...); res.Diagnostics.HasError() {
-			return
-		}
 	}
 
 	res.Diagnostics.Append(res.State.Set(ctx, plan.updated(
