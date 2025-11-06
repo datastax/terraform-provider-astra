@@ -23,7 +23,7 @@ type pcuGroupsDataSource struct {
 
 type pcuGroupsDataSourceModel struct {
 	PCUGroupIds []types.String  `tfsdk:"pcu_group_ids"`
-	PCUGroups   []PcuGroupModel `tfsdk:"pcu_groups"`
+	PCUGroups   []PcuGroupModel `tfsdk:"results"`
 }
 
 func (d *pcuGroupsDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, res *datasource.MetadataResponse) {
