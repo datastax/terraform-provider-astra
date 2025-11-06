@@ -79,52 +79,68 @@ var (
 func MkPcuGroupDataSourceAttributes() map[string]datasourceSchema.Attribute {
 	return map[string]datasourceSchema.Attribute{
 		PcuAttrId: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The unique identifier of the PCU group.",
 		},
 		PcuAttrOrgId: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The organization ID that owns this PCU group.",
 		},
 		PcuAttrTitle: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The user-defined title/name of the PCU group.",
 		},
 		PcuAttrCloudProvider: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The cloud provider where the PCU group is provisioned (e.g., AWS, GCP, Azure).",
 		},
 		PcuAttrRegion: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The cloud region where the PCU group is provisioned.",
 		},
 		PcuAttrCacheType: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The instance type/cache type for the PCU group.",
 		},
 		PcuAttrProvisionType: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The provisioning type for the PCU group (e.g., PROVISIONED, ON_DEMAND).",
 		},
-		PcuAttrMinCapacity: datasourceSchema.Int64Attribute{
-			Computed: true,
+		PcuAttrMinCapacity: datasourceSchema.Int32Attribute{
+			Computed:    true,
+			Description: "The minimum capacity in PCUs for the group.",
 		},
-		PcuAttrMaxCapacity: datasourceSchema.Int64Attribute{
-			Computed: true,
+		PcuAttrMaxCapacity: datasourceSchema.Int32Attribute{
+			Computed:    true,
+			Description: "The maximum capacity in PCUs for the group.",
 		},
-		PcuAttrReservedCapacity: datasourceSchema.Int64Attribute{
-			Computed: true,
+		PcuAttrReservedCapacity: datasourceSchema.Int32Attribute{
+			Computed:    true,
+			Description: "The reserved capacity in PCUs for the group.",
 		},
 		PcuAttrDescription: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The user-defined description of the PCU group.",
 		},
 		PcuAttrCreatedAt: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "Timestamp when the PCU group was created.",
 		},
 		PcuAttrUpdatedAt: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "Timestamp when the PCU group was last updated.",
 		},
 		PcuAttrCreatedBy: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The user who created the PCU group.",
 		},
 		PcuAttrUpdatedBy: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The user who last updated the PCU group.",
 		},
 		PcuAttrStatus: datasourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The current status of the PCU group (e.g., ACTIVE, CREATING, TERMINATING).",
 		},
 	}
 }
@@ -132,25 +148,29 @@ func MkPcuGroupDataSourceAttributes() map[string]datasourceSchema.Attribute {
 func MkPcuResourceCreatedUpdatedAttributes(updatePlanModifier planmodifier.String) map[string]resourceSchema.Attribute {
 	return map[string]resourceSchema.Attribute{
 		"created_at": resourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "Timestamp when the PCU group was created.",
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.UseStateForUnknown(),
 			},
 		},
 		"updated_at": resourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "Timestamp when the PCU group was last updated.",
 			PlanModifiers: []planmodifier.String{
 				updatePlanModifier,
 			},
 		},
 		"created_by": resourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The user who created the PCU group.",
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.UseStateForUnknown(),
 			},
 		},
 		"updated_by": resourceSchema.StringAttribute{
-			Computed: true,
+			Computed:    true,
+			Description: "The user who last updated the PCU group.",
 			PlanModifiers: []planmodifier.String{
 				updatePlanModifier,
 			},
@@ -161,9 +181,10 @@ func MkPcuResourceCreatedUpdatedAttributes(updatePlanModifier planmodifier.Strin
 func MkPcuResourceProtectionAttribute(thing string) map[string]resourceSchema.Attribute {
 	return map[string]resourceSchema.Attribute{
 		thing + "_protection": resourceSchema.BoolAttribute{
-			Optional: true,
-			Computed: true,
-			Default:  booldefault.StaticBool(true),
+			Optional:    true,
+			Computed:    true,
+			Default:     booldefault.StaticBool(true),
+			Description: "When enabled, prevents accidental " + thing + " of the PCU group. Defaults to true.",
 			PlanModifiers: []planmodifier.Bool{
 				boolplanmodifier.UseStateForUnknown(),
 			},

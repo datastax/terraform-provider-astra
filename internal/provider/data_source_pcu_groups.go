@@ -32,13 +32,16 @@ func (d *pcuGroupsDataSource) Metadata(_ context.Context, req datasource.Metadat
 
 func (d *pcuGroupsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, res *datasource.SchemaResponse) {
 	res.Schema = schema.Schema{
+		Description: "Retrieves a list of PCU (Provisioned Capacity Units) groups. If no IDs are specified, returns all PCU groups in the organization.",
 		Attributes: map[string]schema.Attribute{
 			PcuAttrGroupIds: schema.ListAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
+				Description: "Optional list of PCU group IDs to retrieve. If not provided, all PCU groups in the organization will be returned.",
 			},
 			"results": schema.ListNestedAttribute{ // using "results" here to be consistent with other data sources
-				Computed: true,
+				Computed:    true,
+				Description: "The list of PCU groups matching the specified criteria or all PCU groups if no IDs were provided.",
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: MkPcuGroupDataSourceAttributes(),
 				},

@@ -51,58 +51,67 @@ func (r *pcuGroupResource) Metadata(_ context.Context, req resource.MetadataRequ
 
 func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest, res *resource.SchemaResponse) {
 	res.Schema = schema.Schema{
+		Description: "Creates and manages a PCU (Provisioned Capacity Units) group. PCU groups provide dedicated compute capacity for databases in a specific cloud provider and region.",
 		Attributes: MergeMaps(
 			map[string]schema.Attribute{
 				PcuAttrId: schema.StringAttribute{
-					Computed: true,
+					Computed:    true,
+					Description: "The unique identifier of the PCU group.",
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 					},
 				},
 				PcuAttrOrgId: schema.StringAttribute{
-					Computed: true,
+					Computed:    true,
+					Description: "The organization ID that owns this PCU group.",
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 					},
 				},
 				PcuAttrTitle: schema.StringAttribute{
-					Required: true,
+					Required:    true,
+					Description: "The user-defined title/name of the PCU group.",
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 					},
 				},
 				PcuAttrCloudProvider: schema.StringAttribute{
-					Required: true,
+					Required:    true,
+					Description: "The cloud provider where the PCU group will be provisioned (e.g., AWS, GCP, Azure). This cannot be changed after creation.",
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 					},
 				},
 				PcuAttrRegion: schema.StringAttribute{
-					Required: true,
+					Required:    true,
+					Description: "The cloud region where the PCU group will be provisioned. This cannot be changed after creation.",
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 					},
 				},
 				PcuAttrCacheType: schema.StringAttribute{
-					Optional: true,
-					Computed: true,
-					Default:  stringdefault.StaticString(string(astra.PcuInstanceTypeStandard)), // TODO what's the default when the types change? Should we even have a default for this?
+					Optional:    true,
+					Computed:    true,
+					Default:     stringdefault.StaticString(string(astra.PcuInstanceTypeStandard)), // TODO what's the default when the types change? Should we even have a default for this?
+					Description: "The instance type/cache type for the PCU group. Defaults to 'STANDARD'. Changing this value requires replacement.",
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 						stringplanmodifier.RequiresReplace(),
 					},
 				},
 				PcuAttrProvisionType: schema.StringAttribute{
-					Optional: true,
-					Computed: true,
-					Default:  stringdefault.StaticString(string(astra.PcuProvisionTypeShared)), // TODO do we validate the enum? Or let any string go?
+					Optional:    true,
+					Computed:    true,
+					Default:     stringdefault.StaticString(string(astra.PcuProvisionTypeShared)), // TODO do we validate the enum? Or let any string go?
+					Description: "The provisioning type for the PCU group (e.g., SHARED, DEDICATED). Defaults to 'SHARED'. Changing this value requires replacement.",
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 						stringplanmodifier.RequiresReplace(),
 					},
 				},
 				PcuAttrMinCapacity: schema.Int32Attribute{
-					Required: true,
+					Required:    true,
+					Description: "The minimum capacity in PCUs for the group. Must be at least 1 and greater than or equal to reserved_capacity.",
 					Validators: []validator.Int32{
 						int32validator.AtLeast(1),
 						Int32IsGTE(path.Root("reserved_capacity")),
@@ -112,7 +121,8 @@ func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 					},
 				},
 				PcuAttrMaxCapacity: schema.Int32Attribute{
-					Required: true,
+					Required:    true,
+					Description: "The maximum capacity in PCUs for the group. Must be at least 1 and greater than or equal to min_capacity.",
 					Validators: []validator.Int32{
 						int32validator.AtLeast(1),
 						Int32IsGTE(path.Root("min_capacity")),
@@ -122,7 +132,8 @@ func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 					},
 				},
 				PcuAttrReservedCapacity: schema.Int32Attribute{
-					Optional: true,
+					Optional:    true,
+					Description: "The reserved capacity in PCUs for the group. Must be at least 0. Changing this value when reserved_protection is enabled will result in an error.",
 					Validators: []validator.Int32{
 						int32validator.AtLeast(0),
 					},
@@ -131,21 +142,24 @@ func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 					},
 				},
 				PcuAttrDescription: schema.StringAttribute{
-					Optional: true,
+					Optional:    true,
+					Description: "A user-defined description for the PCU group.",
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 					},
 				},
 				PcuAttrStatus: schema.StringAttribute{
-					Computed: true,
+					Computed:    true,
+					Description: "The current status of the PCU group (e.g., ACTIVE, PARKED, CREATING, TERMINATING).",
 					PlanModifiers: []planmodifier.String{
 						inferPcuGroupStatusPlanModifier(),
 					},
 				},
 				"park": schema.BoolAttribute{ // This should technically be a WriteOnly param but that requires TF 1.12+
-					Optional: true,
-					Computed: true,
-					Default:  booldefault.StaticBool(false),
+					Optional:    true,
+					Computed:    true,
+					Default:     booldefault.StaticBool(false),
+					Description: "When set to true, parks the PCU group and any associated databases, reducing costs. When set to false, unparks the group. Defaults to false.",
 					PlanModifiers: []planmodifier.Bool{
 						boolplanmodifier.UseStateForUnknown(), // TODO should it also wait for the dbs to become hibernated/active? or will the PCU group itself wait?
 					},
