@@ -33,10 +33,12 @@ func (d *pcuGroupDataSource) Metadata(_ context.Context, req datasource.Metadata
 
 func (d *pcuGroupDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, res *datasource.SchemaResponse) {
 	res.Schema = schema.Schema{
+		Description: "Retrieves details for a specific PCU (Provisioned Capacity Units) group by its ID.",
 		Attributes: MergeMaps(
 			map[string]schema.Attribute{
 				PcuAttrGroupId: schema.StringAttribute{
-					Required: true,
+					Required:    true,
+					Description: "The unique identifier of the PCU group to retrieve.",
 				},
 			},
 			MkPcuGroupDataSourceAttributes(),

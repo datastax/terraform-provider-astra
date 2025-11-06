@@ -45,6 +45,7 @@ func (r *pcuGroupAssociationResource) Metadata(_ context.Context, req resource.M
 
 func (r *pcuGroupAssociationResource) Schema(ctx context.Context, _ resource.SchemaRequest, res *resource.SchemaResponse) {
 	res.Schema = schema.Schema{
+		Description: "Creates a transferable association between an existing PCU group and datacenter.",
 		Attributes: MergeMaps(
 			map[string]schema.Attribute{
 				PcuAttrGroupId: schema.StringAttribute{
@@ -52,21 +53,24 @@ func (r *pcuGroupAssociationResource) Schema(ctx context.Context, _ resource.Sch
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
 					},
+					Description: "The PCU group to associate the datacenter with. This may be changed to transfer the association to another PCU group.",
 				},
 				PcuAssocAttrDatacenterId: schema.StringAttribute{
 					Required: true,
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.RequiresReplace(),
 					},
+					Description: "The datacenter to associate with the PCU group. Note that this is a datacenter ID, not a database ID. The `provider::astra::resolve_datacenter` function may be used to easily obtain the datacenter ID from a database ID.",
 				},
 				PcuAssocAttrProvisioningStatus: schema.StringAttribute{
 					Computed: true,
 					PlanModifiers: []planmodifier.String{
 						mkPcuStatusOnlyActivePlanModifier(),
 					},
+					Description: "The provisioning status of the PCU group association. This will likely always be 'CREATED'.",
 				},
 			},
-			//MkPcuResourceCreatedUpdatedAttributes(inferPcuGroupAssociationStatusPlanModifier()), TODO what is going on here
+			//MkPcuResourceCreatedUpdatedAttributes(inferPcuGroupAssociationStatusPlanModifier()), TODO add these later once they're added to the server
 		),
 		Blocks: map[string]schema.Block{
 			"timeouts": timeouts.Block(ctx, timeouts.Opts{

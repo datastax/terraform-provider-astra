@@ -25,9 +25,11 @@ func (f *resolveDatacenterFunction) Metadata(_ context.Context, _ function.Metad
 
 func (f *resolveDatacenterFunction) Definition(_ context.Context, _ function.DefinitionRequest, resp *function.DefinitionResponse) {
 	resp.Definition = function.Definition{
+		Description: "Resolves the datacenter ID for a given database and optional region (if the database has multiple regions). Helpful for components that require a datacenter ID such as PCU group associations and private links.",
 		Parameters: []function.Parameter{
 			function.ObjectParameter{
-				Name: "database",
+				Name:        "database",
+				Description: "The database object to resolve the datacenter from. This should be the result of an \"astra_database\" resource or data source.",
 				AttributeTypes: map[string]attr.Type{
 					"cloud_provider": types.StringType,
 					"datacenters": types.MapType{
@@ -37,7 +39,8 @@ func (f *resolveDatacenterFunction) Definition(_ context.Context, _ function.Def
 			},
 		},
 		VariadicParameter: function.StringParameter{
-			Name: "region",
+			Description: "The region to resolve the datacenter for. If not provided, the function will attempt to resolve the datacenter if there is only one configured.",
+			Name:        "region",
 		},
 		Return: function.StringReturn{},
 	}
