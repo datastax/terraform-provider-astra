@@ -32,32 +32,36 @@ func (d *pcuGroupAssociationsDataSource) Metadata(_ context.Context, req datasou
 
 func (d *pcuGroupAssociationsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, res *datasource.SchemaResponse) {
 	res.Schema = schema.Schema{
+		Description: "Gets all of the associations for a given PCU group.",
 		Attributes: map[string]schema.Attribute{
 			PcuAttrGroupId: schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "The PCU group to retrieve associations for.",
 			},
 			"results": schema.ListNestedAttribute{ // using "results" here to be consistent with other data sources
 				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						PcuAssocAttrDatacenterId: schema.StringAttribute{
-							Computed: true,
+							Computed:    true,
+							Description: "The datacenter that is associated with the PCU Group.",
 						},
 						PcuAssocAttrProvisioningStatus: schema.StringAttribute{
-							Computed: true,
+							Computed:    true,
+							Description: "The provisioning status of the PCU group association. This will likely always be 'CREATED'.",
 						},
-						PcuAssocAttrCreatedAt: schema.StringAttribute{
-							Computed: true,
-						},
-						PcuAssocAttrUpdatedAt: schema.StringAttribute{
-							Computed: true,
-						},
-						PcuAssocAttrCreatedBy: schema.StringAttribute{
-							Computed: true,
-						},
-						PcuAssocAttrUpdatedBy: schema.StringAttribute{
-							Computed: true,
-						},
+						//	PcuAssocAttrCreatedAt: schema.StringAttribute{ TODO add these back when they're added to the server
+						//		Computed: true,
+						//	},
+						//	PcuAssocAttrUpdatedAt: schema.StringAttribute{
+						//		Computed: true,
+						//	},
+						//	PcuAssocAttrCreatedBy: schema.StringAttribute{
+						//		Computed: true,
+						//	},
+						//	PcuAssocAttrUpdatedBy: schema.StringAttribute{
+						//		Computed: true,
+						//	},
 					},
 				},
 			},
