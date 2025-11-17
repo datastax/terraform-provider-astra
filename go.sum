@@ -109,6 +109,8 @@ github.com/datastax/astra-client-go/v2 v2.2.64-0.20251023140354-5014f3a8b379 h1:
 github.com/datastax/astra-client-go/v2 v2.2.64-0.20251023140354-5014f3a8b379/go.mod h1:piBMy3fnDcLN8+MDQfvjZr8ejcP2oh+CXkQYwNy8blA=
 github.com/datastax/astra-client-go/v2 v2.2.64-0.20251117201443-4b44086b8d6a h1:mKtSdifPBXOQB9FFHmYbQL85vokUQc1m2Xzu8dAwG2A=
 github.com/datastax/astra-client-go/v2 v2.2.64-0.20251117201443-4b44086b8d6a/go.mod h1:piBMy3fnDcLN8+MDQfvjZr8ejcP2oh+CXkQYwNy8blA=
+github.com/datastax/astra-client-go/v2 v2.3.0 h1:+W7xz3dQFklXB3O0kUcr0R3r/cx2lNFxP95LE4WfLm0=
+github.com/datastax/astra-client-go/v2 v2.3.0/go.mod h1:piBMy3fnDcLN8+MDQfvjZr8ejcP2oh+CXkQYwNy8blA=
 github.com/datastax/pulsar-admin-client-go v0.0.2 h1:CValQbSLI6q1PuCzkM4Tr3tAgwSi6RYDJ7PxvcBLyhw=
 github.com/datastax/pulsar-admin-client-go v0.0.2/go.mod h1:GOBpX6jwznrSlECwGeOZE6sNFJJ+FtYkwlv8PgFCZng=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
