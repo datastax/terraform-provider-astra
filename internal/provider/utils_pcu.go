@@ -76,7 +76,6 @@ type PcuGroupAssociationsServiceImpl struct {
 }
 
 func (s *PcuGroupsServiceImpl) Create(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics) {
-	it := astra.InstanceType(spec.InstanceType.ValueString())   // todo should be optional
 	pt := astra.ProvisionType(spec.ProvisionType.ValueString()) // todo should be optional
 
 	reservedCap := int(spec.Reserved.ValueInt32()) // todo should be optional
@@ -85,7 +84,7 @@ func (s *PcuGroupsServiceImpl) Create(ctx context.Context, spec PcuGroupSpecMode
 		Title:         spec.Title.ValueString(),
 		CloudProvider: astra.CloudProvider(strings.ToUpper(spec.CloudProvider.ValueString())),
 		Region:        spec.Region.ValueString(),
-		InstanceType:  it,
+		InstanceType:  spec.InstanceType.ValueString(),
 		ProvisionType: pt,
 		Min:           int(spec.Min.ValueInt32()),
 		Max:           int(spec.Max.ValueInt32()),
@@ -93,7 +92,7 @@ func (s *PcuGroupsServiceImpl) Create(ctx context.Context, spec PcuGroupSpecMode
 		Description:   spec.Description.ValueStringPointer(),
 	}
 
-	tflog.Debug(ctx, "Creating PCU group", map[string]interface{}{"body": body})
+	tflog.Debug(ctx, "Creating PCU group", map[string]any{"body": body})
 
 	res, err := s.client.PcuCreateWithResponse(ctx, astra.PcuCreateJSONRequestBody{body})
 
@@ -163,7 +162,7 @@ func (s *PcuGroupsServiceImpl) Update(ctx context.Context, id types.String, spec
 			Min:           int(spec.Min.ValueInt32()),
 			Max:           int(spec.Max.ValueInt32()),
 			Reserved:      int(spec.Reserved.ValueInt32()),
-			InstanceType:  astra.InstanceType(spec.InstanceType.ValueString()),
+			InstanceType:  spec.InstanceType.ValueString(),
 			ProvisionType: astra.ProvisionType(spec.ProvisionType.ValueString()),
 		},
 	})

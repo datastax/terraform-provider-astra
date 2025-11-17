@@ -92,7 +92,7 @@ func (r *pcuGroupResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 				PcuAttrCacheType: schema.StringAttribute{
 					Optional:    true,
 					Computed:    true,
-					Default:     stringdefault.StaticString(string(astra.PcuInstanceTypeStandard)), // TODO what's the default when the types change? Should we even have a default for this?
+					Default:     stringdefault.StaticString(string(astra.PcuProvisionTypeDedicated)), // TODO what's the default when the types change? Should we even have a default for this?
 					Description: "The instance type/cache type for the PCU group. Defaults to 'STANDARD'. Changing this value requires replacement.",
 					PlanModifiers: []planmodifier.String{
 						stringplanmodifier.UseStateForUnknown(),
