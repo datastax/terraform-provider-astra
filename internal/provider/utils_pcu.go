@@ -209,7 +209,7 @@ func (s *PcuGroupsServiceImpl) Delete(ctx context.Context, id types.String) diag
 	res, err := s.client.PcuDelete(ctx, id.ValueString())
 
 	if res != nil && res.StatusCode == 404 {
-		return nil // whatever
+		return nil // Resource already deleted or does not exist
 	}
 
 	if diags := HTTPResponseDiagErr(res, err, "error deleting PCU group"); diags.HasError() {
