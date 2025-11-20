@@ -332,7 +332,7 @@ func (s *PcuGroupAssociationsServiceImpl) Delete(ctx context.Context, groupId ty
 	res, err := s.client.PcuAssociationDelete(ctx, groupId.ValueString(), datacenterId.ValueString())
 
 	if res != nil && res.StatusCode == 404 {
-		return nil // whatever
+		return nil // Resource already deleted or does not exist
 	}
 
 	return HTTPResponseDiagErr(res, err, "error deleting PCU group association")
