@@ -312,7 +312,7 @@ func (r *pcuGroupResource) ImportState(ctx context.Context, req resource.ImportS
 
 func inferPcuGroupStatusPlanModifier() planmodifier.String {
 	return MkStringPlanModifier(
-		"The status will always be 'ACTIVE' or 'PARKED', given no major errors occurred during provisioning/unprovisioning.",
+		"The status will be 'PARKED' when park=true, 'ACTIVE' or 'CREATED' when park=false.",
 		func(ctx context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
 			var curr, plan *pcuGroupResourceModel
 
@@ -323,18 +323,21 @@ func inferPcuGroupStatusPlanModifier() planmodifier.String {
 				return
 			}
 
-			if curr != nil && !shouldUpdatePcuGroup(*curr, *plan) {
-				res.PlanValue = req.StateValue
-			} else if plan.Parked.ValueBool() {
+			// Determine expected status based on park state
+			if plan.Parked.ValueBool() {
 				res.PlanValue = types.StringValue(string(astra.PCUGroupStatusPARKED))
+			} else if curr != nil && !shouldPcuGroupStateChange(*curr, *plan) {
+				// No changes at all - keep current status
+				res.PlanValue = req.StateValue
 			}
+			// Otherwise leave as Unknown - will be ACTIVE or CREATED after apply
 		},
 	)
 }
 
 func mkPcuUpdateFieldsKnownIfNoChangesOccurPlanModifier() planmodifier.String {
 	return MkStringPlanModifier(
-		"The updated_[by|at] fields only change when properties of the PCU do.",
+		"The updated_[by|at] fields change when properties of the PCU change or when parking/unparking.",
 		func(ctx context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
 			var curr, plan *pcuGroupResourceModel
 
@@ -345,11 +348,17 @@ func mkPcuUpdateFieldsKnownIfNoChangesOccurPlanModifier() planmodifier.String {
 				return
 			}
 
-			if curr != nil && !shouldUpdatePcuGroup(*curr, *plan) {
+			// Only preserve the old value if NOTHING is changing
+			if curr != nil && !shouldPcuGroupStateChange(*curr, *plan) {
 				res.PlanValue = req.StateValue
 			}
+			// Otherwise, leave as Unknown so Terraform knows it will change
 		},
 	)
+}
+
+func shouldPcuGroupStateChange(curr, plan pcuGroupResourceModel) bool {
+	return shouldUpdatePcuGroup(curr, plan) || !curr.Parked.Equal(plan.Parked)
 }
 
 func shouldUpdatePcuGroup(curr, plan pcuGroupResourceModel) bool {
