@@ -10,6 +10,10 @@ import (
 )
 
 func TestAccPcuGroupResource_lifecycle(t *testing.T) {
+	// For now, skip. It's expensive to run these tests
+	// and there isn't a ton of value outside of development right now
+	t.Skip("Skipping as there's not a ton of ROI to PCU tests right now.")
+
 	prefix := "tf-test-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
 	resource.Test(t, resource.TestCase{
