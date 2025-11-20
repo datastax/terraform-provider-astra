@@ -11,7 +11,7 @@ import (
 )
 
 type PcuGroupSpecModel struct {
-	Title         types.String `tfsdk:"title"`          // TODO verify naming changes
+	Title         types.String `tfsdk:"title"`
 	CloudProvider types.String `tfsdk:"cloud_provider"` // TODO maybe use actual domain value types (e.g. CloudProvider) here w/ custom types
 	Region        types.String `tfsdk:"region"`
 	InstanceType  types.String `tfsdk:"cache_type"`
@@ -25,7 +25,7 @@ type PcuGroupSpecModel struct {
 type PcuGroupModel struct {
 	PcuGroupSpecModel
 	Id        types.String `tfsdk:"id"`
-	OrgId     types.String `tfsdk:"org_id"` // TODO verify if org_id is actually part of the user-definable spec or not
+	OrgId     types.String `tfsdk:"org_id"`
 	CreatedAt types.String `tfsdk:"created_at"`
 	UpdatedAt types.String `tfsdk:"updated_at"`
 	CreatedBy types.String `tfsdk:"created_by"`
