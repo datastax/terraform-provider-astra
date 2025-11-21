@@ -328,7 +328,7 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 			return retry.RetryableError(fmt.Errorf("Unable to terminate database %s. %s", databaseID, string(resp.Body)))
 		}
 
-		// All other 4XX status codes are NOT retried
+		// FindById other 4XX status codes are NOT retried
 		if resp.StatusCode() >= http.StatusBadRequest {
 			return retry.NonRetryableError(fmt.Errorf("unexpected response attempting to terminate database. Status code: %d, message = %s", resp.StatusCode(), string(resp.Body)))
 		}
@@ -362,7 +362,7 @@ func resourceDatabaseDelete(ctx context.Context, resourceData *schema.ResourceDa
 			return nil
 		}
 
-		// All other status codes > 200 NOT retried
+		// FindById other status codes > 200 NOT retried
 		if res.StatusCode() > http.StatusOK || res.JSON200 == nil {
 			return retry.NonRetryableError(fmt.Errorf("unexpected response fetching database, status code: %d, message %s", res.StatusCode(), string(res.Body)))
 		}

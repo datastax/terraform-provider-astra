@@ -84,9 +84,9 @@ func resourceEnterpriseOrgCreate(ctx context.Context, d *schema.ResourceData, me
 	adminUid := d.Get("admin_user_id").(string)
 
 	orgReq := astra.CreateOrganizationInEnterpriseJSONRequestBody{
-		Name:         orgName,
-		Email:        orgEmail,
-		AdminUserID:  adminUid,
+		Name:        orgName,
+		Email:       orgEmail,
+		AdminUserID: adminUid,
 	}
 
 	resp, err := client.CreateOrganizationInEnterpriseWithResponse(ctx, orgReq)
@@ -110,7 +110,7 @@ func resourceEnterpriseOrgRead(ctx context.Context, d *schema.ResourceData, meta
 		diag.Diagnostic{
 			Severity: diag.Warning,
 			Summary:  "Read of Enterprise Organizations not supported",
-			Detail:  "Read of Enterprise Organizations not supported.",
+			Detail:   "Read of Enterprise Organizations not supported.",
 		},
 	}
 }
@@ -120,7 +120,7 @@ func resourceEnterpriseOrgDelete(ctx context.Context, d *schema.ResourceData, me
 		diag.Diagnostic{
 			Severity: diag.Warning,
 			Summary:  "Delete of Enterprise Organizations not supported",
-			Detail:  "Delete of Enterprise Organizations not supported.",
+			Detail:   "Delete of Enterprise Organizations not supported.",
 		},
 	}
 }

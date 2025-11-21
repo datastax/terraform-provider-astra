@@ -2,9 +2,11 @@ package provider
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"testing"
 
+	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-mux/tf6muxserver"
@@ -54,4 +56,20 @@ func testAccPreCheck(t *testing.T) {
 	if err := os.Getenv("ASTRA_API_TOKEN"); err == "" {
 		t.Fatal("ASTRA_API_TOKEN must be set for acceptance tests")
 	}
+}
+
+func MkTestAstraClient() *astra.ClientWithResponses {
+	astraAPIServerURL := firstNonEmptyString(os.Getenv("ASTRA_API_URL"), DefaultAstraAPIURL)
+
+	client, err := astra.NewClientWithResponses(astraAPIServerURL, func(c *astra.Client) error {
+		c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
+			return nil
+		})
+		return nil
+	})
+
+	if err != nil {
+		panic(err)
+	}
+	return client
 }

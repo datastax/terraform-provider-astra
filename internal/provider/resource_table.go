@@ -9,9 +9,10 @@ import (
 	"strings"
 
 	"github.com/datastax/astra-client-go/v2/astra"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
+
 	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
@@ -335,7 +336,7 @@ func setTableResourceData(d *schema.ResourceData, databaseID, region, keyspaceNa
 }
 
 func setTableResourceDataWithTableData(d *schema.ResourceData, databaseID, region, keyspaceName, table string, tableData *astrarestapi.Table) error {
-	if err := setTableResourceData(d, databaseID,region, keyspaceName, table); err != nil {
+	if err := setTableResourceData(d, databaseID, region, keyspaceName, table); err != nil {
 		return err
 	}
 	if tableData == nil {
@@ -357,10 +358,10 @@ func setTableResourceDataWithTableData(d *schema.ResourceData, databaseID, regio
 	// column_definitions
 	cdefs := make([]map[string]string, len(tableData.ColumnDefinitions))
 	for index, cdef := range tableData.ColumnDefinitions {
-		defs := map[string]string {
-			"Name": cdef.Name,
+		defs := map[string]string{
+			"Name":           cdef.Name,
 			"TypeDefinition": string(cdef.TypeDefinition),
-			"Static": strconv.FormatBool(*cdef.Static),
+			"Static":         strconv.FormatBool(*cdef.Static),
 		}
 		cdefs[index] = defs
 	}
