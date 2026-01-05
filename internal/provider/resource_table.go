@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"sort"
 	"strconv"
 	"strings"
@@ -100,7 +99,6 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	region := d.Get("region").(string)
 	partitionKeys := strings.Split(d.Get("partition_keys").(string), ":")
 	clusteringColumns := strings.Split(d.Get("clustering_columns").(string), ":")
-	columnDefsRaw := d.Get("column_definitions").([]interface{})
 
 	tableParams := astrarestapi.CreateTableParams{
 		XCassandraToken: token,
@@ -108,27 +106,9 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 
 	ifnotexists := true
 
-	var columnDefinitions = make([]astrarestapi.ColumnDefinition, len(columnDefsRaw))
-	for i := 0; i < len(columnDefsRaw); i++ {
-		defMap := columnDefsRaw[i].(map[string]interface{})
-		var name string
-		var static bool
-		var typeDef astrarestapi.ColumnDefinitionTypeDefinition
-		for key, value := range defMap {
-			switch key {
-			case "Name":
-				name = value.(string)
-			case "Static":
-				static, _ = strconv.ParseBool(value.(string))
-			case "TypeDefinition":
-				typeDef = astrarestapi.ColumnDefinitionTypeDefinition(value.(string))
-			default:
-				return diag.Errorf("bad column definition")
-			}
-		}
-		columnDefinitions[i].Name = name
-		columnDefinitions[i].Static = &static
-		columnDefinitions[i].TypeDefinition = typeDef
+	var columnDefinitions, err = makeColumDefinitionsFromResourceData(d)
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
 	primaryKey := astrarestapi.PrimaryKey{
@@ -189,9 +169,6 @@ func resourceTableCreate(ctx context.Context, d *schema.ResourceData, meta inter
 			} else if resp.StatusCode() >= 400 {
 				return retry.NonRetryableError(fmt.Errorf("error adding table (not retrying): %s", resp.Body))
 			}
-
-			fmt.Printf("ERIK: %s\n", resp.Body)
-
 			if err := setTableResourceData(d, databaseID, region, keyspaceName, tableName, primaryKey, columnDefinitions); err != nil {
 				return retry.NonRetryableError(fmt.Errorf("Error setting table data (not retrying) %s", err))
 			}
@@ -295,15 +272,21 @@ func resourceTableDelete(ctx context.Context, d *schema.ResourceData, meta inter
 	params := astrarestapi.DeleteTableParams{
 		XCassandraToken: token,
 	}
-	resp, err := restClient.DeleteTable(ctx, keyspaceName, tableName, &params)
+	resp, err := restClient.DeleteTableWithResponse(ctx, keyspaceName, tableName, &params)
 	if err != nil {
-		b, _ := io.ReadAll(resp.Body)
+		b := "none"
+		if resp != nil && resp.Body != nil {
+			b = string(resp.Body)
+		}
 		return diag.FromErr(fmt.Errorf("Error getting table (not retrying) err: %s,  body: %s", err, b))
-	} else if resp.StatusCode == 409 {
+	} else if resp.StatusCode() == 409 {
 		// DevOps API returns 409 for concurrent modifications, these need to be retried.
-		b, _ := io.ReadAll(resp.Body)
+		b := "none"
+		if resp.Body != nil {
+			b = string(resp.Body)
+		}
 		return diag.FromErr(fmt.Errorf("error getting table (retrying): %s", b))
-	} else if resp.StatusCode >= 400 {
+	} else if resp.StatusCode() >= 400 {
 		//table not found
 		d.SetId("")
 		return nil
@@ -312,16 +295,12 @@ func resourceTableDelete(ctx context.Context, d *schema.ResourceData, meta inter
 	return nil
 }
 
-func columnDefinitionsMatch(d *schema.ResourceData, columnDefinitions []astrarestapi.ColumnDefinition) bool {
-	// get any existing definitions
-	existingDefs := d.Get("column_definitions").([]interface{})
-	if len(existingDefs) != len(columnDefinitions) {
-		return false
-	}
-	// map of existing definitions by name
-	var existingColumnDefinitions = make([]astrarestapi.ColumnDefinition, len(existingDefs))
-	for i := 0; i < len(existingDefs); i++ {
-		defMap := existingDefs[i].(map[string]interface{})
+func makeColumDefinitionsFromResourceData(d *schema.ResourceData) ([]astrarestapi.ColumnDefinition, error) {
+	columnDefsRaw := d.Get("column_definitions").([]interface{})
+
+	var columnDefinitions = make([]astrarestapi.ColumnDefinition, len(columnDefsRaw))
+	for i := 0; i < len(columnDefsRaw); i++ {
+		defMap := columnDefsRaw[i].(map[string]interface{})
 		var name string
 		var static bool
 		var typeDef astrarestapi.ColumnDefinitionTypeDefinition
@@ -334,12 +313,26 @@ func columnDefinitionsMatch(d *schema.ResourceData, columnDefinitions []astrares
 			case "TypeDefinition":
 				typeDef = astrarestapi.ColumnDefinitionTypeDefinition(value.(string))
 			default:
-				return false
+				return nil, fmt.Errorf("bad column definition. Key =%s is not one of [Name, Static, TypeDefinition]", key)
 			}
 		}
-		existingColumnDefinitions[i].Name = name
-		existingColumnDefinitions[i].Static = &static
-		existingColumnDefinitions[i].TypeDefinition = typeDef
+		columnDefinitions[i].Name = name
+		columnDefinitions[i].Static = &static
+		columnDefinitions[i].TypeDefinition = typeDef
+	}
+	return columnDefinitions, nil
+}
+
+func columnDefinitionsMatch(d *schema.ResourceData, columnDefinitions []astrarestapi.ColumnDefinition) bool {
+	// get any existing definitions
+	existingDefs := d.Get("column_definitions").([]interface{})
+	if len(existingDefs) != len(columnDefinitions) {
+		return false
+	}
+	// map of existing definitions by name
+	var existingColumnDefinitions, err = makeColumDefinitionsFromResourceData(d)
+	if err != nil {
+		return false
 	}
 	existingDefsMap := make(map[string]astrarestapi.ColumnDefinition, len(existingDefs))
 	for _, def := range existingColumnDefinitions {
@@ -390,8 +383,8 @@ func setColumnDefinitions(d *schema.ResourceData, columnDefinitions []astraresta
 			}
 		}
 	} else {
-		// the column definitions we want do not match exatcly the existing ones
-		// sort them so they are easily comparible
+		// the column definitions we want do not match exactly the existing ones
+		// sort them so they are easily comparable
 		sortedDefs := make([]astrarestapi.ColumnDefinition, len(columnDefinitions))
 		copy(sortedDefs, columnDefinitions)
 		sort.Slice(sortedDefs, func(i, j int) bool {
@@ -407,7 +400,7 @@ func setColumnDefinitions(d *schema.ResourceData, columnDefinitions []astraresta
 		}
 	}
 
-	// set the resulting column definitions on the Resouce
+	// set the resulting column definitions on the Resource
 	if err := d.Set("column_definitions", cdefs); err != nil {
 		return err
 	}
@@ -428,13 +421,19 @@ func setTableResourceData(d *schema.ResourceData, databaseID, region, keyspaceNa
 	if err := d.Set("region", region); err != nil {
 		return err
 	}
+	if primaryKey.PartitionKey == nil || len(primaryKey.PartitionKey) == 0 {
+		return errors.New("primary key partition key is missing")
+	}
 	if err := d.Set("partition_keys", strings.Join(primaryKey.PartitionKey, ":")); err != nil {
 		return err
+	}
+	if primaryKey.ClusteringKey == nil || len(*primaryKey.ClusteringKey) == 0 {
+		return errors.New("primary key clustering key is missing")
 	}
 	if err := d.Set("clustering_columns", strings.Join(*primaryKey.ClusteringKey, ":")); err != nil {
 		return err
 	}
-    // handle column_definitions
+	// handle column_definitions
 	if err := setColumnDefinitions(d, columnDefinitions); err != nil {
 		return err
 	}
