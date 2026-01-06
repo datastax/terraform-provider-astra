@@ -60,7 +60,7 @@ func resourceTable() *schema.Resource {
 			"clustering_columns": {
 				Description: "Clustering column(s), separated by :",
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				ForceNew:    true,
 			},
 			"partition_keys": {
@@ -235,7 +235,7 @@ func resourceTableRead(ctx context.Context, d *schema.ResourceData, meta interfa
 
 	tableData := resp.JSON200
 	if err := setTableResourceData(d, databaseID, region, keyspaceName, tableName, tableData.PrimaryKey, tableData.ColumnDefinitions); err != nil {
-		return diag.FromErr(fmt.Errorf("Error setting keyspace data (not retrying) %s", err))
+		return diag.FromErr(fmt.Errorf("Error setting table data (not retrying) %s", err))
 	}
 
 	return nil
@@ -427,11 +427,11 @@ func setTableResourceData(d *schema.ResourceData, databaseID, region, keyspaceNa
 	if err := d.Set("partition_keys", strings.Join(primaryKey.PartitionKey, ":")); err != nil {
 		return err
 	}
-	if primaryKey.ClusteringKey == nil || len(*primaryKey.ClusteringKey) == 0 {
-		return errors.New("primary key clustering key is missing")
-	}
-	if err := d.Set("clustering_columns", strings.Join(*primaryKey.ClusteringKey, ":")); err != nil {
-		return err
+	// only set the clustering columns if they are specified
+	if primaryKey.ClusteringKey != nil && len(*primaryKey.ClusteringKey) > 0 {
+		if err := d.Set("clustering_columns", strings.Join(*primaryKey.ClusteringKey, ":")); err != nil {
+			return err
+		}
 	}
 	// handle column_definitions
 	if err := setColumnDefinitions(d, columnDefinitions); err != nil {
