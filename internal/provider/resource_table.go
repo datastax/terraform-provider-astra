@@ -309,11 +309,15 @@ func makeColumDefinitionsFromResourceData(d *schema.ResourceData) ([]astrarestap
 			case "Name":
 				name = value.(string)
 			case "Static":
-				static, _ = strconv.ParseBool(value.(string))
+				if possibleStatic, err := strconv.ParseBool(value.(string)); err != nil {
+					return nil, fmt.Errorf("bad column definition. Static value \"%s\" is not a valid boolean", value.(string))
+				} else {
+					static = possibleStatic
+				}
 			case "TypeDefinition":
 				typeDef = astrarestapi.ColumnDefinitionTypeDefinition(value.(string))
 			default:
-				return nil, fmt.Errorf("bad column definition. Key =%s is not one of [Name, Static, TypeDefinition]", key)
+				return nil, fmt.Errorf("bad column definition. Key \"%s\" is not one of [Name, Static, TypeDefinition]", key)
 			}
 		}
 		columnDefinitions[i].Name = name
@@ -344,10 +348,10 @@ func columnDefinitionsMatch(d *schema.ResourceData, columnDefinitions []astrares
 		if !ok {
 			return false
 		}
-		if string(existingDef.TypeDefinition) != string(def.TypeDefinition) {
+		if existingDef.TypeDefinition != def.TypeDefinition {
 			return false
 		}
-		if strconv.FormatBool(*existingDef.Static) != strconv.FormatBool(*def.Static) {
+		if *existingDef.Static != *def.Static {
 			return false
 		}
 	}
