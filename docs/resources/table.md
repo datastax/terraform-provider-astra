@@ -75,13 +75,16 @@ resource "astra_table" "example_table" {
 
 ### Required
 
-- `clustering_columns` (String) Clustering column(s), separated by :
 - `column_definitions` (List of Map of String) A list of table Definitions
 - `database_id` (String) Astra database to create the keyspace.
 - `keyspace` (String) Keyspace name can have up to 48 alpha-numeric characters and contain underscores; only letters are supported as the first character.
 - `partition_keys` (String) Partition key(s), separated by :
 - `region` (String) region.
 - `table` (String) Table name can have up to 48 alpha-numeric characters and contain underscores; only letters are supported as the first character.
+
+### Optional
+
+- `clustering_columns` (String) Clustering column(s), separated by :
 
 ### Read-Only
 
