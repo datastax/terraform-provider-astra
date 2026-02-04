@@ -25,7 +25,7 @@ resource "astra_pcu_group" "example" {
   description       = "PCU group for production databases"
   # You can uncomment the line below to park the group
   # The group must be created first as a resource before parking can be performed successfully
-  # parked = true
+  # park = true
 }
 
 # Create a PCU group with custom settings
