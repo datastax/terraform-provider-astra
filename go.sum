@@ -105,10 +105,6 @@ github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGX
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/cyphar/filepath-securejoin v0.4.1 h1:JyxxyPEaktOD+GAnqIqTf9A8tHyAG22rowi7HkoSU1s=
 github.com/cyphar/filepath-securejoin v0.4.1/go.mod h1:Sdj7gXlvMcPZsbhwhQ33GguGLDGQL7h7bg04C/+u9jI=
-github.com/datastax/astra-client-go/v2 v2.2.64-0.20251023140354-5014f3a8b379 h1:DOE2S4S/v3qi9VwF8sYpOd+HtfxQ14zIOzvUHQERdtg=
-github.com/datastax/astra-client-go/v2 v2.2.64-0.20251023140354-5014f3a8b379/go.mod h1:piBMy3fnDcLN8+MDQfvjZr8ejcP2oh+CXkQYwNy8blA=
-github.com/datastax/astra-client-go/v2 v2.2.64-0.20251117201443-4b44086b8d6a h1:mKtSdifPBXOQB9FFHmYbQL85vokUQc1m2Xzu8dAwG2A=
-github.com/datastax/astra-client-go/v2 v2.2.64-0.20251117201443-4b44086b8d6a/go.mod h1:piBMy3fnDcLN8+MDQfvjZr8ejcP2oh+CXkQYwNy8blA=
 github.com/datastax/astra-client-go/v2 v2.3.0 h1:+W7xz3dQFklXB3O0kUcr0R3r/cx2lNFxP95LE4WfLm0=
 github.com/datastax/astra-client-go/v2 v2.3.0/go.mod h1:piBMy3fnDcLN8+MDQfvjZr8ejcP2oh+CXkQYwNy8blA=
 github.com/datastax/pulsar-admin-client-go v0.0.2 h1:CValQbSLI6q1PuCzkM4Tr3tAgwSi6RYDJ7PxvcBLyhw=
@@ -285,8 +281,6 @@ github.com/hashicorp/terraform-plugin-mux v0.20.0/go.mod h1:wSIZwJjSYk86NOTX3fKU
 github.com/hashicorp/terraform-plugin-sdk/v2 v2.6.1/go.mod h1:72j8cKfs9IirGhPMXJJWLTvRUK4zATtrCOvs2avDlo8=
 github.com/hashicorp/terraform-plugin-sdk/v2 v2.37.0 h1:NFPMacTrY/IdcIcnUB+7hsore1ZaRWU9cnB6jFoBnIM=
 github.com/hashicorp/terraform-plugin-sdk/v2 v2.37.0/go.mod h1:QYmYnLfsosrxjCnGY1p9c7Zj6n9thnEE+7RObeYs3fA=
-github.com/hashicorp/terraform-plugin-testing v1.13.3 h1:QLi/khB8Z0a5L54AfPrHukFpnwsGL8cwwswj4RZduCo=
-github.com/hashicorp/terraform-plugin-testing v1.13.3/go.mod h1:WHQ9FDdiLoneey2/QHpGM/6SAYf4A7AZazVg7230pLE=
 github.com/hashicorp/terraform-registry-address v0.4.0 h1:S1yCGomj30Sao4l5BMPjTGZmCNzuv7/GDTDX99E9gTk=
 github.com/hashicorp/terraform-registry-address v0.4.0/go.mod h1:LRS1Ay0+mAiRkUyltGT+UHWkIqTFvigGn/LbMshfflE=
 github.com/hashicorp/terraform-svchost v0.1.1 h1:EZZimZ1GxdqFRinZ1tpJwVxxt49xc/S52uzrw4x0jKQ=
@@ -430,8 +424,8 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.2/go.mod h1:R6va5+xMeoiuVRoj+gSkQ7d3FALtqAAGI1FQKckRals=
-github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
-github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
+github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/terraform-providers/terraform-provider-aws v1.60.1-0.20210625132053-af2d5c0ad54f h1:yc8QxZvmRc09wYQCx9hYHk/jXYM916IVINrMXd1Mvqc=
 github.com/terraform-providers/terraform-provider-aws v1.60.1-0.20210625132053-af2d5c0ad54f/go.mod h1:5ubu6G1APl5lfG1OONYTdL6FzHve9oPIb6+w8NjQOGA=
 github.com/ulikunitz/xz v0.5.8/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
