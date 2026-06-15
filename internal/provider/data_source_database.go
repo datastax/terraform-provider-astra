@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/datastax/astra-client-go/v2/astra"
@@ -147,13 +148,13 @@ func getDatabase(ctx context.Context, d *schema.ResourceData, client *astra.Clie
 	}
 	if resp.StatusCode() == http.StatusNotFound {
 		d.SetId("")
-		return nil, err
+		return nil, fmt.Errorf("database %s not found", databaseID)
 	}
 
 	db := resp.JSON200
 	if db == nil {
 		diag.Errorf("error fetching database: %s", string(resp.Body))
-		return nil, err
+		return nil, fmt.Errorf("database %s body is not recognizable", databaseID)
 	}
 	return db, nil
 }
