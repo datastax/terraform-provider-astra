@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 
-	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
 
 	"github.com/datastax/astra-client-go/v2/astra"
@@ -18,10 +17,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-mux/tf5to6server"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-)
-
-var (
-	astraAppsDomain = DefaultAstraAppsDomain
 )
 
 func init() {
@@ -85,7 +80,6 @@ func NewSDKProvider(version string) func() *schema.Provider {
 				"astra_role":                  resourceRole(),
 				"astra_token":                 resourceToken(),
 				"astra_cdc":                   resourceCDC(),
-				"astra_table":                 resourceTable(),
 				"astra_customer_key":          resourceCustomerKey(),
 				"astra_enterprise_org":        resourceEnterpriseOrg(),
 			},
@@ -133,8 +127,6 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 		if _, err := url.Parse(astraAPIServerURL); err != nil {
 			return nil, diag.FromErr(fmt.Errorf("invalid Astra server API URL: %w", err))
 		}
-
-		astraAppsDomain = firstNonEmptyString(d.Get("astra_apps_domain").(string), os.Getenv("ASTRA_APPS_DOMAIN"), DefaultAstraAppsDomain)
 
 		streamingAPIServerURL := firstNonEmptyString(d.Get("streaming_api_url").(string), os.Getenv("ASTRA_STREAMING_API_URL"), DefaultStreamingAPIURL)
 		if _, err := url.Parse(astraAPIServerURL); err != nil {
@@ -200,14 +192,11 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 			return nil, diag.FromErr(err)
 		}
 
-		var clientCache = make(map[string]*astrarestapi.ClientWithResponses)
-
 		clients := astraClients{
 			astraClient:            astraClient,
 			astraStreamingClient:   streamingClient,
 			astraStreamingClientv3: streamingV3Client,
 			token:                  token,
-			stargateClientCache:    clientCache,
 			providerVersion:        providerVersion,
 			userAgent:              userAgent,
 		}
@@ -215,43 +204,11 @@ func configure(providerVersion string, p *schema.Provider) func(context.Context,
 	}
 }
 
-func newRestClient(dbid string, providerVersion string, userAgent string, region string) (*astrarestapi.ClientWithResponses, error) {
-	clientVersion := fmt.Sprintf("go/%s", astra.Version)
-	// Build a retryable http astraClient to automatically
-	// handle intermittent api errors
-	retryClient := retryablehttp.NewClient()
-	retryClient.RetryMax = 10
-	retryClient.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
-		// Never retry POST requests because of side effects
-		if err != nil || resp == nil || resp.Request.Method == "POST" {
-			return false, err
-		}
-		return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
-	}
-
-	serverURL := fmt.Sprintf("https://%s-%s.%s/api/rest/", dbid, region, astraAppsDomain)
-	restClient, err := astrarestapi.NewClientWithResponses(serverURL, func(c *astrarestapi.Client) error {
-		c.Client = retryClient.StandardClient()
-		c.RequestEditors = append(c.RequestEditors, func(ctx context.Context, req *http.Request) error {
-			req.Header.Set("User-Agent", userAgent)
-			req.Header.Set("X-Astra-Provider-Version", providerVersion)
-			req.Header.Set("X-Astra-Client-Version", clientVersion)
-			return nil
-		})
-		return nil
-	})
-	if err != nil {
-		return restClient, err
-	}
-	return restClient, nil
-}
-
 type astraClients struct {
 	astraClient            interface{}
 	astraStreamingClient   interface{}
 	token                  string
 	astraStreamingClientv3 *astrastreaming.ClientWithResponses
-	stargateClientCache    map[string]*astrarestapi.ClientWithResponses
 	providerVersion        string
 	userAgent              string
 	streamingClusterSuffix string

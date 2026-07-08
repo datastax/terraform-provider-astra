@@ -40,38 +40,11 @@ resource "astra_database" "db_database" {
   deletion_protection = false
 }
 
-# Create a new table in that database
-resource "astra_table" "db_table" {
-  keyspace           = astra_database.db_database.keyspace
-  database_id        = astra_database.db_database.id
-  region             = astra_database.db_database.regions[0]
-  table              = "all_product_clicks"
-  clustering_columns = "visitor_id:click_timestamp"
-  partition_keys     = "visitor_id:click_url"
-  column_definitions = [
-    {
-      Name : "click_timestamp"
-      Static : false
-      TypeDefinition : "bigint"
-    },
-    {
-      Name : "visitor_id"
-      Static : false
-      TypeDefinition : "uuid"
-    },
-    {
-      Name : "click_url"
-      Static : false
-      TypeDefinition : "text"
-    }
-  ]
-}
-
 # Create a new CDC connection between tenant topic and db table
 resource "astra_cdc" "db_cdc" {
   database_id      = astra_database.db_database.id
   database_name    = astra_database.db_database.name
-  table            = astra_table.db_table.table
+  table            = "all_product_clicks"
   keyspace         = astra_database.db_database.keyspace
   tenant_name      = astra_streaming_tenant.streaming_tenant.tenant_name
   topic_partitions = 3

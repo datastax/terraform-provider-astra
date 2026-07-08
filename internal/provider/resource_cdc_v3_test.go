@@ -32,47 +32,7 @@ resource "astra_database" "database_1" {
   deletion_protection = "false"
 }
 
-resource "astra_table" "table_1" {
-  database_id        = astra_database.database_1.id
-  keyspace           = astra_database.database_1.keyspace
-  region             = astra_database.database_1.region[0]
-  table              = "cdctable1"
-  clustering_columns = "a"
-  partition_keys     = "b"
-  column_definitions = [
-    {
-      Name: "a"
-      Static: false
-      TypeDefinition: "text"
-    },
-    {
-      Name: "b"
-      Static: false
-      TypeDefinition: "text"
-    }
-  ]
-}
 
-resource "astra_table" "table_2" {
-  database_id        = astra_database.database_1.id
-  keyspace           = astra_database.database_1.keyspace
-  region             = astra_database.database_1.region[0]
-  table              = "cdctable2"
-  clustering_columns = "a"
-  partition_keys     = "b"
-  column_definitions = [
-    {
-      Name: "a"
-      Static: false
-      TypeDefinition: "text"
-    },
-    {
-      Name: "b"
-      Static: false
-      TypeDefinition: "text"
-    }
-  ]
-}
 
 resource "astra_streaming_tenant" "tenant_1" {
   cluster_name        = "pulsar-gcp-useast1"

@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/datastax/astra-client-go/v2/astra"
-	astrarestapi "github.com/datastax/astra-client-go/v2/astra-rest-api"
 	astrastreaming "github.com/datastax/astra-client-go/v2/astra-streaming"
 	"github.com/datastax/pulsar-admin-client-go/src/pulsaradmin"
 	"github.com/hashicorp/go-retryablehttp"
@@ -27,7 +26,6 @@ const (
 	fullProviderName = "terraform-astra-provider"
 
 	DefaultAstraAPIURL     = astra.ServerURL
-	DefaultAstraAppsDomain = "apps.astra.datastax.com"
 	DefaultStreamingAPIURL = "https://api.streaming.datastax.com/"
 )
 
@@ -63,7 +61,6 @@ type astraClients2 struct {
 	astraClient            *astra.ClientWithResponses
 	astraStreamingClient   *astrastreaming.ClientWithResponses
 	pulsarAdminClient      *pulsaradmin.ClientWithResponses
-	stargateClientCache    map[string]astrarestapi.Client
 	providerVersion        string
 	userAgent              string
 	streamingClusterSuffix string
@@ -240,14 +237,11 @@ func (p *astraProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	var clientCache = make(map[string]astrarestapi.Client)
-
 	clients := &astraClients2{
 		astraClient:          astraClient,
 		astraStreamingClient: streamingClient,
 		pulsarAdminClient:    pulsarAdminClient,
 		token:                astraToken,
-		stargateClientCache:  clientCache,
 		providerVersion:      p.Version,
 		userAgent:            userAgent,
 	}
