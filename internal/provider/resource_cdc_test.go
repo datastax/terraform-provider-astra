@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -9,29 +10,32 @@ import (
 
 // https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
 func TestAccAstraCDC(t *testing.T) {
+	checkRequiredTestVars(t, "ASTRA_TEST_DATABASE_ID")
+	databaseID := os.Getenv("ASTRA_TEST_DATABASE_ID")
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAstraCDCConfig(),
+				Config: testAstraCDCConfig(databaseID),
 			},
 		},
 	})
 }
 
-func testAstraCDCConfig() string {
-	return `
+func testAstraCDCConfig(databaseID string) string {
+	return fmt.Sprintf(`
 
 resource "astra_cdc" "cdc-1" {
-  database_id        = "cfdf8243-4ea5-453f-8800-ed6f7eb125a4"
+  database_id        = "%s"
   database_name      = "terraform-cdc-test"
   keyspace           = "ks1"
   table              = "tbl2"
   topic_partitions   = 3
   pulsar_cluster     = "pulsar-azure-westus2-staging"
   tenant_name        = "pgier-terraformtest"
-}`
+}`, databaseID)
 }
 
 func TestAstraCDCFull(t *testing.T) {
