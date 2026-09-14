@@ -340,7 +340,7 @@ func (s *PcuGroupAssociationsServiceImpl) Delete(ctx context.Context, groupId ty
 }
 
 func (s *PcuGroupsServiceImpl) FindTypes(ctx context.Context, provider, region types.String) ([]PcuTypeModel, diag.Diagnostics) {
-	body := astra.PCUGroupTypesRequest{
+	body := &astra.PcuGetTypesParams{
 		Provider: provider.ValueStringPointer(),
 		Region:   region.ValueStringPointer(),
 	}
