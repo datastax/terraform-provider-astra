@@ -107,6 +107,7 @@ func (p *astraProvider) DataSources(_ context.Context) []func() datasource.DataS
 		NewPCUGroupsDataSource,
 		NewPCUGroupDataSource,
 		NewPCUGroupAssociationsDataSource,
+		NewPCUTypesDataSource,
 	}
 }
 

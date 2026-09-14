@@ -57,6 +57,7 @@ type PcuGroupsService interface {
 	Unpark(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
 	Delete(ctx context.Context, id types.String) diag.Diagnostics
 	AwaitStatus(ctx context.Context, id types.String, target astra.PCUGroupStatus) (*PcuGroupModel, diag.Diagnostics)
+	FindTypes(ctx context.Context, provider, region types.String) ([]PcuTypeModel, diag.Diagnostics)
 }
 
 type PcuGroupAssociationsService interface {
@@ -338,6 +339,29 @@ func (s *PcuGroupAssociationsServiceImpl) Delete(ctx context.Context, groupId ty
 	return HTTPResponseDiagErr(res, err, "error deleting PCU group association")
 }
 
+func (s *PcuGroupsServiceImpl) FindTypes(ctx context.Context, provider, region types.String) ([]PcuTypeModel, diag.Diagnostics) {
+	body := &astra.PcuGetTypesParams{
+		Provider: provider.ValueStringPointer(),
+		Region:   region.ValueStringPointer(),
+	}
+
+	tflog.Debug(ctx, "Reading PCU types", map[string]any{"body": body})
+
+	resp, err := s.client.PcuGetTypesWithResponse(ctx, body)
+
+	if diags := ParsedHTTPResponseDiagErr(resp, err, "failed to get PCU types"); diags.HasError() {
+		return nil, diags
+	}
+
+	res := make([]PcuTypeModel, 0) // don't want to return a nil b/c terraform should serialize it as [] and not null
+
+	for _, rawType := range *resp.JSON200 {
+		res = append(res, deserializePcuTypeFromAPI(rawType))
+	}
+
+	return res, nil
+}
+
 func deserializePcuGroupFromAPI(rawPCU astra.PCUGroup) PcuGroupModel {
 	return PcuGroupModel{
 		Id:        types.StringPointerValue(rawPCU.Uuid),
@@ -368,5 +392,18 @@ func deserializePcuGroupAssociationFromAPI(rawAssociation astra.PCUAssociation) 
 		//CreatedAt:          types.StringPointerValue(rawAssociation.CreatedAt), TODO what is going on here
 		//UpdatedAt:          types.StringPointerValue(rawAssociation.UpdatedAt),
 		//CreatedBy:          types.StringPointerValue(rawAssociation.CreatedBy),
+	}
+}
+
+func deserializePcuTypeFromAPI(rawType astra.PCUGroupTypeResponse) PcuTypeModel {
+	return PcuTypeModel{
+		Type:          types.StringPointerValue(rawType.Type),
+		CloudProvider: types.StringPointerValue(rawType.Provider),
+		Region:        types.StringPointerValue(rawType.Region),
+		Details: PcuTypeDetailsModel{
+			VCPU:      types.Int32PointerValue(rawType.Details.VCPU),
+			Memory:    types.StringPointerValue(rawType.Details.Memory),
+			DiskCache: types.StringPointerValue(rawType.Details.DiskCache),
+		},
 	}
 }

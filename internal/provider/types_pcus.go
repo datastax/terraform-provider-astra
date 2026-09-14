@@ -43,6 +43,19 @@ type PcuGroupAssociationModel struct {
 	//UpdatedBy          types.String `tfsdk:"updated_by"`
 }
 
+type PcuTypeModel struct {
+	Type          types.String        `tfsdk:"type"`
+	Region        types.String        `tfsdk:"region"`
+	CloudProvider types.String        `tfsdk:"cloud_provider"`
+	Details       PcuTypeDetailsModel `tfsdk:"details"`
+}
+
+type PcuTypeDetailsModel struct {
+	VCPU      types.Int32  `tfsdk:"vcpu"`
+	Memory    types.String `tfsdk:"memory"`
+	DiskCache types.String `tfsdk:"disk_cache"`
+}
+
 var (
 	PcuAttrGroupId  = "pcu_group_id"
 	PcuAttrGroupIds = PcuAttrGroupId + "s"
