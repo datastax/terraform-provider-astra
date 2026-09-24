@@ -100,11 +100,13 @@ func resourceDatabase() *schema.Resource {
 				ValidateFunc: validation.StringInSlice(availableDbTypes, false),
 			},
 			"pcu_groups": {
-				Description: "Map of PCU (Provisioned Capacity Unit) group IDs, keyed by region, associating the datacenter for that region with dedicated PCU capacity. Regions omitted from this map use standard shared capacity. Every key must also be present in \"regions\". Changing a region's PCU group transfers the datacenter to the new group; removing a key detaches it back to shared capacity. Prefer this over `astra_pcu_group_association` when managing the database itself with Terraform.",
+				Description: "Map of PCU (Provisioned Capacity Unit) group IDs, keyed by region, associating the datacenter for that region with dedicated PCU capacity. Every key must also be present in \"regions\". Prefer this over `astra_pcu_group_association` when managing the database itself with Terraform. Left completely unset (not even `{}`), any existing PCU associations (e.g. from `astra_pcu_group_association`, or made outside Terraform) are left alone. Once set to any value, however, it becomes fully authoritative and controls all PCU associations for the database.",
 				Type:        schema.TypeMap,
 				Optional:    true,
+				Computed:    true,
 				Elem: &schema.Schema{
-					Type: schema.TypeString,
+					Type:         schema.TypeString,
+					ValidateFunc: validation.IsUUID,
 				},
 			},
 			// Computed
@@ -428,13 +430,15 @@ func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceDa
 		}
 	}
 
+	plannedRegions := resourceData.Get("regions").([]interface{})
+	plannedPcuGroups := resourceData.Get("pcu_groups").(map[string]any)
+	if diags := validatePcuGroupsSubsetOfRegions(plannedPcuGroups, plannedRegions); diags.HasError() {
+		return diags
+	}
+
 	if resourceData.HasChange("pcu_groups") {
 		oldRegionsRaw, newRegionsRaw := resourceData.GetChange("regions")
 		oldPcuRaw, newPcuRaw := resourceData.GetChange("pcu_groups")
-
-		if diags := validatePcuGroupsSubsetOfRegions(newPcuRaw.(map[string]any), newRegionsRaw.([]any)); diags.HasError() {
-			return diags
-		}
 
 		// Regions that were just added/removed above are excluded: a newly added region already got its
 		// PCU group natively via addRegionsToDatabase, and a removed region's datacenter no longer exists.
@@ -697,8 +701,7 @@ func pcuGroupForRegion(pcuGroups map[string]any, region string) (string, bool) {
 		return "", false
 	}
 
-	s := v.(string)
-	return s, s != ""
+	return v.(string), true
 }
 
 // validatePcuGroupsSubsetOfRegions ensures every key in "pcu_groups" is also present in "regions".
@@ -739,11 +742,8 @@ func filterPcuGroupsByRegion(pcuGroups map[string]any, regions map[string]bool) 
 	filtered := make(map[string]string)
 
 	for region, v := range pcuGroups {
-		if !regions[region] {
-			continue
-		}
-		if s, ok := v.(string); ok && s != "" {
-			filtered[region] = s
+		if regions[region] {
+			filtered[region] = v.(string)
 		}
 	}
 

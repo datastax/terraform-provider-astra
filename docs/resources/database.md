@@ -72,7 +72,7 @@ output "cqlsh_url" {
 - `db_type` (String) Database type. Currently only `vector` is supported. Omit this optional field if you want a regular serverless database.
 - `deletion_protection` (Boolean) Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a `terraform destroy` or `terraform apply` command that deletes the instance will fail. Defaults to `true`.
 - `keyspace` (String) Initial keyspace name. For additional keyspaces, use the astra_keyspace resource. If omitted, Astra will use its default, currently `default_keyspace`
-- `pcu_groups` (Map of String) Map of PCU (Provisioned Capacity Unit) group IDs, keyed by region, associating the datacenter for that region with dedicated PCU capacity. Regions omitted from this map use standard shared capacity. Every key must also be present in "regions". Changing a region's PCU group transfers the datacenter to the new group; removing a key detaches it back to shared capacity. Prefer this over `astra_pcu_group_association` when managing the database itself with Terraform.
+- `pcu_groups` (Map of String) Map of PCU (Provisioned Capacity Unit) group IDs, keyed by region, associating the datacenter for that region with dedicated PCU capacity. Every key must also be present in "regions". Prefer this over `astra_pcu_group_association` when managing the database itself with Terraform. Left completely unset (not even `{}`), any existing PCU associations (e.g. from `astra_pcu_group_association`, or made outside Terraform) are left alone. Once set to any value, however, it becomes fully authoritative and controls all PCU associations for the database.
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
