@@ -250,9 +250,11 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 		return err
 	}
 
-	// Add any additional regions/datacenters
+	// Add any additional regions/datacenters. Pass the PCU groups snapshotted at the start of Create,
+	// since the primary-region wait above already overwrote "pcu_groups" in resourceData with only the
+	// association(s) visible so far, which would otherwise lose the entries for these additional regions.
 	if len(additionalRegions) > 0 {
-		if err := addRegionsToDatabase(ctx, resourceData, client, additionalRegions, databaseID, cloudProvider); err != nil {
+		if err := addRegionsToDatabase(ctx, resourceData, client, additionalRegions, databaseID, cloudProvider, pcuGroups); err != nil {
 			return err
 		}
 	}
@@ -416,12 +418,22 @@ func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceDa
 	databaseID := resourceData.Id()
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
+	// Validate before making any API changes so an invalid "pcu_groups"/"regions" combination fails
+	// the whole update up front, rather than after regions have already been added/removed.
+	plannedRegions := resourceData.Get("regions").([]interface{})
+	plannedPcuGroups := resourceData.Get("pcu_groups").(map[string]any)
+
+	managed := pcuGroupsIsManaged(resourceData)
+	if diags := validatePcuGroupsRegions(managed, plannedPcuGroups, plannedRegions); diags.HasError() {
+		return diags
+	}
+
 	if resourceData.HasChange("regions") {
 		// get regions to add and delete
 		regionsToAdd, regionsToDelete := getRegionUpdates(resourceData.GetChange("regions"))
 		if len(regionsToAdd) > 0 {
 			// add any regions to add first
-			if err := addRegionsToDatabase(ctx, resourceData, client, regionsToAdd, databaseID, cloudProvider); err != nil {
+			if err := addRegionsToDatabase(ctx, resourceData, client, regionsToAdd, databaseID, cloudProvider, plannedPcuGroups); err != nil {
 				return err
 			}
 		}
@@ -431,14 +443,6 @@ func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceDa
 				return err
 			}
 		}
-	}
-
-	plannedRegions := resourceData.Get("regions").([]interface{})
-	plannedPcuGroups := resourceData.Get("pcu_groups").(map[string]any)
-
-	managed := pcuGroupsIsManaged(resourceData)
-	if diags := validatePcuGroupsRegions(managed, plannedPcuGroups, plannedRegions); diags.HasError() {
-		return diags
 	}
 
 	if managed && resourceData.HasChange("pcu_groups") {
@@ -486,12 +490,11 @@ func getRegionUpdates(oldRegions interface{}, newRegions interface{}) ([]string,
 	return regionsToAdd, regionsToDelete
 }
 
-func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, regions []string, databaseID string, cloudProvider string) diag.Diagnostics {
+func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, regions []string, databaseID string, cloudProvider string, pcuGroups map[string]any) diag.Diagnostics {
 	// make sure the regions are valid
 	if err := ensureValidRegions(ctx, client, resourceData); err != nil {
 		return err
 	}
-	pcuGroups := resourceData.Get("pcu_groups").(map[string]any)
 
 	// Currently, DevOps API only allows for adding 1 region at a time
 	for _, region := range regions {
