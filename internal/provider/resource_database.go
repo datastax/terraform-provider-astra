@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
+	"github.com/hashicorp/go-cty/cty"
 	fwdiag "github.com/hashicorp/terraform-plugin-framework/diag"
 	fwtypes "github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -84,6 +85,7 @@ func resourceDatabase() *schema.Resource {
 				Type:             schema.TypeString,
 				Optional:         true,
 				ForceNew:         true,
+				Computed:         true,
 				ValidateDiagFunc: validateKeyspace,
 			},
 			"deletion_protection": {
@@ -100,7 +102,7 @@ func resourceDatabase() *schema.Resource {
 				ValidateFunc: validation.StringInSlice(availableDbTypes, false),
 			},
 			"pcu_groups": {
-				Description: "Map of PCU (Provisioned Capacity Unit) group IDs, keyed by region, associating the datacenter for that region with dedicated PCU capacity. Every key must also be present in \"regions\". Prefer this over `astra_pcu_group_association` when managing the database itself with Terraform. Left completely unset (not even `{}`), any existing PCU associations (e.g. from `astra_pcu_group_association`, or made outside Terraform) are left alone. Once set to any value, however, it becomes fully authoritative and controls all PCU associations for the database.",
+				Description: "Map of PCU (Provisioned Capacity Unit) group IDs, keyed by region, associating that region's datacenter to a specific PCU group. Prefer this over `astra_pcu_group_association` when managing the database itself with Terraform. Left unset (including omitting the attribute or setting it to `null`), any existing PCU associations (e.g. from `astra_pcu_group_association`, or made outside Terraform) are left alone. Set to any value, including `{}`, it becomes fully authoritative: it must then contain exactly one entry per region in `regions`, no more and no less.",
 				Type:        schema.TypeMap,
 				Optional:    true,
 				Computed:    true,
@@ -194,7 +196,8 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 		return diag.Errorf("\"region\" array must have at least 1 region specified")
 	}
 
-	if diags := validatePcuGroupsSubsetOfRegions(pcuGroups, regions); diags.HasError() {
+	managed := pcuGroupsIsManaged(resourceData)
+	if diags := validatePcuGroupsRegions(managed, pcuGroups, regions); diags.HasError() {
 		return diags
 	}
 
@@ -432,11 +435,13 @@ func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceDa
 
 	plannedRegions := resourceData.Get("regions").([]interface{})
 	plannedPcuGroups := resourceData.Get("pcu_groups").(map[string]any)
-	if diags := validatePcuGroupsSubsetOfRegions(plannedPcuGroups, plannedRegions); diags.HasError() {
+
+	managed := pcuGroupsIsManaged(resourceData)
+	if diags := validatePcuGroupsRegions(managed, plannedPcuGroups, plannedRegions); diags.HasError() {
 		return diags
 	}
 
-	if resourceData.HasChange("pcu_groups") {
+	if managed && resourceData.HasChange("pcu_groups") {
 		oldRegionsRaw, newRegionsRaw := resourceData.GetChange("regions")
 		oldPcuRaw, newPcuRaw := resourceData.GetChange("pcu_groups")
 
@@ -704,16 +709,30 @@ func pcuGroupForRegion(pcuGroups map[string]any, region string) (string, bool) {
 	return v.(string), true
 }
 
-// validatePcuGroupsSubsetOfRegions ensures every key in "pcu_groups" is also present in "regions".
-func validatePcuGroupsSubsetOfRegions(pcuGroups map[string]any, regions []any) diag.Diagnostics {
-	validRegions := make(map[string]bool, len(regions))
-	for _, r := range regions {
-		validRegions[r.(string)] = true
+// pcuGroupsIsManaged reports whether "pcu_groups" was set at all in config (including "{}"),
+// as opposed to being omitted or explicitly null — which means "leave existing associations alone."
+func pcuGroupsIsManaged(resourceData *schema.ResourceData) bool {
+	groups, diags := resourceData.GetRawConfigAt(cty.GetAttrPath("pcu_groups"))
+	if diags.HasError() {
+		return false
+	}
+	return !groups.IsNull()
+}
+
+// validatePcuGroupsRegions ensures "pcu_groups", when managed (set in config, even to "{}"),
+// contains an entry for every region and nothing else.
+func validatePcuGroupsRegions(managed bool, pcuGroups map[string]any, regions []any) diag.Diagnostics {
+	if !managed {
+		return nil
 	}
 
-	for region := range pcuGroups {
-		if !validRegions[region] {
-			return diag.Errorf("\"pcu_groups\" contains a key %q that is not present in \"regions\"", region)
+	if len(pcuGroups) != len(regions) {
+		return diag.Errorf("\"pcu_groups\", when set, must contain an entry for every region in \"regions\" (got %d entries for %d regions)", len(pcuGroups), len(regions))
+	}
+
+	for _, r := range regions {
+		if _, ok := pcuGroups[r.(string)]; !ok {
+			return diag.Errorf("\"pcu_groups\" is missing an entry for region %q", r.(string))
 		}
 	}
 

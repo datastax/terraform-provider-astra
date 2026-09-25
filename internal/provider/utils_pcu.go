@@ -389,7 +389,7 @@ func deserializePcuGroupFromAPI(rawPCU astra.PCUGroup) PcuGroupModel {
 		Status:    StringEnumPtrToStrPtr(rawPCU.Status),
 		PcuGroupSpecModel: PcuGroupSpecModel{
 			Title:         types.StringPointerValue(rawPCU.Title),
-			CloudProvider: StringEnumPtrToStrPtr(rawPCU.CloudProvider),
+			CloudProvider: types.StringValue(strings.ToLower(string(Elvis(rawPCU.CloudProvider, "")))),
 			Region:        types.StringPointerValue(rawPCU.Region),
 			InstanceType:  StringEnumPtrToStrPtr(rawPCU.InstanceType),
 			ProvisionType: StringEnumPtrToStrPtr(rawPCU.ProvisionType),

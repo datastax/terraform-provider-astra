@@ -41,3 +41,5 @@ website/vendor
 terraform-provider-astra
 
 dist/
+
+/tmp/
