@@ -507,12 +507,12 @@ func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData
 		if pcuGroupID, ok := pcuGroupForRegion(pcuGroups, region); ok {
 			datacenters[0].PcuGroupUUID = &pcuGroupID
 		}
-		resp, err := client.AddDatacentersWithResponse(ctx, astra.DatabaseIdParam(databaseID), datacenters)
+		resp, err := client.AddDatacentersWithResponse(ctx, databaseID, datacenters)
 		if err != nil {
 			return diag.FromErr(err)
 		}
 		if resp.StatusCode() != http.StatusCreated {
-			return diag.FromErr(fmt.Errorf("Unexpected response addinng Regions: %s", string(resp.Body)))
+			return diag.FromErr(fmt.Errorf("Unexpected response adding Regions: %s", string(resp.Body)))
 		}
 		// Wait for the database to be ACTIVE then set resource data
 		if err := waitForDatabaseAndUpdateResource(ctx, resourceData, client, databaseID); err != nil {
