@@ -46,7 +46,7 @@ func (r *pcuGroupAssociationResource) Metadata(_ context.Context, req resource.M
 func (r *pcuGroupAssociationResource) Schema(ctx context.Context, _ resource.SchemaRequest, res *resource.SchemaResponse) {
 	res.Schema = schema.Schema{
 		Description:        "Creates a transferable association between an existing PCU group and datacenter.",
-		DeprecationMessage: "astra_pcu_group_association is discouraged for general use, though it remains safe to use. Prefer the pcu_groups field on astra_database directly.",
+		DeprecationMessage: "astra_pcu_group_association is discouraged for general use, though it remains safe to use. Prefer the pcu_groups field on astra_database directly. To migrate: (1) add the complete corresponding pcu_groups map to astra_database, (2) remove the astra_pcu_group_association resource blocks from your config, (3) run 'terraform state rm astra_pcu_group_association.<name>' for each. Important: Do NOT run 'terraform destroy' - it would delete the associations from Astra itself.",
 		Attributes: MergeMaps(
 			map[string]schema.Attribute{
 				PcuAttrGroupId: schema.StringAttribute{
