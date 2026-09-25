@@ -52,6 +52,7 @@ type PcuGroupsService interface {
 	Create(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics)
 	FindOne(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
 	FindMany(ctx context.Context, ids []types.String) (*[]PcuGroupModel, diag.Diagnostics)
+	FindByDatacenter(ctx context.Context, datacenterId types.String) (*PcuGroupModel, diag.Diagnostics)
 	Update(ctx context.Context, id types.String, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics)
 	Park(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
 	Unpark(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
@@ -118,6 +119,21 @@ func (s *PcuGroupsServiceImpl) FindOne(ctx context.Context, id types.String) (*P
 	}
 
 	if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving PCU group"); diags.HasError() {
+		return nil, diags
+	}
+
+	deserialized := deserializePcuGroupFromAPI((*resp.JSON200)[0])
+	return &deserialized, nil
+}
+
+func (s *PcuGroupsServiceImpl) FindByDatacenter(ctx context.Context, datacenterId types.String) (*PcuGroupModel, diag.Diagnostics) {
+	resp, err := s.client.PcuGroupGetByDatacenterUUIDWithResponse(ctx, datacenterId.ValueString())
+
+	if err == nil && resp.StatusCode() == 404 {
+		return nil, nil
+	}
+
+	if diags := ParsedHTTPResponseDiagErr(resp, err, "error retrieving PCU group for datacenter"); diags.HasError() {
 		return nil, diags
 	}
 
@@ -373,7 +389,7 @@ func deserializePcuGroupFromAPI(rawPCU astra.PCUGroup) PcuGroupModel {
 		Status:    StringEnumPtrToStrPtr(rawPCU.Status),
 		PcuGroupSpecModel: PcuGroupSpecModel{
 			Title:         types.StringPointerValue(rawPCU.Title),
-			CloudProvider: StringEnumPtrToStrPtr(rawPCU.CloudProvider),
+			CloudProvider: types.StringValue(strings.ToLower(string(Elvis(rawPCU.CloudProvider, "")))),
 			Region:        types.StringPointerValue(rawPCU.Region),
 			InstanceType:  StringEnumPtrToStrPtr(rawPCU.InstanceType),
 			ProvisionType: StringEnumPtrToStrPtr(rawPCU.ProvisionType),

@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
+	"github.com/hashicorp/go-cty/cty"
+	fwdiag "github.com/hashicorp/terraform-plugin-framework/diag"
+	fwtypes "github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -82,6 +85,7 @@ func resourceDatabase() *schema.Resource {
 				Type:             schema.TypeString,
 				Optional:         true,
 				ForceNew:         true,
+				Computed:         true,
 				ValidateDiagFunc: validateKeyspace,
 			},
 			"deletion_protection": {
@@ -96,6 +100,16 @@ func resourceDatabase() *schema.Resource {
 				Optional:     true,
 				ForceNew:     true,
 				ValidateFunc: validation.StringInSlice(availableDbTypes, false),
+			},
+			"pcu_groups": {
+				Description: "Map of PCU (Provisioned Capacity Unit) group IDs, keyed by region, associating that region's datacenter to a specific PCU group. Prefer this over `astra_pcu_group_association` when managing the database itself with Terraform. Left unset (including omitting the attribute or setting it to `null`), any existing PCU associations (e.g. from `astra_pcu_group_association`, or made outside Terraform) are left alone. Set to any value, including `{}`, it becomes fully authoritative: it must then contain exactly one entry per region in `regions`, no more and no less.",
+				Type:        schema.TypeMap,
+				Optional:    true,
+				Computed:    true,
+				Elem: &schema.Schema{
+					Type:         schema.TypeString,
+					ValidateFunc: validation.IsUUID,
+				},
 			},
 			// Computed
 			"owner_id": {
@@ -176,9 +190,15 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 	regions := resourceData.Get("regions").([]interface{})
 	dbType := resourceData.Get("db_type").(string)
+	pcuGroups := resourceData.Get("pcu_groups").(map[string]any)
 
 	if len(regions) < 1 {
 		return diag.Errorf("\"region\" array must have at least 1 region specified")
+	}
+
+	managed := pcuGroupsIsManaged(resourceData)
+	if diags := validatePcuGroupsRegions(managed, pcuGroups, regions); diags.HasError() {
+		return diags
 	}
 
 	// Make sure all regions are valid
@@ -211,6 +231,10 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 	if len(dbType) > 0 {
 		createDbRequest.DbType = (*astra.DatabaseInfoCreateDbType)(&dbType)
 	}
+	// if a PCU group was specified for the primary region, associate it at creation time
+	if pcuGroupID, ok := pcuGroupForRegion(pcuGroups, region); ok {
+		createDbRequest.PcuGroupUUID = &pcuGroupID
+	}
 	resp, err := client.CreateDatabaseWithResponse(ctx, createDbRequest)
 	if err != nil {
 		return diag.FromErr(err)
@@ -226,9 +250,11 @@ func resourceDatabaseCreate(ctx context.Context, resourceData *schema.ResourceDa
 		return err
 	}
 
-	// Add any additional regions/datacenters
+	// Add any additional regions/datacenters. Pass the PCU groups snapshotted at the start of Create,
+	// since the primary-region wait above already overwrote "pcu_groups" in resourceData with only the
+	// association(s) visible so far, which would otherwise lose the entries for these additional regions.
 	if len(additionalRegions) > 0 {
-		if err := addRegionsToDatabase(ctx, resourceData, client, additionalRegions, databaseID, cloudProvider); err != nil {
+		if err := addRegionsToDatabase(ctx, resourceData, client, additionalRegions, databaseID, cloudProvider, pcuGroups); err != nil {
 			return err
 		}
 	}
@@ -272,6 +298,9 @@ func resourceDatabaseRead(ctx context.Context, resourceData *schema.ResourceData
 
 		// Add the database to state
 		if err := setDatabaseResourceData(resourceData, db); err != nil {
+			return retry.NonRetryableError(err)
+		}
+		if err := populatePcuGroupsResourceData(ctx, client, resourceData, db); err != nil {
 			return retry.NonRetryableError(err)
 		}
 
@@ -389,12 +418,22 @@ func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceDa
 	databaseID := resourceData.Id()
 	cloudProvider := resourceData.Get("cloud_provider").(string)
 
+	// Validate before making any API changes so an invalid "pcu_groups"/"regions" combination fails
+	// the whole update up front, rather than after regions have already been added/removed.
+	plannedRegions := resourceData.Get("regions").([]interface{})
+	plannedPcuGroups := resourceData.Get("pcu_groups").(map[string]any)
+
+	managed := pcuGroupsIsManaged(resourceData)
+	if diags := validatePcuGroupsRegions(managed, plannedPcuGroups, plannedRegions); diags.HasError() {
+		return diags
+	}
+
 	if resourceData.HasChange("regions") {
 		// get regions to add and delete
 		regionsToAdd, regionsToDelete := getRegionUpdates(resourceData.GetChange("regions"))
 		if len(regionsToAdd) > 0 {
 			// add any regions to add first
-			if err := addRegionsToDatabase(ctx, resourceData, client, regionsToAdd, databaseID, cloudProvider); err != nil {
+			if err := addRegionsToDatabase(ctx, resourceData, client, regionsToAdd, databaseID, cloudProvider, plannedPcuGroups); err != nil {
 				return err
 			}
 		}
@@ -405,6 +444,23 @@ func resourceDatabaseUpdate(ctx context.Context, resourceData *schema.ResourceDa
 			}
 		}
 	}
+
+	if managed && resourceData.HasChange("pcu_groups") {
+		oldRegionsRaw, newRegionsRaw := resourceData.GetChange("regions")
+		oldPcuRaw, newPcuRaw := resourceData.GetChange("pcu_groups")
+
+		// Regions that were just added/removed above are excluded: a newly added region already got its
+		// PCU group natively via addRegionsToDatabase, and a removed region's datacenter no longer exists.
+		unchanged := unchangedRegions(oldRegionsRaw.([]any), newRegionsRaw.([]any))
+
+		oldPcuGroups := filterPcuGroupsByRegion(oldPcuRaw.(map[string]any), unchanged)
+		newPcuGroups := filterPcuGroupsByRegion(newPcuRaw.(map[string]any), unchanged)
+
+		if diags := updatePcuGroups(ctx, client, resourceData, databaseID, oldPcuGroups, newPcuGroups); diags.HasError() {
+			return diags
+		}
+	}
+
 	return nil
 }
 
@@ -434,11 +490,12 @@ func getRegionUpdates(oldRegions interface{}, newRegions interface{}) ([]string,
 	return regionsToAdd, regionsToDelete
 }
 
-func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, regions []string, databaseID string, cloudProvider string) diag.Diagnostics {
+func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData, client *astra.ClientWithResponses, regions []string, databaseID string, cloudProvider string, pcuGroups map[string]any) diag.Diagnostics {
 	// make sure the regions are valid
 	if err := ensureValidRegions(ctx, client, resourceData); err != nil {
 		return err
 	}
+
 	// Currently, DevOps API only allows for adding 1 region at a time
 	for _, region := range regions {
 		datacenters := make([]astra.Datacenter, 1)
@@ -447,12 +504,15 @@ func addRegionsToDatabase(ctx context.Context, resourceData *schema.ResourceData
 			Region:        region,
 			Tier:          "serverless",
 		}
-		resp, err := client.AddDatacentersWithResponse(ctx, astra.DatabaseIdParam(databaseID), datacenters)
+		if pcuGroupID, ok := pcuGroupForRegion(pcuGroups, region); ok {
+			datacenters[0].PcuGroupUUID = &pcuGroupID
+		}
+		resp, err := client.AddDatacentersWithResponse(ctx, databaseID, datacenters)
 		if err != nil {
 			return diag.FromErr(err)
 		}
 		if resp.StatusCode() != http.StatusCreated {
-			return diag.FromErr(fmt.Errorf("Unexpected response addinng Regions: %s", string(resp.Body)))
+			return diag.FromErr(fmt.Errorf("Unexpected response adding Regions: %s", string(resp.Body)))
 		}
 		// Wait for the database to be ACTIVE then set resource data
 		if err := waitForDatabaseAndUpdateResource(ctx, resourceData, client, databaseID); err != nil {
@@ -529,6 +589,9 @@ func waitForDatabaseAndUpdateResource(ctx context.Context, resourceData *schema.
 			return retry.NonRetryableError(fmt.Errorf("database failed to reach active status: status=%s", db.Status))
 		case astra.ACTIVE:
 			if err := setDatabaseResourceData(resourceData, db); err != nil {
+				return retry.NonRetryableError(err)
+			}
+			if err := populatePcuGroupsResourceData(ctx, client, resourceData, db); err != nil {
 				return retry.NonRetryableError(err)
 			}
 			return nil
@@ -637,4 +700,255 @@ func findMatchingRegion(provider, region, tier string, availableRegions []astra.
 	}
 
 	return nil
+}
+
+// pcuGroupForRegion returns the non-empty PCU group ID configured for the given region, if any.
+func pcuGroupForRegion(pcuGroups map[string]any, region string) (string, bool) {
+	v, ok := pcuGroups[region]
+	if !ok {
+		return "", false
+	}
+
+	return v.(string), true
+}
+
+// pcuGroupsIsManaged reports whether "pcu_groups" was set at all in config (including "{}"),
+// as opposed to being omitted or explicitly null — which means "leave existing associations alone."
+func pcuGroupsIsManaged(resourceData *schema.ResourceData) bool {
+	groups, diags := resourceData.GetRawConfigAt(cty.GetAttrPath("pcu_groups"))
+	if diags.HasError() {
+		return false
+	}
+	return !groups.IsNull()
+}
+
+// validatePcuGroupsRegions ensures "pcu_groups", when managed (set in config, even to "{}"),
+// contains an entry for every region and nothing else.
+func validatePcuGroupsRegions(managed bool, pcuGroups map[string]any, regions []any) diag.Diagnostics {
+	if !managed || len(pcuGroups) == 0 {
+		return nil
+	}
+
+	if len(pcuGroups) != len(regions) {
+		return diag.Errorf("\"pcu_groups\", when set, must contain an entry for every region in \"regions\" (got %d entries for %d regions)", len(pcuGroups), len(regions))
+	}
+
+	for _, r := range regions {
+		if _, ok := pcuGroups[r.(string)]; !ok {
+			return diag.Errorf("\"pcu_groups\" is missing an entry for region %q", r.(string))
+		}
+	}
+
+	return nil
+}
+
+// unchangedRegions returns the set of regions present in both the old and new "regions" lists, i.e. the
+// regions unaffected by this update's region additions/removals.
+func unchangedRegions(oldRegions, newRegions []any) map[string]bool {
+	old := make(map[string]bool, len(oldRegions))
+	for _, r := range oldRegions {
+		old[r.(string)] = true
+	}
+
+	unchanged := make(map[string]bool)
+	for _, r := range newRegions {
+		if region := r.(string); old[region] {
+			unchanged[region] = true
+		}
+	}
+	return unchanged
+}
+
+// filterPcuGroupsByRegion returns the non-empty entries of pcuGroups whose region key is in regions.
+func filterPcuGroupsByRegion(pcuGroups map[string]any, regions map[string]bool) map[string]string {
+	filtered := make(map[string]string)
+
+	for region, v := range pcuGroups {
+		if regions[region] {
+			filtered[region] = v.(string)
+		}
+	}
+
+	return filtered
+}
+
+// updatePcuGroups reconciles PCU group associations for datacenters whose desired PCU group changed
+// between oldGroups and newGroups (both region -> PCU group ID), creating, transferring, or deleting
+// associations as needed via PcuGroupAssociationsService (see utils_pcu.go). This mirrors how
+// CloneServiceImpl (utils_clone.go) is invoked directly from this SDKv2 resource for precedence.
+func updatePcuGroups(ctx context.Context, client *astra.ClientWithResponses, resourceData *schema.ResourceData, databaseID string, oldGroups, newGroups map[string]string) (diags diag.Diagnostics) {
+	regions := make(map[string]bool, len(oldGroups)+len(newGroups))
+	for region := range oldGroups {
+		regions[region] = true
+	}
+	for region := range newGroups {
+		regions[region] = true
+	}
+
+	var regionDcMap map[string]string
+	associations := &PcuGroupAssociationsServiceImpl{client: client}
+	groups := &PcuGroupsServiceImpl{client: client}
+
+	// whatever actually succeeded before an error (or everything, on success) must be reflected in state,
+	// since it would otherwise persist the still-pending planned "pcu_groups" value on error, silently
+	// claiming regions were updated when they weren't. Only the regions this call touched are re-checked;
+	// everything else already in "pcu_groups" is left untouched.
+	defer func() {
+		if len(regionDcMap) == 0 {
+			return // listDatacentersByRegion failed before anything was attempted; nothing to refresh
+		}
+
+		merged := resourceData.Get("pcu_groups").(map[string]any)
+
+		for region := range regions {
+			dcID, ok := regionDcMap[region]
+			if !ok {
+				continue
+			}
+
+			groupID, fwDiags := fetchPcuGroupForDatacenter(ctx, groups, dcID)
+			if fwDiags.HasError() {
+				diags = append(diags, frameworkDiagsToSDKv2(fwDiags)...)
+				continue
+			}
+
+			if groupID == "" {
+				delete(merged, region)
+			} else {
+				merged[region] = groupID
+			}
+		}
+
+		if err := resourceData.Set("pcu_groups", merged); err != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Warning,
+				Summary:  "Unable to refresh \"pcu_groups\" after update",
+				Detail:   err.Error(),
+			})
+		}
+	}()
+
+	var err error
+	regionDcMap, err = listDatacentersByRegion(ctx, client, databaseID)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	for region := range regions {
+		oldGroupID, hadOld := oldGroups[region]
+		newGroupID, hasNew := newGroups[region]
+
+		if oldGroupID == newGroupID {
+			continue
+		}
+
+		dcID, ok := regionDcMap[region]
+		if !ok {
+			return diag.Errorf("could not find a datacenter for region %q while updating PCU groups", region)
+		}
+
+		var fwDiags fwdiag.Diagnostics
+
+		switch {
+		case !hadOld:
+			_, fwDiags = associations.Create(ctx, fwtypes.StringValue(newGroupID), fwtypes.StringValue(dcID))
+		case !hasNew:
+			fwDiags = associations.Delete(ctx, fwtypes.StringValue(oldGroupID), fwtypes.StringValue(dcID))
+		default:
+			fwDiags = associations.Transfer(ctx, fwtypes.StringValue(oldGroupID), fwtypes.StringValue(newGroupID), fwtypes.StringValue(dcID))
+		}
+
+		if fwDiags.HasError() {
+			return frameworkDiagsToSDKv2(fwDiags)
+		}
+
+		if hasNew {
+			if _, fwDiags := groups.AwaitStatus(ctx, fwtypes.StringValue(newGroupID), astra.PCUGroupStatusACTIVE); fwDiags.HasError() {
+				return frameworkDiagsToSDKv2(fwDiags)
+			}
+		}
+
+		if fwDiags := awaitDbActiveStatus(ctx, client, fwtypes.StringValue(dcID)); fwDiags.HasError() {
+			return frameworkDiagsToSDKv2(fwDiags)
+		}
+	}
+
+	return nil
+}
+
+// listDatacentersByRegion maps each of a database's current datacenter regions to its datacenter ID.
+func listDatacentersByRegion(ctx context.Context, client *astra.ClientWithResponses, databaseID string) (map[string]string, error) {
+	resp, err := client.ListDatacentersWithResponse(ctx, databaseID, &astra.ListDatacentersParams{})
+	if err != nil {
+		return nil, err
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response fetching datacenters: %s", string(resp.Body))
+	}
+
+	regionDcMap := make(map[string]string, len(*resp.JSON200))
+	for _, dc := range *resp.JSON200 {
+		regionDcMap[dc.Region] = *dc.Id
+	}
+
+	return regionDcMap, nil
+}
+
+// populatePcuGroupsResourceData refreshes "pcu_groups" from each datacenter's actual current PCU
+// association, so drift (associations made or removed outside Terraform) is reflected like any other
+// attribute.
+func populatePcuGroupsResourceData(ctx context.Context, client *astra.ClientWithResponses, resourceData *schema.ResourceData, db *astra.Database) error {
+	pcuGroups := map[string]any{}
+
+	if db.Info.Datacenters == nil {
+		return resourceData.Set("pcu_groups", pcuGroups)
+	}
+
+	groups := &PcuGroupsServiceImpl{client: client}
+
+	for _, dc := range *db.Info.Datacenters {
+		groupID, diags := fetchPcuGroupForDatacenter(ctx, groups, *dc.Id)
+		for _, d := range diags {
+			if d.Severity() == fwdiag.SeverityError {
+				return fmt.Errorf("%s: %s", d.Summary(), d.Detail()) // I don't love this, but I still need an error somehow ¯\_(ツ)_/¯
+			}
+		}
+		if groupID != "" {
+			pcuGroups[dc.Region] = groupID
+		}
+	}
+
+	return resourceData.Set("pcu_groups", pcuGroups)
+}
+
+// fetchPcuGroupForDatacenter returns the PCU group ID currently associated with the given datacenter, or
+// "" if it isn't associated with one.
+func fetchPcuGroupForDatacenter(ctx context.Context, groups PcuGroupsService, dcID string) (string, fwdiag.Diagnostics) {
+	group, diags := groups.FindByDatacenter(ctx, fwtypes.StringValue(dcID))
+	if diags.HasError() || group == nil {
+		return "", diags
+	}
+	return group.Id.ValueString(), diags
+}
+
+// frameworkDiagsToSDKv2 converts terraform-plugin-framework diagnostics (returned by the PCU services
+// in utils_pcu.go) into terraform-plugin-sdk/v2 diagnostics, since astra_database is still implemented
+// against SDKv2 while the PCU resources/services are on the newer framework.
+func frameworkDiagsToSDKv2(diags fwdiag.Diagnostics) diag.Diagnostics {
+	out := make(diag.Diagnostics, 0, len(diags))
+
+	for _, d := range diags {
+		severity := diag.Error
+		if d.Severity() == fwdiag.SeverityWarning {
+			severity = diag.Warning
+		}
+
+		out = append(out, diag.Diagnostic{
+			Severity: severity,
+			Summary:  d.Summary(),
+			Detail:   d.Detail(),
+		})
+	}
+
+	return out
 }
