@@ -24,7 +24,7 @@ func resourceTable() *schema.Resource {
 		ReadContext:   resourceTableRead,
 		DeleteContext: resourceTableDelete,
 
-		DeprecationMessage: "astra_table is deprecated following the deprecation of the Stargate APIs. Use a CQL driver, a Data API client, or the Astra CLI instead to provision your tables instead.",
+		DeprecationMessage: "astra_table is deprecated following the deprecation of the Stargate APIs. Use a CQL driver, a Data API client, or the Astra CLI to provision your tables instead.",
 
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,

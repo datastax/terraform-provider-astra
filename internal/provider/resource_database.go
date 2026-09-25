@@ -722,7 +722,7 @@ func pcuGroupsIsManaged(resourceData *schema.ResourceData) bool {
 // validatePcuGroupsRegions ensures "pcu_groups", when managed (set in config, even to "{}"),
 // contains an entry for every region and nothing else.
 func validatePcuGroupsRegions(managed bool, pcuGroups map[string]any, regions []any) diag.Diagnostics {
-	if !managed {
+	if !managed || len(pcuGroups) == 0 {
 		return nil
 	}
 
