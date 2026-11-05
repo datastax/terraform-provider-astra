@@ -18,21 +18,30 @@ func TestPrivateLink(t *testing.T) {
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccPrivateLinkConfiguration(databaseID, datacenterID),
+				Config: testAccPrivateLinkConfiguration(databaseID, datacenterID, `"community-ecosystem"`),
+				Check:  resource.TestCheckResourceAttr("astra_private_link.example", "allowed_principals.#", "1"),
+			},
+			{
+				// changing allowed_principals should update in place
+				Config: testAccPrivateLinkConfiguration(databaseID, datacenterID, `"community-ecosystem-2", "community-ecosystem"`),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("astra_private_link.example", "allowed_principals.#", "2"),
+					resource.TestCheckTypeSetElemAttr("astra_private_link.example", "allowed_principals.*", "community-ecosystem-2"),
+				),
 			},
 		},
 	})
 }
 
 // https://www.terraform.io/docs/extend/testing/acceptance-tests/index.html
-func testAccPrivateLinkConfiguration(databaseID, datacenterID string) string {
+func testAccPrivateLinkConfiguration(databaseID, datacenterID, allowedPrincipals string) string {
 	return fmt.Sprintf(`
 resource "astra_private_link" "example" {
-  allowed_principals = ["community-ecosystem"]
+  allowed_principals = [%s]
   database_id = "%s"
   datacenter_id = "%s"
 }
-`, databaseID, datacenterID)
+`, allowedPrincipals, databaseID, datacenterID)
 }
 
 func TestParsePrivateLinkId(t *testing.T) {

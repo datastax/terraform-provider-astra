@@ -25,7 +25,7 @@ resource "astra_private_link" "example" {
 
 ### Required
 
-- `allowed_principals` (List of String) List of service principals to apply to the Private Link (i.e. arn:aws:iam::123456789012:role/admin).
+- `allowed_principals` (Set of String) Set of service principals to apply to the Private Link (i.e. arn:aws:iam::123456789012:role/admin).
 - `database_id` (String) Astra database where private link will be enabled.
 - `datacenter_id` (String) Astra datacenter in the region where the private link will be created.
 

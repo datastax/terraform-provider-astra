@@ -40,7 +40,7 @@ resource "astra_access_list" "example" {
 
 ### Optional
 
-- `addresses` (Block List) List of address requests that should have access to database endpoints. (see [below for nested schema](#nestedblock--addresses))
+- `addresses` (Block Set) Set of address requests that should have access to database endpoints. (see [below for nested schema](#nestedblock--addresses))
 - `enabled` (Boolean) Public access restrictions enabled or disabled
 
 ### Read-Only
