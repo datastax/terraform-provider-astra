@@ -2,7 +2,9 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -52,7 +54,7 @@ type PcuGroupsService interface {
 	Create(ctx context.Context, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics)
 	FindOne(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
 	FindMany(ctx context.Context, ids []types.String) (*[]PcuGroupModel, diag.Diagnostics)
-	FindByDatacenter(ctx context.Context, datacenterId types.String) (*PcuGroupModel, diag.Diagnostics)
+	FindByDatacenterIfPCUEnabled(ctx context.Context, datacenterId types.String) (*PcuGroupModel, diag.Diagnostics)
 	Update(ctx context.Context, id types.String, spec PcuGroupSpecModel) (*PcuGroupModel, diag.Diagnostics)
 	Park(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
 	Unpark(ctx context.Context, id types.String) (*PcuGroupModel, diag.Diagnostics)
@@ -126,10 +128,14 @@ func (s *PcuGroupsServiceImpl) FindOne(ctx context.Context, id types.String) (*P
 	return &deserialized, nil
 }
 
-func (s *PcuGroupsServiceImpl) FindByDatacenter(ctx context.Context, datacenterId types.String) (*PcuGroupModel, diag.Diagnostics) {
+func (s *PcuGroupsServiceImpl) FindByDatacenterIfPCUEnabled(ctx context.Context, datacenterId types.String) (*PcuGroupModel, diag.Diagnostics) {
 	resp, err := s.client.PcuGroupGetByDatacenterUUIDWithResponse(ctx, datacenterId.ValueString())
 
 	if err == nil && resp.StatusCode() == 404 {
+		return nil, nil
+	}
+
+	if err == nil && isPcuFeatureNotEnabledResponse(resp.StatusCode(), resp.Body) {
 		return nil, nil
 	}
 
@@ -376,6 +382,23 @@ func (s *PcuGroupsServiceImpl) FindTypes(ctx context.Context, provider, region t
 	}
 
 	return res, nil
+}
+
+const pcuFeatureNotEnabledErrorID = 2000318
+
+func isPcuFeatureNotEnabledResponse(statusCode int, body []byte) bool {
+	if statusCode != 403 {
+		return false
+	}
+
+	var parsed astra.BadRequest
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return false
+	}
+
+	return slices.ContainsFunc(parsed.Errors, func(e astra.Error) bool {
+		return e.ID != nil && *e.ID == pcuFeatureNotEnabledErrorID
+	})
 }
 
 func deserializePcuGroupFromAPI(rawPCU astra.PCUGroup) PcuGroupModel {
