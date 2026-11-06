@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
 func TestAccessList(t *testing.T) {
@@ -15,35 +17,74 @@ func TestAccessList(t *testing.T) {
 	databaseID := os.Getenv("ASTRA_TEST_DATABASE_ID")
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckAccessListDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccessListConfiguration(databaseID),
+				// addresses are intentionally not in sorted order; the post-apply plan must still be empty
+				Config: testAccAccessListConfiguration(databaseID, "first", true),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("astra_access_list.example", "addresses.#", "3"),
+					resource.TestCheckTypeSetElemNestedAttrs("astra_access_list.example", "addresses.*", map[string]string{
+						"address":     "198.51.100.10/32",
+						"description": "first",
+					}),
+				),
+			},
+			{
+				// changing an address or the top-level flag should update in place
+				Config: testAccAccessListConfiguration(databaseID, "second", false),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("astra_access_list.example", "enabled", "false"),
+					resource.TestCheckTypeSetElemNestedAttrs("astra_access_list.example", "addresses.*", map[string]string{
+						"address":     "198.51.100.10/32",
+						"description": "second",
+					}),
+				),
 			},
 		},
 	})
 }
 
-func testAccAccessListConfiguration(databaseID string) string {
+func testAccCheckAccessListDestroy(s *terraform.State) error {
+	client := testAccProvider.Meta().(astraClients).astraClient.(*astra.ClientWithResponses)
+
+	for _, rs := range s.RootModule().Resources {
+		if rs.Type != "astra_access_list" {
+			continue
+		}
+		accessList, err := listAccessList(context.Background(), client, rs.Primary.ID)
+		if err != nil {
+			return err
+		}
+		if accessList != nil {
+			return fmt.Errorf("access list for database %s still exists", rs.Primary.ID)
+		}
+	}
+	return nil
+}
+
+func testAccAccessListConfiguration(databaseID, description string, enabled bool) string {
 	return fmt.Sprintf(`
 resource "astra_access_list" "example" {
   database_id = "%s"
   addresses {
-      address= "0.0.0.1/0"
-      enabled= true
+      address     = "198.51.100.10/32"
+      description = "%s"
+      enabled     = true
   }
   addresses {
-      address= "0.0.0.2/0"
-      enabled= true
+      address = "192.0.2.10/32"
+      enabled = true
   }
   addresses {
-      address= "0.0.0.3/0"
-      enabled= true
+      address = "192.0.2.20/32"
+      enabled = true
   }
-  enabled = true
+  enabled = %t
 }
-`, databaseID)
+`, databaseID, description, enabled)
 }
 
 func TestTimeUnmarshal(t *testing.T) {

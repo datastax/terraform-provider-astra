@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -61,7 +62,7 @@ func dataSourceAccessList() *schema.Resource {
 	}
 }
 
-func dataSourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func dataSourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta any) diag.Diagnostics {
 
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
@@ -71,11 +72,16 @@ func dataSourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta 
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	d.SetId(databaseID)
+
 	if accessList == nil {
-		return nil
+		accessList = &astra.AccessListResponse{
+			DatabaseId:     &databaseID,
+			Addresses:      &[]astra.AddressResponse{},
+			Configurations: &astra.AccessListConfigurations{AccessListEnabled: false},
+		}
 	}
 
-	d.SetId(databaseID)
 	if err := setAccessListData(d, accessList); err != nil {
 		return diag.FromErr(err)
 	}
@@ -84,7 +90,7 @@ func dataSourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta 
 }
 
 func listAccessList(ctx context.Context, client *astra.ClientWithResponses, databaseID string) (*astra.AccessListResponse, error) {
-	dbResp, err := client.GetDatabaseWithResponse(ctx, astra.DatabaseIdParam(databaseID))
+	dbResp, err := client.GetDatabaseWithResponse(ctx, databaseID)
 	if err != nil {
 		return nil, err
 	}
@@ -94,15 +100,17 @@ func listAccessList(ctx context.Context, client *astra.ClientWithResponses, data
 		return nil, fmt.Errorf("error fetching database: %s", string(dbResp.Body))
 	}
 
-	// If the database is terminated then the access list has been deleted.
 	if db.Status == astra.TERMINATING || db.Status == astra.TERMINATED {
 		return nil, nil
 	}
 
-	resp, err := client.GetAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID))
+	// no with-response since astra returns a plain string on some errors for some reason
+	resp, err := client.GetAccessListForDatabase(ctx, databaseID)
 	if err != nil {
 		return nil, err
-	} else if resp.StatusCode > 299 {
+	} else if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	} else if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("unexpected status code: %v, message: '%s'", resp.StatusCode, body)
 	}

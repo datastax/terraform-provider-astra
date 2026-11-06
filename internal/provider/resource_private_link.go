@@ -4,19 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
+
+const privateLinkUpdateTimeout = 30 * time.Second
 
 func resourcePrivateLink() *schema.Resource {
 	return &schema.Resource{
 		Description:   "`astra_private_link` provides a private link resource. Private Link is a private network endpoint that can be created to connect from your vpc to Astra without using a publicly routable IP address. `astra_private_link` resources are associated with a database id. Once the private_link resource is created in Astra it must be linked to an endpoint within your vpc, use `astra_private_link_endpoint` to do this.",
 		CreateContext: resourcePrivateLinkCreate,
 		ReadContext:   resourcePrivateLinkRead,
+		UpdateContext: resourcePrivateLinkUpdate,
 		DeleteContext: resourcePrivateLinkDelete,
 
 		Importer: &schema.ResourceImporter{
@@ -26,10 +32,9 @@ func resourcePrivateLink() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			// Required
 			"allowed_principals": {
-				Description: "List of service principals to apply to the Private Link (i.e. arn:aws:iam::123456789012:role/admin).",
-				Type:        schema.TypeList,
+				Description: "Set of service principals to apply to the Private Link (i.e. arn:aws:iam::123456789012:role/admin).",
+				Type:        schema.TypeSet,
 				Required:    true,
-				ForceNew:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -56,18 +61,12 @@ func resourcePrivateLink() *schema.Resource {
 	}
 }
 
-func resourcePrivateLinkCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourcePrivateLinkCreate(ctx context.Context, d *schema.ResourceData, meta any) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	databaseID := d.Get("database_id").(string)
 	datacenterID := d.Get("datacenter_id").(string)
-	allowedPrincipalsInterface := d.Get("allowed_principals").([]interface{})
-
-	allowedPrincipals := astra.AllowedPrincipals{}
-	for i := 0; i < len(allowedPrincipalsInterface); i++ {
-		apString := allowedPrincipalsInterface[i].(string)
-		allowedPrincipals = append(allowedPrincipals, apString)
-	}
+	allowedPrincipals := getAllowedPrincipals(d.Get("allowed_principals").(*schema.Set))
 
 	resp, err := client.AddAllowedPrincipalToServiceWithResponse(ctx,
 		databaseID,
@@ -85,7 +84,7 @@ func resourcePrivateLinkCreate(ctx context.Context, d *schema.ResourceData, meta
 
 	pl := resp.JSON200
 
-	serviceName := string(*pl.ServiceName)
+	serviceName := *pl.ServiceName
 	allowedPrincipalsResp := pl.AllowedPrincipals
 
 	if err := setPrivateLinkData(d, databaseID, datacenterID, serviceName, allowedPrincipalsResp); err != nil {
@@ -95,7 +94,59 @@ func resourcePrivateLinkCreate(ctx context.Context, d *schema.ResourceData, meta
 	return nil
 }
 
-func resourcePrivateLinkDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourcePrivateLinkUpdate(ctx context.Context, d *schema.ResourceData, meta any) diag.Diagnostics {
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
+	databaseID, datacenterID, _, err := parsePrivateLinkID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	oldSet, newSet := d.GetChange("allowed_principals")
+	toAdd := getAllowedPrincipals(newSet.(*schema.Set).Difference(oldSet.(*schema.Set)))
+	toRemove := getAllowedPrincipals(oldSet.(*schema.Set).Difference(newSet.(*schema.Set)))
+
+	if len(toAdd) > 0 {
+		// GCP rejects new principals for a few seconds after the private link is created.
+		err := retry.RetryContext(ctx, privateLinkUpdateTimeout, func() *retry.RetryError {
+			resp, err := client.AddAllowedPrincipalWithResponse(ctx,
+				databaseID,
+				datacenterID,
+				astra.AddAllowedPrincipalJSONRequestBody{
+					AllowedPrincipals: &toAdd,
+				},
+			)
+			if err != nil {
+				return retry.NonRetryableError(err)
+			} else if resp.StatusCode() >= 400 {
+				err := fmt.Errorf("error adding allowed principals to private link: %s", string(resp.Body))
+				if resp.StatusCode() >= http.StatusInternalServerError {
+					return retry.RetryableError(err)
+				}
+				return retry.NonRetryableError(err)
+			}
+			return nil
+		})
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	for _, allowedPrincipal := range toRemove {
+		resp, err := client.RemoveAllowedPrincipalFromServiceWithResponse(ctx, databaseID, datacenterID, astra.PrivateLinkDeleteConfigInput{
+			AllowedPrincipal: &allowedPrincipal,
+		})
+		if err != nil {
+			return diag.FromErr(err)
+		} else if resp.StatusCode() >= 400 {
+			return diag.Errorf("error removing allowed principal \"%s\" from private link: %s", allowedPrincipal, string(resp.Body))
+		}
+	}
+
+	return nil
+}
+
+func resourcePrivateLinkDelete(ctx context.Context, d *schema.ResourceData, meta any) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	id := d.Id()
@@ -110,7 +161,7 @@ func resourcePrivateLinkDelete(ctx context.Context, d *schema.ResourceData, meta
 		return diag.FromErr(err)
 	}
 
-	if string(*privateLinks.ServiceName) == serviceName {
+	if privateLinks != nil && *privateLinks.ServiceName == serviceName {
 		for _, allowedPrincipal := range *privateLinks.AllowedPrincipals {
 			resp, err := client.RemoveAllowedPrincipalFromServiceWithResponse(ctx, databaseID, datacenterID, astra.PrivateLinkDeleteConfigInput{
 				AllowedPrincipal: &allowedPrincipal,
@@ -120,17 +171,12 @@ func resourcePrivateLinkDelete(ctx context.Context, d *schema.ResourceData, meta
 			} else if resp.StatusCode() >= 400 {
 				return diag.Errorf("error removing allowed principal \"%s\" from private link: %s", allowedPrincipal, string(resp.Body))
 			}
-			// update the allowed principal list
-			diagErr := resourcePrivateLinkRead(ctx, d, meta)
-			if diagErr != nil {
-				return diagErr
-			}
 		}
-		d.SetId("")
 	}
 	return nil
 }
-func resourcePrivateLinkRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+
+func resourcePrivateLinkRead(ctx context.Context, d *schema.ResourceData, meta any) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	id := d.Id()
@@ -144,7 +190,7 @@ func resourcePrivateLinkRead(ctx context.Context, d *schema.ResourceData, meta i
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	if privateLinks != nil && string(*privateLinks.ServiceName) == serviceName {
+	if privateLinks != nil && *privateLinks.ServiceName == serviceName {
 		if err := setPrivateLinkData(d, databaseID, datacenterID, serviceName, privateLinks.AllowedPrincipals); err != nil {
 			return diag.FromErr(err)
 		}
@@ -176,6 +222,14 @@ func setPrivateLinkData(d *schema.ResourceData, databaseID string, datacenterID 
 	}
 
 	return nil
+}
+
+func getAllowedPrincipals(principals *schema.Set) astra.AllowedPrincipals {
+	allowedPrincipals := astra.AllowedPrincipals{}
+	for _, ap := range principals.List() {
+		allowedPrincipals = append(allowedPrincipals, ap.(string))
+	}
+	return allowedPrincipals
 }
 
 func parsePrivateLinkID(id string) (string, string, string, error) {

@@ -3,20 +3,25 @@ package provider
 import (
 	"context"
 	"errors"
-	"io"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/datastax/astra-client-go/v2/astra"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
+
+const accessListCreateTimeout = 20 * time.Second
 
 func resourceAccessList() *schema.Resource {
 	return &schema.Resource{
 		Description:   "`astra_access_list` resource represents a database access list, used to limit the ip's / CIDR groups that have access to a database.",
 		CreateContext: resourceAccessListCreate,
 		ReadContext:   resourceAccessListRead,
+		UpdateContext: resourceAccessListUpdate,
 		DeleteContext: resourceAccessListDelete,
 
 		Importer: &schema.ResourceImporter{
@@ -33,29 +38,25 @@ func resourceAccessList() *schema.Resource {
 				ForceNew:     true,
 			},
 			"addresses": {
-				Description: "List of address requests that should have access to database endpoints.",
-				Type:        schema.TypeList,
+				Description: "Set of address requests that should have access to database endpoints.",
+				Type:        schema.TypeSet,
 				Optional:    true,
-				ForceNew:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"address": {
 							Description: "IP Address/CIDR group that should have access",
 							Type:        schema.TypeString,
 							Required:    true,
-							ForceNew:    true,
 						},
 						"description": {
 							Description: "Description for the IP Address/CIDR group",
 							Type:        schema.TypeString,
 							Optional:    true,
-							ForceNew:    true,
 						},
 						"enabled": {
 							Description: "Enable/disable this IP Address/CIDR group's access",
 							Type:        schema.TypeBool,
 							Required:    true,
-							ForceNew:    true,
 						},
 					},
 				},
@@ -64,53 +65,120 @@ func resourceAccessList() *schema.Resource {
 				Description: "Public access restrictions enabled or disabled",
 				Type:        schema.TypeBool,
 				Optional:    true,
-				ForceNew:    true,
 			},
 		},
 	}
 }
 
-func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceAccessListCreate(ctx context.Context, d *schema.ResourceData, meta any) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	databaseID := d.Get("database_id").(string)
-	addresses := d.Get("addresses").([]interface{})
-	restricted := d.Get("enabled").(bool)
-	addressList := getAddressList(addresses)
 
-	addResp, err := client.AddAddressesToAccessListForDatabase(ctx,
-		astra.DatabaseIdParam(databaseID),
-		addressList,
-	)
-
-	if err != nil {
-		return diag.FromErr(err)
-	} else if addResp.StatusCode >= 400 {
-		respBody, _ := io.ReadAll(addResp.Body)
-		return diag.Errorf("failed to create access list, unexpected status code: %v, message: '%s'", addResp.StatusCode, respBody)
+	if err := upsertAccessList(ctx, client, databaseID, d); err != nil {
+		return diag.Errorf("error creating access list: %s", err)
 	}
 
 	d.SetId(databaseID)
 
-	accessListConfig := astra.AccessListConfigurations{AccessListEnabled: restricted}
-	updResp, err := client.UpdateAccessListForDatabase(ctx,
-		astra.DatabaseIdParam(databaseID),
+	// The API can briefly report a newly created access list as not found.
+	err := retry.RetryContext(ctx, accessListCreateTimeout, func() *retry.RetryError {
+		accessList, err := listAccessList(ctx, client, databaseID)
+		if err != nil {
+			return retry.NonRetryableError(err)
+		} else if accessList == nil {
+			return retry.RetryableError(errors.New("waiting for access list to be created"))
+		}
+		return nil
+	})
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	return nil
+}
+
+func resourceAccessListUpdate(ctx context.Context, d *schema.ResourceData, meta any) diag.Diagnostics {
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
+	databaseID, err := parseAccessListID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := upsertAccessList(ctx, client, databaseID, d); err != nil {
+		return diag.Errorf("error updating access list: %s", err)
+	}
+
+	return nil
+}
+
+// upsertAccessList replaces the entire access list (addresses and configuration) in a single call.
+func upsertAccessList(ctx context.Context, client *astra.ClientWithResponses, databaseID string, d *schema.ResourceData) error {
+	addressList := getAddressList(d.Get("addresses").(*schema.Set).List())
+
+	resp, err := client.UpsertAccessListForDatabaseWithResponse(ctx,
+		databaseID,
+		astra.UpsertAccessListForDatabaseJSONRequestBody{
+			Addresses: &addressList,
+			Configurations: &astra.AccessListConfigurations{
+				AccessListEnabled: d.Get("enabled").(bool),
+			},
+		},
+	)
+
+	if err != nil {
+		return err
+	} else if resp.StatusCode() >= 400 {
+		return fmt.Errorf("%s: %s", resp.Status(), string(resp.Body))
+	}
+	return nil
+}
+
+func resourceAccessListDelete(ctx context.Context, d *schema.ResourceData, meta any) diag.Diagnostics {
+	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
+
+	databaseID, err := parseAccessListID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	accessList, err := listAccessList(ctx, client, databaseID)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	if accessList == nil {
+		return nil
+	}
+
+	updResp, err := client.UpdateAccessListForDatabaseWithResponse(ctx,
+		databaseID,
 		astra.UpdateAccessListForDatabaseJSONRequestBody{
-			Addresses:      &addressList,
-			Configurations: &accessListConfig,
+			Configurations: &astra.AccessListConfigurations{
+				AccessListEnabled: false,
+			},
 		},
 	)
 	if err != nil {
 		return diag.FromErr(err)
-	} else if updResp.StatusCode >= 400 {
-		respBody, _ := io.ReadAll(addResp.Body)
-		return diag.Errorf("error updating access list configuration: %d\n%s", updResp.StatusCode, respBody)
+	} else if updResp.StatusCode() >= 400 {
+		return diag.Errorf("error disabling access list: %s", string(updResp.Body))
+	}
+
+	delResp, err := client.DeleteAddressesOrAccessListForDatabaseWithResponse(ctx,
+		databaseID,
+		&astra.DeleteAddressesOrAccessListForDatabaseParams{},
+	)
+	if err != nil {
+		return diag.FromErr(err)
+	} else if delResp.StatusCode() >= 400 {
+		return diag.Errorf("error deleting access list: %s", string(delResp.Body))
 	}
 
 	return nil
 }
 
-func resourceAccessListDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta any) diag.Diagnostics {
 	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
 
 	id := d.Id()
@@ -125,51 +193,7 @@ func resourceAccessListDelete(ctx context.Context, d *schema.ResourceData, meta 
 		return diag.FromErr(err)
 	}
 
-	// aResp := *accessList.Addresses
-	// addressesQP := astra.AddressesQueryParam{}
-	// for _, v := range aResp {
-	// 	address:= *v.Address
-	// 	addressesQP = append(addressesQP, address)
-	// }
-
-	// params :=  &astra.DeleteAddressesOrAccessListForDatabaseParams{
-	// 	&addressesQP,
-	// }
-	// client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
-
-	// The above code should work, but Astra seems to only delete the first address passed as a query param
-	// Until it's fixed in Astra, call DELETE for each address
-	aResp := *accessList.Addresses
-	if len(aResp) > 0 {
-		for _, v := range aResp {
-			addressesQP := astra.AddressesQueryParam{*v.Address}
-			params := &astra.DeleteAddressesOrAccessListForDatabaseParams{Addresses: &addressesQP}
-			client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
-		}
-	} else {
-		params := &astra.DeleteAddressesOrAccessListForDatabaseParams{Addresses: nil}
-		client.DeleteAddressesOrAccessListForDatabase(ctx, astra.DatabaseIdParam(databaseID), params)
-	}
-
-	return nil
-}
-
-func resourceAccessListRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(astraClients).astraClient.(*astra.ClientWithResponses)
-
-	id := d.Id()
-
-	databaseID, err := parseAccessListID(id)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	accessList, err := listAccessList(ctx, client, databaseID)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if accessList != nil && string(*accessList.DatabaseId) == databaseID {
+	if accessList != nil && *accessList.DatabaseId == databaseID {
 		if err := setAccessListData(d, accessList); err != nil {
 			return diag.FromErr(err)
 		}
@@ -190,9 +214,9 @@ func setAccessListData(d *schema.ResourceData, accessList *astra.AccessListRespo
 		return err
 	}
 	addresses := *accessList.Addresses
-	requests := make([]map[string]interface{}, 0, len(addresses))
+	requests := make([]map[string]any, 0, len(addresses))
 	for _, addr := range addresses {
-		reqMap := map[string]interface{}{
+		reqMap := map[string]any{
 			"address":     *addr.Address,
 			"description": *addr.Description,
 			"enabled":     *addr.Enabled,
@@ -214,10 +238,10 @@ func parseAccessListID(id string) (string, error) {
 	return idParts[0], nil
 }
 
-func getAddressList(addresses []interface{}) []astra.AddressRequest {
+func getAddressList(addresses []any) []astra.AddressRequest {
 	addressList := make([]astra.AddressRequest, len(addresses))
 	for index, addrRequest := range addresses {
-		address := addrRequest.(map[string]interface{})
+		address := addrRequest.(map[string]any)
 		addressList[index] = astra.AddressRequest{
 			Address:     address["address"].(string),
 			Enabled:     address["enabled"].(bool),
