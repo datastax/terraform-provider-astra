@@ -924,7 +924,7 @@ func populatePcuGroupsResourceData(ctx context.Context, client *astra.ClientWith
 // fetchPcuGroupForDatacenter returns the PCU group ID currently associated with the given datacenter, or
 // "" if it isn't associated with one.
 func fetchPcuGroupForDatacenter(ctx context.Context, groups PcuGroupsService, dcID string) (string, fwdiag.Diagnostics) {
-	group, diags := groups.FindByDatacenter(ctx, fwtypes.StringValue(dcID))
+	group, diags := groups.FindByDatacenterIfPCUEnabled(ctx, fwtypes.StringValue(dcID))
 	if diags.HasError() || group == nil {
 		return "", diags
 	}
